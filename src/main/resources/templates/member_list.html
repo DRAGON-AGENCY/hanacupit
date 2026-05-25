@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加盟店一覧 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    /* === 色トークン (他画面と統一) === */
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-search: #eef3fa;
+    --bg-label: #ede8db;
+    --bg-label-soft: #f5f2eb;
+    --bg-white: #ffffff;
+    --bg-hover: #faf8f2;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-table: #e5e2d8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+    --text-subtle: #9a9a9a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+    --tag-green-bg: #dcead9;
+    --tag-green-text: #3d6b3a;
+    --tag-amber-bg: #faeeda;
+    --tag-amber-text: #854f0b;
+
+    /* === フォントトークン === */
+    --font-jp: "Inter", "Noto Sans JP", sans-serif;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+
+    /* === フォントサイズトークン === */
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 22px;
+
+    /* === レイアウトトークン === */
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    min-height: 100vh;
+  }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ページ全体のカスタムスクロールバー */
+  body::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  body::-webkit-scrollbar-track {
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-table);
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid var(--bg-page);
+    border-radius: 8px;
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  /* ヘッダー */
+  .header-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+  }
+
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .btn-back:hover {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-title {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  /* 検索エリア */
+  .search-box {
+    background-color: var(--bg-search);
+    border: 1px solid #dde5f0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 14px;
+  }
+
+  .search-label {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    width: 280px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-family: var(--font-jp);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: var(--fs-base);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+  }
+
+  .btn-search {
+    background-color: var(--accent-blue-light);
+    border: 1px solid var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .btn-search:hover {
+    background-color: #d5e4f6;
+  }
+
+  .btn-clear {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    color: var(--text-main);
+  }
+
+  .btn-clear:hover {
+    background-color: var(--bg-hover);
+  }
+
+  /* 結果ヘッダー */
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .result-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-left: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .per-page-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-select {
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    font-family: var(--font-jp);
+    font-size: var(--fs-xs);
+    color: var(--text-main);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .per-page-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* ページネーション */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .page-numbers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .page-btn:hover:not(:disabled):not(.is-active) {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .page-number.is-active {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .page-ellipsis {
+    min-width: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+  }
+
+  .page-nav {
+    font-weight: 600;
+  }
+
+  /* データテーブル */
+  .data-table-wrapper {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .data-scroll {
+    overflow-y: auto;
+    max-height: 560px;
+  }
+
+  .data-scroll::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  .data-scroll::-webkit-scrollbar-track {
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-table);
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid var(--bg-page);
+    border-radius: 8px;
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .data-table col.c-kana { width: 440px; }
+  .data-table col.c-name { width: 260px; }
+  .data-table col.c-addr { width: auto; }
+  .data-table col.c-code { width: 140px; }
+  .data-table col.c-kind { width: 120px; }
+
+  .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #FFDCE4;
+    color: var(--text-label);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .data-table thead th:last-child {
+    border-right: none;
+    text-align: center;
+  }
+
+  .data-table tbody td {
+    padding: 11px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: var(--font-jp);
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .data-table tbody td:last-child {
+    border-right: none;
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .data-table tbody td.kana {
+    color: var(--text-sub);
+    font-weight: 600;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .data-table tbody td.name {
+    font-weight: normal;
+  }
+
+  .data-table tbody td.code {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table tbody td.kind {
+    text-align: center;
+  }
+
+  .data-table tbody tr:hover td {
+    background: var(--bg-hover);
+    cursor: pointer;
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    padding: 3px 12px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  .tag-success {
+    color: var(--tag-green-text);
+    background: var(--tag-green-bg);
+  }
+
+  .tag-info {
+    color: var(--tag-amber-text);
+    background: var(--tag-amber-bg);
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- ログアウトボタン -->
+    <div class="header-row">
+      <button class="btn-back" type="button">
+        <span>ログアウト</span>
+      </button>
+    </div>
+
+    <!-- タイトル -->
+    <h1 class="page-title">加盟店一覧</h1>
+
+    <!-- 検索エリア -->
+    <div class="search-box">
+      <label class="search-label" for="shop-kana">店名カナ</label>
+      <div class="search-row">
+        <input type="text" id="shop-kana" class="search-input" placeholder="店名カナを入力" />
+        <button class="btn btn-search" type="button">
+          <span>🔍</span>
+          <span>絞込み</span>
+        </button>
+        <button class="btn btn-clear" type="button">クリア</button>
+      </div>
+    </div>
+
+    <!-- 結果ヘッダー -->
+    <div class="result-header">
+      <span class="result-summary" id="result-summary"></span>
+      <div class="per-page-control">
+        <label class="per-page-label" for="per-page-select">表示件数</label>
+        <select id="per-page-select" class="per-page-select">
+          <option value="10" selected>10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 加盟店一覧テーブル -->
+    <div class="data-table-wrapper">
+      <div class="data-scroll">
+        <table class="data-table">
+          <colgroup>
+            <col class="c-kana">
+            <col class="c-name">
+            <col class="c-addr">
+            <col class="c-code">
+            <col class="c-kind">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>店名カナ</th>
+              <th>店名</th>
+              <th>所在地住所</th>
+              <th>取引コード</th>
+              <th>資格区分</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="kana">アカサカセイカテン</td><td class="name">赤坂生花店</td><td>旭川市二条通6右6</td><td class="code">01-001</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">フローリストムラタ</td><td class="name">フローリスト ムラタ</td><td>旭川市5条通7-1249</td><td class="code">01-003</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ハナノイウエ</td><td class="name">花のいのうえ</td><td>稚内市緑6-13-5</td><td class="code">01-005</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ナガヒサハナテン</td><td class="name">長久花店</td><td>名寄市西一条南6-8</td><td class="code">01-006</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">オオノセイカテン</td><td class="name">大野生花店</td><td>士別市大通西8</td><td class="code">01-007</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">スガワラセイカテン</td><td class="name">すがわら生花店</td><td>旭川市八条通7左2</td><td class="code">01-008</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">チグサセイカテン</td><td class="name">千草生花店</td><td>士別市西一条6</td><td class="code">01-009</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">タケウチセイカテン</td><td class="name">竹内生花店</td><td>旭川市七条通15左1</td><td class="code">01-012</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ウノセイカテン</td><td class="name">宇野生花店</td><td>旭川市四条通14丁目右1号</td><td class="code">01-014</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">フラワーショップクロダ</td><td class="name">フラワーショップくろだ</td><td>名寄市西四条南8 西條百貨店1F</td><td class="code">01-015</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">アラキセイカテン</td><td class="name">荒木生花店</td><td>名寄市西二条南5</td><td class="code">01-016</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ハナコイズミ</td><td class="name">花のこいずみ</td><td>枝幸郡浜頓別町北3条2-15</td><td class="code">01-019</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">フラワーブティックエハラ</td><td class="name">フラワーブティックエハラ</td><td>富良野市日の出町7-3</td><td class="code">01-020</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">マルタナカセイカセイカブ</td><td class="name">丸タ田中青果生花部</td><td>留萌市栄町2-3-21</td><td class="code">01-023</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ハナショップナカムラ</td><td class="name">花ショップなかむら</td><td>旭川市豊岡四条2-2-26</td><td class="code">01-024</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">タカツセイカテン</td><td class="name">高附生花店</td><td>中川郡美深町大通り北2</td><td class="code">01-029</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">トウキョウハナヤ</td><td class="name">東京花屋</td><td>苫前郡羽幌町南大通1-5-3</td><td class="code">01-030</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">フラワーショップクロダ ワッカナイテン</td><td class="name">フラワーショップくろだ 稚内店</td><td>稚内市大黒4 西條百貨店1F</td><td class="code">01-031</td><td class="kind"><span class="tag tag-info">登録支店</span></td></tr>
+            <tr><td class="kana">フラワーショップクロダ エサシテン</td><td class="name">フラワーショップくろだ 枝幸店</td><td>枝幸郡枝幸町栄町301-1 西條百貨店内</td><td class="code">01-032</td><td class="kind"><span class="tag tag-info">登録支店</span></td></tr>
+            <tr><td class="kana">トミタセイカテン</td><td class="name">富田生花店</td><td>天塩郡遠別町字本町3-86</td><td class="code">01-033</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ハナクラブ</td><td class="name">花くらぶ</td><td>旭川市神居三条4-7-1-7</td><td class="code">01-034</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ハナクウカン サイカ</td><td class="name">花空間 彩華</td><td>旭川市三条通8-左8</td><td class="code">01-037</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">フラワーショップヤマ</td><td class="name">フラワーショップとやま</td><td>旭川市東六条1-2-21</td><td class="code">01-039</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ハナスエヒロヤ</td><td class="name">花すえひろや</td><td>旭川市一条通17丁目右4号</td><td class="code">01-043</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">フラワーショップ アンド アートギャラリー ハナエ</td><td class="name">フラワーショップ&アートギャラリー花絵</td><td>旭川市神居三条19-72-32</td><td class="code">01-044</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">シキサイ</td><td class="name">四季彩</td><td>旭川市豊岡五条4-2-14</td><td class="code">01-045</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">フラワーショップハナタロウ</td><td class="name">フラワーショップ花太郎</td><td>旭川市四条通6-3</td><td class="code">01-047</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ヨイハナノサキ</td><td class="name">良い花のさきき</td><td>上川郡美瑛町栄町1-2-13</td><td class="code">01-048</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">ホンダハナヤ</td><td class="name">本多はなや</td><td>上川郡比布町寿町1-5-5</td><td class="code">01-049</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr><td class="kana">レブンハナヤ</td><td class="name">礼文はなや</td><td>礼文郡礼文町字香深村トンナイ130</td><td class="code">01-050</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ページネーション -->
+    <div class="pagination" id="pagination">
+      <button class="page-btn page-nav" type="button" data-nav="prev" aria-label="前のページ">‹</button>
+      <div class="page-numbers" id="page-numbers"></div>
+      <button class="page-btn page-nav" type="button" data-nav="next" aria-label="次のページ">›</button>
+    </div>
+
+  </div>
+
+  <script>
+    // クリアボタン: 検索入力をクリア
+    document.querySelector('.btn-clear').addEventListener('click', function () {
+      document.getElementById('shop-kana').value = '';
+    });
+
+    // ログアウトボタン: ログイン画面へ遷移
+    document.querySelector('.btn-back').addEventListener('click', function () {
+      window.top.location.href = '/login';
+    });
+
+    // メニューで選択した照会種別を取得 (member_info / store_terminal_smcc)
+    var searchParams = new URLSearchParams(window.location.search);
+    var detailRoute = searchParams.get('mode') === 'store_terminal_smcc'
+        ? '/store_terminal_smcc'
+        : '/member_info';
+
+    // 表の加盟店 (行) を選択したら、同じ枠 (iframe) 内で詳細画面へ遷移する
+    // 新規タブを開かず現在のウィンドウを遷移させることで、
+    // 親シェル (menu) の左サイドバーを表示したまま詳細画面を表示する
+    document.querySelectorAll('.data-table tbody tr').forEach(function (row) {
+      row.addEventListener('click', function () {
+        var codeCell = row.querySelector('td.code');
+        var transactionCode = codeCell ? codeCell.textContent.trim() : '';
+        window.location.href =
+            detailRoute + '?transactionCode=' + encodeURIComponent(transactionCode);
+      });
+    });
+
+    // ページネーション: 表示件数の切替と複数ページの表示制御
+    (function () {
+      var rows = Array.prototype.slice.call(
+        document.querySelectorAll('.data-table tbody tr')
+      );
+      var perPageSelect = document.getElementById('per-page-select');
+      var pageNumbersEl = document.getElementById('page-numbers');
+      var summaryEl = document.getElementById('result-summary');
+      var pagination = document.getElementById('pagination');
+      var prevBtn = pagination.querySelector('[data-nav="prev"]');
+      var nextBtn = pagination.querySelector('[data-nav="next"]');
+
+      var totalItems = rows.length;
+      var perPage = parseInt(perPageSelect.value, 10);
+      var currentPage = 1;
+
+      // 総ページ数 (最低1ページ)
+      function getTotalPages() {
+        return Math.max(1, Math.ceil(totalItems / perPage));
+      }
+
+      // 表示するページ番号の並びを生成 (両端と現在ページ周辺、省略は'...')
+      function buildPageItems(current, total) {
+        var items = [];
+        if (total <= 7) {
+          for (var i = 1; i <= total; i++) {
+            items.push(i);
+          }
+          return items;
+        }
+        items.push(1);
+        var left = Math.max(2, current - 1);
+        var right = Math.min(total - 1, current + 1);
+        if (left > 2) {
+          items.push('...');
+        }
+        for (var page = left; page <= right; page++) {
+          items.push(page);
+        }
+        if (right < total - 1) {
+          items.push('...');
+        }
+        items.push(total);
+        return items;
+      }
+
+      // 現在ページに応じて行の表示・概要・ページUIを再描画する
+      function render() {
+        var totalPages = getTotalPages();
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+        var startIndex = (currentPage - 1) * perPage;
+        var endIndex = Math.min(startIndex + perPage, totalItems);
+
+        rows.forEach(function (row, index) {
+          row.style.display =
+            (index >= startIndex && index < endIndex) ? '' : 'none';
+        });
+
+        if (totalItems === 0) {
+          summaryEl.textContent = '0 件';
+        } else {
+          summaryEl.textContent =
+            (startIndex + 1) + '-' + endIndex + ' / ' + totalItems + ' 件';
+        }
+
+        pageNumbersEl.innerHTML = '';
+        buildPageItems(currentPage, totalPages).forEach(function (item) {
+          if (item === '...') {
+            var ellipsis = document.createElement('span');
+            ellipsis.className = 'page-ellipsis';
+            ellipsis.textContent = '…';
+            pageNumbersEl.appendChild(ellipsis);
+            return;
+          }
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className =
+            'page-btn page-number' + (item === currentPage ? ' is-active' : '');
+          button.textContent = item;
+          button.addEventListener('click', function () {
+            currentPage = item;
+            render();
+          });
+          pageNumbersEl.appendChild(button);
+        });
+
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage === totalPages;
+      }
+
+      prevBtn.addEventListener('click', function () {
+        if (currentPage > 1) {
+          currentPage--;
+          render();
+        }
+      });
+
+      nextBtn.addEventListener('click', function () {
+        if (currentPage < getTotalPages()) {
+          currentPage++;
+          render();
+        }
+      });
+
+      perPageSelect.addEventListener('change', function () {
+        perPage = parseInt(perPageSelect.value, 10);
+        currentPage = 1;
+        render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会員情報照会 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    /* === 色トークン === */
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-search: #eef3fa;
+    --bg-label: #ede8db;          /* 旧#f5f2eb → コントラスト強化 */
+    --bg-label-soft: #f5f2eb;     /* 補助ラベル背景 */
+    --bg-white: #ffffff;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-table: #e5e2d8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+    --tag-green-bg: #dcead9;
+    --tag-green-text: #3d6b3a;
+    --tab-active: #2b5fa8;
+
+    /* === フォントトークン === */
+    --font-jp: "Inter", "Noto Sans JP", sans-serif;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+
+    /* === フォントサイズトークン === */
+    --fs-xs: 14px;     /* タグ・補助ラベル */
+    --fs-sm: 15px;     /* 補助テキスト */
+    --fs-base: 16px;   /* 本文・テーブル */
+    --fs-md: 18px;
+    --fs-lg: 22px;     /* ページタイトル */
+
+    /* === レイアウトトークン === */
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    min-height: 100vh;
+  }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: auto;   /* 1280px未満は横スクロール許容 */
+    overflow-y: auto;   /* 縦は常時スクロール許容 (1366×768等の小型画面対応) */
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ヘッダー部分 */
+  .header-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+  }
+
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .btn-back:hover {
+    background-color: #faf8f2;
+    border-color: #c4bfae;
+  }
+
+  .page-title {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  /* 検索エリア */
+  .search-box {
+    background-color: var(--bg-search);
+    border: 1px solid #dde5f0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 14px;
+  }
+
+  .search-label {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    width: 240px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-family: var(--font-mono);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: var(--fs-base);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+  }
+
+  .btn-search {
+    background-color: var(--accent-blue-light);
+    border: 1px solid var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .btn-search:hover {
+    background-color: #d5e4f6;
+  }
+
+  .btn-clear {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    color: var(--text-main);
+  }
+
+  .btn-clear:hover {
+    background-color: #faf8f2;
+  }
+
+  /* 店名テーブル */
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .info-table tr + tr {
+    border-top: 1px solid var(--border-table);
+  }
+
+  .info-table th,
+  .info-table td {
+    padding: 10px 20px;
+    text-align: left;
+    font-weight: normal;
+    vertical-align: middle;
+  }
+
+  .info-table th {
+    background-color: #FFDCE4;
+    color: var(--text-label);
+    font-size: var(--fs-base);
+    font-weight: 600;
+    width: 160px;
+    border-right: 1px solid var(--border-table);
+    border-left: 3px solid var(--accent-blue);  /* 左罫線アクセントで項目を明確化 */
+  }
+
+  .info-table td {
+    color: var(--text-main);
+    font-weight: 500;
+    font-size: var(--fs-base);
+  }
+
+  .store-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .tag-member {
+    display: inline-block;
+    background-color: var(--tag-green-bg);
+    color: var(--tag-green-text);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+    margin-left: auto;   /* 店名の長さに依存せず右端に固定 */
+    flex-shrink: 0;
+  }
+
+  /* タブ */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 12px;
+  }
+
+  .tab {
+    padding: 8px 20px;
+    font-size: var(--fs-base);
+    color: var(--text-muted);
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    background: none;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+    margin-bottom: -1px;
+  }
+
+  .tab:hover {
+    color: var(--text-sub);
+  }
+
+  .tab.active {
+    color: var(--tab-active);
+    font-weight: 700;
+    border-color: #000;
+  }
+
+  /* タブパネル */
+  .tab-panel {
+    display: none;
+    flex-direction: column;
+  }
+
+  .tab-panel.active {
+    display: flex;
+  }
+
+  /* 基本情報セクション */
+  .section-subtitle {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    padding-left: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .data-table-wrapper {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+
+  /* ページ全体のカスタムスクロールバー */
+  body::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  body::-webkit-scrollbar-track {
+    background: #ffffff;
+    border-left: 1px solid var(--border-table);
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid #ffffff;
+    border-radius: 8px;
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table tr + tr {
+    border-top: 1px solid var(--border-table);
+  }
+
+  .data-table tr:last-child th,
+  .data-table tr:last-child td {
+    border-bottom: 1px solid var(--border-table);
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 10px 20px;
+    text-align: left;
+    font-weight: normal;
+    vertical-align: middle;
+    font-size: var(--fs-base);
+    border-right: 1px solid var(--border-table);
+  }
+
+  .data-table th:last-child,
+  .data-table td:last-child {
+    border-right: none;
+  }
+
+  /* 2列ペア (label | value | label | value) */
+  .data-table {
+    table-layout: fixed;
+  }
+
+  .data-table th {
+    color: var(--text-label);
+    font-weight: 600;
+    width: 180px;
+    background-color: #FFDCE4;
+    border-left: 3px solid var(--accent-blue);
+  }
+
+  .data-table td {
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: var(--fs-base);
+    font-variant-numeric: tabular-nums;
+    width: calc((100% - 360px) / 2);
+    word-break: break-word;
+  }
+
+  .data-table td.jp {
+    font-family: var(--font-jp);
+    font-variant-numeric: normal;
+  }
+
+  .data-table td.span-full {
+    width: auto;
+  }
+
+  @media (max-width: 720px) {
+    body {
+      padding: 16px 8px;
+    }
+    .container {
+      padding: 20px 16px 24px;
+    }
+    .info-table th {
+      width: 110px;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+    .info-table td {
+      padding: 12px 14px;
+      font-size: 16px;
+    }
+    .data-table th {
+      width: 130px;
+      padding: 11px 14px;
+    }
+    .data-table td {
+      padding: 11px 14px;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 0;
+      width: auto;
+    }
+    .tabs {
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <!-- ログアウトボタン -->
+    <div class="header-row">
+      <button class="btn-back" type="button">
+        <span>ログアウト</span>
+      </button>
+    </div>
+
+    <!-- タイトル -->
+    <h1 class="page-title">会員情報照会</h1>
+
+    <!-- 検索エリア -->
+    <div class="search-box">
+      <label class="search-label" for="transaction-code">取引コード</label>
+      <div class="search-row">
+        <input
+          type="text"
+          id="transaction-code"
+          class="search-input"
+          value="01-001"
+        />
+        <button class="btn btn-search" type="button">
+          <span>🔍</span>
+          <span>検索</span>
+        </button>
+        <button class="btn btn-clear" type="button">クリア</button>
+      </div>
+    </div>
+
+    <!-- 店名情報テーブル -->
+    <table class="info-table">
+      <tr>
+        <th>店名</th>
+        <td>
+          <div class="store-name-cell">
+            <span>赤坂生花店</span>
+            <span class="tag-member">正会員</span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <th>店名カナ</th>
+        <td>アカサカセイカテン</td>
+      </tr>
+    </table>
+
+    <!-- タブナビゲーション -->
+    <div class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-tab="main" aria-selected="true">MAIN</button>
+      <button class="tab" role="tab" data-tab="store" aria-selected="false">店舗情報</button>
+      <button class="tab" role="tab" data-tab="corporate" aria-selected="false">法人情報</button>
+      <button class="tab" role="tab" data-tab="parent" aria-selected="false">親会社情報</button>
+    </div>
+
+    <!-- MAIN:基本情報 -->
+    <div class="tab-panel active" data-panel="main" role="tabpanel">
+      <div class="section-subtitle">基本情報</div>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <tr>
+            <th>親店コード</th><td>01-001</td>
+            <th>親店名</th><td class="jp">赤坂生花店</td>
+          </tr>
+          <tr>
+            <th>新取引コード</th><td>—</td>
+            <th>前取引コード</th><td>—</td>
+          </tr>
+          <tr>
+            <th>中コード</th><td>—</td>
+            <th>ブロックコード</th><td>—</td>
+          </tr>
+          <tr>
+            <th>入会日</th><td>1960/08/16</td>
+            <th>資格区分</th><td class="jp">正会員</td>
+          </tr>
+          <tr>
+            <th>登録支店補完期間from</th><td>2012/03/13</td>
+            <th>登録支店補完期間to</th><td>2015/04/10</td>
+          </tr>
+          <tr>
+            <th>社団法人フラグ</th><td class="jp">社団法人</td>
+            <th>協同組合フラグ</th><td class="jp">協同組合</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 店舗情報 -->
+    <div class="tab-panel" data-panel="store" role="tabpanel">
+      <div class="section-subtitle">店舗情報</div>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <tr>
+            <th>所在地住所</th><td class="jp">旭川市二条通6右6</td>
+            <th>所在地電話番号</th><td>0166-22-4276</td>
+          </tr>
+          <tr>
+            <th>所在地FAX番号</th><td>0166-23-5049</td>
+            <th>郵送先郵便番号</th><td>070-0032</td>
+          </tr>
+          <tr>
+            <th>郵送先住所</th><td class="jp">旭川市二条通6右6</td>
+            <th>郵送先電話番号</th><td>0166-22-4276</td>
+          </tr>
+          <tr>
+            <th>営業時間 (平日)</th><td>9:00 〜 18:00</td>
+            <th>営業時間 (平日) 備考</th><td class="jp">祝日 10〜17時</td>
+          </tr>
+          <tr>
+            <th>営業時間 (その他)</th><td class="jp span-full" colspan="3">9:00 〜 12:00 (日曜) ※祝日は17時迄</td>
+          </tr>
+          <tr>
+            <th>営業時間 (その他) 備考</th><td class="jp">日・祝日定休日</td>
+            <th>日曜 (行事営業)</th><td class="jp">、正月３日間休</td>
+          </tr>
+          <tr>
+            <th>取扱品目</th><td class="jp">慶弔葉鉢</td>
+            <th>休業受付日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>休業開始日</th><td>2022/05/01</td>
+            <th>休業終了日</th><td>2022/05/01</td>
+          </tr>
+          <tr>
+            <th>休業期間連絡先</th><td>—</td>
+            <th>休業理由</th><td class="jp">従業員休暇の為</td>
+          </tr>
+          <tr>
+            <th>承認者</th><td>—</td>
+            <th>配達地域の状況</th><td>—</td>
+          </tr>
+          <tr>
+            <th>無料配達地域1</th><td class="jp span-full" colspan="3">旭川市（但し神居古潭・神居富岡・神居豊里除く）</td>
+          </tr>
+          <tr>
+            <th>有料配達地域1</th><td>—</td>
+            <th>無料配達地域2</th><td>—</td>
+          </tr>
+          <tr>
+            <th>有料配達地域2</th><td>—</td>
+            <th>備考</th><td>—</td>
+          </tr>
+          <tr>
+            <th>名義人カナ</th><td class="jp">ミセッテイ　ミセッテイ</td>
+            <th>名義人</th><td class="jp">田中　一郎</td>
+          </tr>
+          <tr>
+            <th>名義人生年月日</th><td>1900/01/01</td>
+            <th>経営区分</th><td class="jp">有限</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 法人情報 -->
+    <div class="tab-panel" data-panel="corporate" role="tabpanel">
+      <div class="section-subtitle">法人情報</div>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <tr>
+            <th>法人名</th><td class="jp">有限会社赤坂生花店</td>
+            <th>法人名カナ</th><td class="jp">ミセッテイ</td>
+          </tr>
+          <tr>
+            <th>法人郵便番号</th><td>070-0032</td>
+            <th>法人所在地</th><td class="jp">旭川市２条通６－右６</td>
+          </tr>
+          <tr>
+            <th>資本金 (円)</th><td>3,000,000</td>
+            <th>取引名簿</th><td class="jp">未返却</td>
+          </tr>
+          <tr>
+            <th>代表者カナ</th><td class="jp">タナカ　イチロウ</td>
+            <th>代表者名</th><td class="jp">田中　一郎</td>
+          </tr>
+          <tr>
+            <th>代表者生年月日</th><td>1900/01/01</td>
+            <th>代表者役職</th><td class="jp">代表取締役</td>
+          </tr>
+          <tr>
+            <th>代表者郵便番号</th><td>070-0032</td>
+            <th>代表者住所</th><td class="jp">北海道旭川市二条通６丁目右６号</td>
+          </tr>
+          <tr>
+            <th>連帯保証人氏名</th><td class="jp">田中　次郎</td>
+            <th>連帯保証人郵便番号</th><td>070-0032</td>
+          </tr>
+          <tr>
+            <th>連帯保証人住所</th><td class="jp span-full" colspan="3">北海道旭川市二条通６丁目右６号</td>
+          </tr>
+          <tr>
+            <th>常時使用従業員数 (人)</th><td>5</td>
+            <th>業種1</th><td class="jp">花・植木小売店</td>
+          </tr>
+          <tr>
+            <th>業種1 割合 (%)</th><td>1</td>
+            <th>業種2</th><td>—</td>
+          </tr>
+          <tr>
+            <th>業種2 割合 (%)</th><td>—</td>
+            <th>業種3</th><td>—</td>
+          </tr>
+          <tr>
+            <th>業種3 割合 (%)</th><td>—</td>
+            <th>役員1 役職</th><td class="jp">代表取締役</td>
+          </tr>
+          <tr>
+            <th>役員1 氏名</th><td class="jp">田中　一郎</td>
+            <th>役員2 役職</th><td class="jp">取締役</td>
+          </tr>
+          <tr>
+            <th>役員2 氏名</th><td class="jp">田中　三郎</td>
+            <th>新コード適用日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>コードNo変更通知日 (当該店)</th><td>—</td>
+            <th>コードNo変更通知日 (支部)</th><td>—</td>
+          </tr>
+          <tr>
+            <th>コードNo変更全国発送告知日</th><td>—</td>
+            <th>社団脱退区分</th><td class="jp">脱退対象外</td>
+          </tr>
+          <tr>
+            <th>社団脱退処理日</th><td>—</td>
+            <th>社団脱退 受付日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>社団脱退当該店通知日</th><td>—</td>
+            <th>社団脱退日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>社団脱退理由区分</th><td>—</td>
+            <th>社団脱退理由</th><td>—</td>
+          </tr>
+          <tr>
+            <th>協同組合脱退区分</th><td class="jp">脱退対象外</td>
+            <th>協同組合脱退処理日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>協同組合脱退 受付日</th><td>—</td>
+            <th>協同組合脱退当該店通知日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>協同組合脱退日</th><td>—</td>
+            <th>協同組合脱退理由区分</th><td>—</td>
+          </tr>
+          <tr>
+            <th>協同組合脱退理由</th><td class="span-full" colspan="3">—</td>
+          </tr>
+          <tr>
+            <th>届出支店取引開始日</th><td>—</td>
+            <th>届出支店抹消フラグ</th><td>—</td>
+          </tr>
+          <tr>
+            <th>届出支店抹消日</th><td>—</td>
+            <th>届出支店抹消理由</th><td>—</td>
+          </tr>
+          <tr>
+            <th>理由カテゴリ入力欄</th><td>—</td>
+            <th>その他 返却</th><td>—</td>
+          </tr>
+          <tr>
+            <th>稟議No</th><td>—</td>
+            <th>稟議書発行日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>稟議承認日</th><td>—</td>
+            <th>契約書日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>口座振込日</th><td>—</td>
+            <th>加盟金請求日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>契約書受理日</th><td>—</td>
+            <th>支部報告送付日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>請求書・契約書の公印依頼日</th><td>—</td>
+            <th>加盟金入金日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>取次店ツール手配連絡日</th><td>—</td>
+            <th>振興協会連絡日</th><td>—</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 親会社情報 -->
+    <div class="tab-panel" data-panel="parent" role="tabpanel">
+      <div class="section-subtitle">親会社情報</div>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <tr>
+            <th>親会社 法人名</th><td>—</td>
+            <th>親会社 年間売上 (円)</th><td>—</td>
+          </tr>
+          <tr>
+            <th>親会社 創業年月</th><td>9999/12/31</td>
+            <th>親会社 営業暦</th><td>—</td>
+          </tr>
+          <tr>
+            <th>親会社 店舗数</th><td>—</td>
+            <th>親会社 従業員数</th><td>—</td>
+          </tr>
+          <tr>
+            <th>親会社 主たる業</th><td>—</td>
+            <th>親会社 年間仕入</th><td>—</td>
+          </tr>
+          <tr>
+            <th>親会社 営業利益 (円)</th><td>—</td>
+            <th>親会社 当期利益 (円)</th><td>—</td>
+          </tr>
+          <tr>
+            <th>親会社 決算期間from</th><td>9999/12/31</td>
+            <th>親会社 決算期間to</th><td>9999/12/31</td>
+          </tr>
+          <tr>
+            <th>店舗 年間売上 (円)</th><td>—</td>
+            <th>店舗 創業年月</th><td>—</td>
+          </tr>
+          <tr>
+            <th>店舗 営業暦</th><td>—</td>
+            <th>店舗数</th><td>—</td>
+          </tr>
+          <tr>
+            <th>店舗 従業員数</th><td>—</td>
+            <th>店舗 主たる業</th><td>—</td>
+          </tr>
+          <tr>
+            <th>店舗 年間仕入 (円)</th><td>—</td>
+            <th>店舗 営業利益 (円)</th><td>—</td>
+          </tr>
+          <tr>
+            <th>店舗 当期利益 (円)</th><td>—</td>
+            <th>店舗 決算期間from</th><td>—</td>
+          </tr>
+          <tr>
+            <th>店舗 決算期間to</th><td>—</td>
+            <th>売上構成 (%) 生花</th><td>—</td>
+          </tr>
+          <tr>
+            <th>売上構成 (%) 鉢物</th><td>—</td>
+            <th>売上構成 (%) 資材</th><td>—</td>
+          </tr>
+          <tr>
+            <th>売上構成 (%) 他</th><td>—</td>
+            <th>営業構成 (%) 店売</th><td>—</td>
+          </tr>
+          <tr>
+            <th>営業構成 (%) 稽古</th><td>—</td>
+            <th>営業構成 (%) 仕事</th><td>—</td>
+          </tr>
+          <tr>
+            <th>営業構成 (%) 他</th><td>—</td>
+            <th>店舗面積</th><td>—</td>
+          </tr>
+          <tr>
+            <th>従業員</th><td>—</td>
+            <th>従業員 内 家族</th><td>—</td>
+          </tr>
+          <tr>
+            <th>配達車両</th><td>—</td>
+            <th>加入団体</th><td>—</td>
+          </tr>
+          <tr>
+            <th>決算書有無</th><td>—</td>
+            <th>市場買上証明有無</th><td class="jp">無</td>
+          </tr>
+          <tr>
+            <th>店舗平面図有無</th><td class="jp">無</td>
+            <th>店舗写真有無</th><td class="jp">無</td>
+          </tr>
+          <tr>
+            <th>名義写真有無</th><td class="jp">無</td>
+            <th>取引銀行有無</th><td class="jp">無</td>
+          </tr>
+          <tr>
+            <th>支部幹事</th><td>—</td>
+            <th>支部</th><td>—</td>
+          </tr>
+          <tr>
+            <th>理事</th><td>—</td>
+            <th>印鑑証明有無</th><td>—</td>
+          </tr>
+          <tr>
+            <th>住民票有無</th><td>—</td>
+            <th>開業年月</th><td>—</td>
+          </tr>
+          <tr>
+            <th>申込み書類受付日</th><td>—</td>
+            <th>研修日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>予備審査結果</th><td>—</td>
+            <th>B理事会審査結果</th><td>—</td>
+          </tr>
+          <tr>
+            <th>取次店支部結果</th><td>—</td>
+            <th>取次店稟議結果</th><td>—</td>
+          </tr>
+          <tr>
+            <th>取次店入金結果</th><td>—</td>
+            <th>印・本有無</th><td>—</td>
+          </tr>
+          <tr>
+            <th>印・保有無</th><td>—</td>
+            <th>役職理事</th><td>—</td>
+          </tr>
+          <tr>
+            <th>役職監事</th><td>—</td>
+            <th>役職総代</th><td>—</td>
+          </tr>
+          <tr>
+            <th>役職支部幹事</th><td>—</td>
+            <th>本部役職1</th><td>—</td>
+          </tr>
+          <tr>
+            <th>本部役職2</th><td>—</td>
+            <th>本部役職3</th><td>—</td>
+          </tr>
+          <tr>
+            <th>本部役職4</th><td>—</td>
+            <th>本部役職5</th><td>—</td>
+          </tr>
+          <tr>
+            <th>支部役職1</th><td>—</td>
+            <th>支部役職2</th><td>—</td>
+          </tr>
+          <tr>
+            <th>支部役職3</th><td>—</td>
+            <th>支部役職4</th><td>—</td>
+          </tr>
+          <tr>
+            <th>支部役職5</th><td>—</td>
+            <th>本部出向交通費1</th><td>—</td>
+          </tr>
+          <tr>
+            <th>本部出向交通費2</th><td>—</td>
+            <th>精算書郵送先郵便番号</th><td>070-0032</td>
+          </tr>
+          <tr>
+            <th>精算書郵送先住所</th><td class="jp span-full" colspan="3">旭川市二条通６右６</td>
+          </tr>
+          <tr>
+            <th>注文配達向け電話番号</th><td>0166-22-4276</td>
+            <th>注文配達向け電話番号2</th><td>—</td>
+          </tr>
+          <tr>
+            <th>会員間取引メールアドレス</th><td>tanaka@example.com</td>
+            <th>注文主連絡用メールアドレス</th><td>tanaka2@example.com</td>
+          </tr>
+          <tr>
+            <th>事務局連絡用メールアドレス</th><td>tanaka3@example.com</td>
+            <th>取引停止</th><td>—</td>
+          </tr>
+          <tr>
+            <th>注文機能制御設定日</th><td>—</td>
+            <th>配達機能制御設定日</th><td>—</td>
+          </tr>
+          <tr>
+            <th>花キューピットタウンURL</th><td class="span-full" colspan="3">tanaka.hanatown.net</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 営業暦</th><td>—</td>
+            <th>直近店舗状況 従業員数</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 店舗従業員数</th><td>—</td>
+            <th>直近店舗状況 主たる業務</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 決算期間From</th><td>—</td>
+            <th>直近店舗状況 決算期間To</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 店舗面積</th><td>—</td>
+            <th>直近店舗状況 売上構成比 (%) 生花</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 売上構成比 (%) 鉢物</th><td>—</td>
+            <th>直近店舗状況 売上構成比 (%) 資材</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 売上構成比 (%) その他</th><td>—</td>
+            <th>直近店舗状況 営業構成比 (%) 店売</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 営業構成比 (%) 稽古</th><td>—</td>
+            <th>直近店舗状況 営業構成比 (%) 仕事</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 営業構成比 (%) 他</th><td>—</td>
+            <th>直近店舗状況 売上</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 仕入</th><td>—</td>
+            <th>直近店舗状況 営業利益</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 当期利益</th><td>—</td>
+            <th>直近店舗状況 配達車両</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 店舗立地</th><td>—</td>
+            <th>直近店舗状況 会員間注文件数 (年間)</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 会員間配達件数 (年間)</th><td>—</td>
+            <th>直近店舗状況 会員間注文金額 (年間)</th><td>—</td>
+          </tr>
+          <tr>
+            <th>直近店舗状況 会員間配達金額 (年間)</th><td>—</td>
+            <th>店舗カテゴリ</th><td class="jp">正会員</td>
+          </tr>
+          <tr>
+            <th>緯度</th><td>43.767163</td>
+            <th>経度</th><td>142.357426</td>
+          </tr>
+          <tr>
+            <th>花キューピットタウン参加区分</th><td class="jp">出店中</td>
+            <th></th><td></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // タブ切り替え
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.tab-panel');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetTab = tab.dataset.tab;
+
+        // タブのアクティブ状態を切り替え
+        tabs.forEach(t => {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+
+        // パネルの表示を切り替え
+        panels.forEach(panel => {
+          if (panel.dataset.panel === targetTab) {
+            panel.classList.add('active');
+          } else {
+            panel.classList.remove('active');
+          }
+        });
+      });
+    });
+
+    // クリアボタン
+    document.querySelector('.btn-clear').addEventListener('click', () => {
+      document.getElementById('transaction-code').value = '';
+    });
+
+    // ログアウトボタン: ログイン画面へ遷移
+    document.querySelector('.btn-back').addEventListener('click', () => {
+      window.top.location.href = '/login';
+    });
+  </script>
+</body>
+</html>

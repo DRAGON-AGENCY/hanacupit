@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ログイン | キャッシュレス管理システム</title>
+<style>
+  :root {
+    --bg-page: #f5f3ee;
+    --bg-card: #fbfaf6;
+    --bg-form: #eee9dc;
+    --bg-white: #ffffff;
+    --bg-notice: #fbeed5;
+    --bg-notice-border: #f1d9a0;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-form: #e2dcc8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-label: #5a5a5a;
+    --text-muted: #8a8a8a;
+    --text-notice: #8a5a1a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+    --accent-blue-hover: #d5e4f6;
+    --error-red: #c64a4a;
+    --error-bg: #fbeaea;
+    --error-border: #f0c4c4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+  }
+
+  .login-container {
+    width: 100%;
+    max-width: 460px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 40px 44px 36px;
+  }
+
+  /* ヘッダー */
+  .login-header {
+    text-align: center;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 28px;
+  }
+
+  .system-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+
+  .system-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* ログインフォームエリア */
+  .login-form-box {
+    background-color: var(--bg-form);
+    border: 1px solid var(--border-form);
+    border-radius: 8px;
+    padding: 24px 26px 22px;
+    margin-bottom: 20px;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    font-size: 12px;
+    color: var(--text-label);
+  }
+
+  .login-input {
+    padding: 10px 14px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-size: 14px;
+    color: var(--text-main);
+    font-family: "SFMono-Regular", "Consolas", "Menlo", monospace;
+    width: 100%;
+    transition: all 0.15s ease;
+  }
+
+  .login-input.jp {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+  }
+
+  .login-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* パスワード表示切替 */
+  .password-wrapper {
+    position: relative;
+  }
+
+  .password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: inherit;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .password-toggle:hover {
+    background-color: rgba(0,0,0,0.04);
+    color: var(--text-sub);
+  }
+
+  .login-input.has-toggle {
+    padding-right: 56px;
+  }
+
+  /* ログインボタン */
+  .btn-login {
+    width: 100%;
+    background-color: var(--accent-blue-light);
+    border: 1px solid var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+    padding: 11px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .btn-login:hover {
+    background-color: var(--accent-blue-hover);
+  }
+
+  .btn-login:active {
+    transform: translateY(1px);
+  }
+
+  /* エラーメッセージ (非表示状態) */
+  .error-message {
+    display: none;
+    background-color: var(--error-bg);
+    border: 1px solid var(--error-border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--error-red);
+    margin-bottom: 14px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .error-message.show {
+    display: flex;
+  }
+
+  .error-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--error-red);
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* 注意書きボックス */
+  .notice-box {
+    background-color: var(--bg-notice);
+    border: 1px solid var(--bg-notice-border);
+    border-radius: 8px;
+    padding: 14px 18px 16px;
+  }
+
+  .notice-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-notice);
+    margin-bottom: 8px;
+  }
+
+  .notice-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--text-notice);
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .notice-text {
+    font-size: 12px;
+    color: var(--text-notice);
+    line-height: 1.7;
+  }
+
+  /* フッター */
+  .login-footer {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 16px 8px; }
+    .login-container { padding: 28px 22px 24px; }
+    .login-form-box { padding: 20px 18px; }
+    .system-title { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+  <div class="login-container">
+    <!-- ヘッダー -->
+    <div class="login-header">
+      <h1 class="system-title">キャッシュレス管理システム</h1>
+      <p class="system-subtitle">Cashless Management System</p>
+    </div>
+
+    <!-- エラーメッセージ -->
+    <div class="error-message" id="error-message">
+      <span class="error-icon">!</span>
+      <span id="error-text">ユーザーIDまたはパスワードが正しくありません。</span>
+    </div>
+
+    <!-- ログインフォーム -->
+    <div class="login-form-box">
+      <div class="form-field">
+        <label class="form-label" for="user-id">ユーザーID</label>
+        <input
+          type="text"
+          id="user-id"
+          class="login-input"
+          placeholder="例: admin001"
+          autocomplete="username"
+        />
+      </div>
+
+      <div class="form-field" style="margin-bottom: 22px">
+        <label class="form-label" for="password">パスワード</label>
+        <div class="password-wrapper">
+          <input
+            type="password"
+            id="password"
+            class="login-input has-toggle"
+            placeholder="パスワードを入力"
+            autocomplete="current-password"
+          />
+          <button type="button" class="password-toggle" id="password-toggle">表示</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn-login" id="btn-login">
+        <span>🔒</span><span>ログイン</span>
+      </button>
+    </div>
+
+    <!-- 注意書き -->
+    <div class="notice-box">
+      <div class="notice-title">
+        <span class="notice-icon">!</span>
+        <span>ログイン時のご注意</span>
+      </div>
+      <p class="notice-text">
+        パスワードを連続して5回間違えた場合、アカウントが一時的にロックされます。ログインできない場合は、システム管理者までお問い合わせください。
+      </p>
+    </div>
+
+    <!-- フッター -->
+    <div class="login-footer">
+      © 2026 Cashless Management System. All rights reserved.
+    </div>
+  </div>
+
+  <script>
+    // パスワード表示切替
+    const passwordInput = document.getElementById('password');
+    const passwordToggle = document.getElementById('password-toggle');
+
+    passwordToggle.addEventListener('click', () => {
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        passwordToggle.textContent = '隠す';
+      } else {
+        passwordInput.type = 'password';
+        passwordToggle.textContent = '表示';
+      }
+    });
+
+    // ログインボタン (デモ用バリデーション)
+    const userIdInput = document.getElementById('user-id');
+    const errorMessage = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+    const btnLogin = document.getElementById('btn-login');
+
+    function showError(text) {
+      errorText.textContent = text;
+      errorMessage.classList.add('show');
+    }
+
+    function hideError() {
+      errorMessage.classList.remove('show');
+    }
+
+    btnLogin.addEventListener('click', () => {
+      hideError();
+      const userId = userIdInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!userId && !password) {
+        showError('ユーザーIDとパスワードを入力してください。');
+        return;
+      }
+      if (!userId) {
+        showError('ユーザーIDを入力してください。');
+        userIdInput.focus();
+        return;
+      }
+      if (!password) {
+        showError('パスワードを入力してください。');
+        passwordInput.focus();
+        return;
+      }
+
+      // 実際の認証処理はここに実装
+      // 認証成功時はメニュー画面へ遷移
+      window.location.href = '/menu';
+    });
+
+    // Enterキーでログイン
+    [userIdInput, passwordInput].forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          btnLogin.click();
+        }
+      });
+      input.addEventListener('input', hideError);
+    });
+  </script>
+</body>
+</html>

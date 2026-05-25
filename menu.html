@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>キャッシュレス管理システム</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+<style>
+  :root {
+    /* === 色トークン (他画面と統一) === */
+    --bg-page: #f5f3ee;
+    --bg-card: #fbfaf6;
+    --bg-white: #ffffff;
+    --bg-secondary: #f1efe8;
+    --bg-hover: #ede8db;
+    --border-color: #e8e4da;
+    --border-tertiary: rgba(0, 0, 0, 0.10);
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+
+    --color-blue-50: #e3edfb;
+    --color-blue-600: #3a6db5;
+    --color-blue-800: #2b5fa8;
+    --color-blue-accent: #3a6db5;
+    --color-green-50: #dcead9;
+    --color-green-600: #3d6b3a;
+    --color-green-800: #2f5a2c;
+    --color-green-accent: #639922;
+
+    /* === フォントトークン === */
+    --font-base: "Inter", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+
+    /* === フォントサイズトークン === */
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 22px;
+
+    /* === レイアウトトークン === */
+    --container-min: 1200px;
+    --container-max: 1760px;
+
+    /* === その他 === */
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-pill: 999px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    min-height: 100vh;
+  }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+    line-height: 1.6;
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .page-header .eyebrow {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin: 0 0 2px;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+
+  .page-header h1 {
+    margin: 0;
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: 0.01em;
+  }
+
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--fs-base);
+    padding: 4px 14px;
+    border-radius: var(--radius-pill);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .badge.inquiry {
+    background: var(--color-blue-50);
+    color: var(--color-blue-800);
+  }
+
+  .badge.operation {
+    background: var(--color-green-50);
+    color: var(--color-green-600);
+  }
+
+  .card {
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    margin-bottom: 12px;
+  }
+
+  .card.inquiry {
+    border-left: 3px solid var(--color-blue-accent);
+  }
+
+  .card.operation {
+    border-left: 3px solid var(--color-green-accent);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .card-header .ti {
+    font-size: var(--fs-md);
+  }
+
+  .card.inquiry .card-header .ti {
+    color: var(--color-blue-600);
+  }
+
+  .card.operation .card-header .ti {
+    color: var(--color-green-600);
+  }
+
+  .card-header .label {
+    font-size: var(--fs-xs);
+    color: var(--text-label);
+    margin: 0;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  .menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-weight: 500;
+  }
+
+  .menu-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .menu-item:focus {
+    outline: 2px solid var(--color-blue-accent);
+    outline-offset: 1px;
+  }
+
+  .menu-item .arrow {
+    font-size: var(--fs-md);
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  .menu-item .sub {
+    font-size: var(--fs-xs);
+    color: var(--text-sub);
+    margin-left: 4px;
+    font-weight: 400;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header class="page-header">
+    <p class="eyebrow">CASHLESS MANAGEMENT</p>
+    <h1>キャッシュレス管理システム</h1>
+  </header>
+
+  <div class="columns">
+
+    <section>
+      <div class="section-label">
+        <span class="badge inquiry"><i class="ti ti-search" aria-hidden="true"></i>照会機能</span>
+      </div>
+
+      <div class="card inquiry">
+        <div class="card-header">
+          <i class="ti ti-user" aria-hidden="true"></i>
+          <p class="label">会員情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="/member_list?mode=member_info" target="_blank" rel="noopener" class="menu-item">
+            <span>会員情報照会</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="card inquiry">
+        <div class="card-header">
+          <i class="ti ti-building-store" aria-hidden="true"></i>
+          <p class="label">店舗・端末情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="/member_list?mode=store_terminal_smcc" target="_blank" rel="noopener" class="menu-item">
+            <span>店舗・端末・SMCC加盟店番号情報照会</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="card inquiry">
+        <div class="card-header">
+          <i class="ti ti-receipt" aria-hidden="true"></i>
+          <p class="label">精算情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="/paygate_station" target="_blank" rel="noopener" class="menu-item">
+            <span>PAYGATE Station 精算情報照会</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="/stera_jcb" target="_blank" rel="noopener" class="menu-item">
+            <span>stera terminal 精算情報照会<span class="sub">(JCB)</span></span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="/stera_smcc" target="_blank" rel="noopener" class="menu-item">
+            <span>stera terminal 精算情報照会<span class="sub">(SMCC)</span></span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-label">
+        <span class="badge operation"><i class="ti ti-settings" aria-hidden="true"></i>運用機能</span>
+      </div>
+
+      <div class="card operation">
+        <div class="card-header">
+          <i class="ti ti-user-plus" aria-hidden="true"></i>
+          <p class="label">会員情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="/member_master" target="_blank" rel="noopener" class="menu-item">
+            <span>加盟会員店マスターデータ 登録・更新</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="/application_form" target="_blank" rel="noopener" class="menu-item">
+            <span>各決済会社所定申込フォーム作成</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="card operation">
+        <div class="card-header">
+          <i class="ti ti-device-desktop" aria-hidden="true"></i>
+          <p class="label">店舗・端末情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="/shop_data_create" target="_blank" rel="noopener" class="menu-item">
+            <span>店舗・端末・加盟店番号データ作成</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="card operation">
+        <div class="card-header">
+          <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
+          <p class="label">精算情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="/jftd_settlement" target="_blank" rel="noopener" class="menu-item">
+            <span>JFTD精算データ作成<span class="sub">(PAYGATE Station)</span></span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="/jftd" target="_blank" rel="noopener" class="menu-item">
+            <span>JFTD統合振込CSV作成・帳票出力</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="/other_settlement" target="_blank" rel="noopener" class="menu-item">
+            <span>その他精算データ作成<span class="sub">(PAYGATE Station)</span></span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="/other_jftd" target="_blank" rel="noopener" class="menu-item">
+            <span>その他統合振込CSV作成・帳票出力</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+</body>
+</html>

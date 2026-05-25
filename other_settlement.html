@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>その他精算データ作成 (stera terminal) | キャッシュレス管理システム</title>
+<style>
+  :root {
+    /* === 色トークン === */
+    --bg-page: #f5f3ee;
+    --bg-card: #fbfaf6;
+    --bg-form: #eef5e9;
+    --bg-label: #ede8db;
+    --bg-label-soft: #f5f2eb;
+    --bg-white: #ffffff;
+    --bg-notice: #fbeed5;
+    --bg-notice-border: #f1d9a0;
+    --bg-option-hover: #e6f5dc;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-form: #d6e4ce;
+    --border-table: #e5e2d8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-label: #5a5a5a;
+    --text-muted: #8a8a8a;
+    --text-subtle: #9a9a9a;
+    --text-notice: #8a5a1a;
+    --accent-blue: #3d6b3a;
+    --accent-blue-light: #dcead9;
+    --accent-blue-border: #b9d6b0;
+
+    /* === フォントトークン === */
+    --font-jp: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    --font-base: "Inter", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+
+    /* === フォントサイズトークン === */
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 22px;
+
+    /* === レイアウトトークン === */
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { min-height: 100vh; }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header-row { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+
+  .btn-back {
+    display: inline-flex; align-items: center; gap: 4px;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    border-radius: 8px; padding: 8px 16px; font-size: var(--fs-base);
+    color: var(--text-main); cursor: pointer;
+    transition: all 0.2s ease; font-family: inherit;
+  }
+
+  .btn-back:hover { background-color: #faf8f2; border-color: #c4bfae; }
+
+  .page-title {
+    font-size: var(--fs-lg); font-weight: 700; color: var(--text-main);
+    padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+    margin-bottom: 14px; letter-spacing: 0.01em;
+  }
+
+  .form-box {
+    background-color: var(--bg-form);
+    border: 1px solid var(--border-form);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+  }
+
+  .form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .form-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.03em;
+  }
+
+  .text-input {
+    padding: 8px 14px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px; background-color: var(--bg-white);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    width: 220px;
+  }
+
+  .text-input:focus {
+    outline: none; border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(61, 107, 58, 0.15);
+  }
+
+  .file-input-row { display: flex; gap: 10px; align-items: stretch; }
+
+  .file-input {
+    flex: 1; padding: 8px 14px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px; background-color: var(--bg-white);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .file-input:focus {
+    outline: none; border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(61, 107, 58, 0.15);
+  }
+
+  .custom-select { position: relative; width: 260px; }
+
+  .select-display {
+    padding: 8px 14px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px; background-color: var(--bg-white);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: inherit; user-select: none;
+  }
+
+  .select-display::after {
+    content: "";
+    width: 10px; height: 10px;
+    border-right: 1.5px solid #888;
+    border-bottom: 1.5px solid #888;
+    transform: rotate(45deg);
+    margin-top: -3px;
+    transition: transform 0.2s ease;
+  }
+
+  .custom-select.open .select-display::after {
+    transform: rotate(-135deg);
+    margin-top: 3px;
+  }
+
+  .select-options {
+    position: absolute; top: calc(100% + 4px);
+    left: 0; right: 0;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    z-index: 10; overflow: hidden;
+    display: none;
+  }
+
+  .custom-select.open .select-options { display: block; }
+
+  .select-option {
+    padding: 10px 16px;
+    font-size: var(--fs-base);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .select-option:hover { background-color: #faf8f2; }
+
+  .select-option.selected {
+    background-color: var(--bg-option-hover);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .form-row-with-action {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 8px 18px; border-radius: 6px;
+    font-size: var(--fs-base);
+    cursor: pointer; font-family: inherit;
+    transition: all 0.15s ease; border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .btn-browse {
+    background-color: var(--bg-white);
+    border-color: var(--border-input);
+    color: var(--text-main); padding: 8px 22px;
+  }
+
+  .btn-browse:hover { background-color: #faf8f2; }
+
+  .btn-upload {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .btn-upload:hover { background-color: #cce0bd; }
+
+  .notice-box {
+    background-color: var(--bg-notice);
+    border: 1px solid var(--bg-notice-border);
+    border-radius: 8px;
+    padding: 14px 20px 16px;
+  }
+
+  .notice-title {
+    display: flex; align-items: center; gap: 6px;
+    font-size: var(--fs-base); font-weight: 700;
+    color: var(--text-notice); margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+
+  .notice-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--text-notice);
+    border-radius: 50%;
+    font-size: 13px; font-weight: 700;
+  }
+
+  .notice-list {
+    list-style: none; counter-reset: notice-counter;
+    padding: 0; margin: 0;
+  }
+
+  .notice-list li {
+    counter-increment: notice-counter;
+    position: relative; padding-left: 28px;
+    margin-bottom: 6px;
+    font-size: var(--fs-sm);
+    color: var(--text-notice); line-height: 1.7;
+  }
+
+  .notice-list li::before {
+    content: counter(notice-counter) ".";
+    position: absolute; left: 8px; font-weight: 500;
+  }
+
+  .notice-list li:last-child { margin-bottom: 0; }
+
+  /* ページ全体のカスタムスクロールバー */
+  body::-webkit-scrollbar { width: 14px; }
+  body::-webkit-scrollbar-track {
+    background: #f5f3ee;
+    border-left: 1px solid var(--border-table);
+  }
+  body::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid #f5f3ee;
+    border-radius: 8px;
+  }
+  body::-webkit-scrollbar-thumb:hover { background: #aea892; }
+
+  @media (max-width: 640px) {
+    body { padding: 16px 8px; }
+    .container { padding: 20px 16px 24px; }
+    .form-row-with-action { flex-direction: column; align-items: stretch; }
+    .custom-select, .text-input { width: 100%; }
+    .btn-upload { align-self: flex-end; }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-row">
+      <button class="btn-back" type="button"><span>←</span><span>戻る</span></button>
+    </div>
+
+    <h1 class="page-title">その他精算データ作成 (stera terminal)</h1>
+
+    <div class="form-box">
+      <div class="form-field">
+        <label class="form-label" for="target-month">対象年月</label>
+        <input type="text" id="target-month" class="text-input" value="2026/12" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="file-input">ファイル</label>
+        <div class="file-input-row">
+          <input type="text" id="file-input" class="file-input" value="stera_settlement_202612.csv" readonly />
+          <button class="btn btn-browse" type="button">参照</button>
+        </div>
+      </div>
+
+      <div class="form-row-with-action">
+        <div class="form-field" style="margin-bottom:0">
+          <label class="form-label">決済種類</label>
+          <div class="custom-select" id="payment-type-select">
+            <div class="select-display">
+              <span id="payment-type-value">JCB</span>
+            </div>
+            <div class="select-options">
+              <div class="select-option selected" data-value="JCB">JCB</div>
+              <div class="select-option" data-value="stera code">stera code</div>
+              <div class="select-option" data-value="stera クレジット">stera クレジット</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-upload" type="button">
+          <span>⬆</span><span>アップロード</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="notice-box">
+      <div class="notice-title">
+        <span class="notice-icon">!</span>
+        <span>データ作成時のご注意</span>
+      </div>
+      <ol class="notice-list">
+        <li>対象年月 (YYYY/MM形式) を指定し、stera terminal から出力された精算ファイルを参照ボタンから選択してください。</li>
+        <li>アップロード後、stera terminal 精算情報照会画面で対象年月の結果を確認してください。誤った内容の場合はファイルを差し替えて再アップロードしてください。</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    const select = document.getElementById('payment-type-select');
+    const display = select.querySelector('.select-display');
+    const valueSpan = document.getElementById('payment-type-value');
+    const options = select.querySelectorAll('.select-option');
+
+    display.addEventListener('click', (e) => {
+      e.stopPropagation();
+      select.classList.toggle('open');
+    });
+
+    options.forEach(opt => {
+      opt.addEventListener('click', () => {
+        options.forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        valueSpan.textContent = opt.dataset.value;
+        select.classList.remove('open');
+      });
+    });
+
+    document.addEventListener('click', () => {
+      select.classList.remove('open');
+    });
+
+    document.querySelector('.btn-browse').addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.csv';
+      input.onchange = e => {
+        if (e.target.files[0]) {
+          document.getElementById('file-input').value = e.target.files[0].name;
+        }
+      };
+      input.click();
+    });
+  </script>
+</body>
+</html>

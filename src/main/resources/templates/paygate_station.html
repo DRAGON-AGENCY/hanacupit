@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAYGATE Station精算情報照会 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    /* === 色トークン === */
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-search: #eef3fa;
+    --bg-summary: #f5f0e0;
+    --bg-label: #ede8db;
+    --bg-label-soft: #f5f2eb;
+    --bg-white: #ffffff;
+    --bg-total: #e6f0fb;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-table: #e5e2d8;
+    --border-summary: #e2dcc8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+    --text-subtle: #9a9a9a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+    --accent-blue-total: #2b5fa8;
+
+    /* === フォントトークン === */
+    --font-jp: "Inter", "Noto Sans JP", sans-serif;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+
+    /* === フォントサイズトークン === */
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 22px;
+
+    /* === レイアウトトークン === */
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    min-height: 100vh;
+  }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ヘッダー */
+  .header-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+  }
+
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .btn-back:hover {
+    background-color: #faf8f2;
+    border-color: #c4bfae;
+  }
+
+  .page-title {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  /* 検索エリア */
+  .search-box {
+    background-color: var(--bg-search);
+    border: 1px solid #dde5f0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 14px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .search-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .search-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.03em;
+  }
+
+  .search-input, .search-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: inherit;
+    min-width: 170px;
+  }
+
+  .search-input {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    width: 180px;
+  }
+
+  .search-select {
+    width: 200px;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%23888' stroke-width='1.5' d='M3 5l3 3 3-3'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  .search-input:focus, .search-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  .search-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: var(--fs-base);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+  }
+
+  .btn-search {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .btn-search:hover {
+    background-color: #d5e4f6;
+  }
+
+  .btn-clear {
+    background-color: var(--bg-white);
+    border-color: var(--border-input);
+    color: var(--text-main);
+  }
+
+  .btn-clear:hover {
+    background-color: #faf8f2;
+  }
+
+  /* サマリーカード */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .summary-card {
+    background-color: var(--bg-summary);
+    border: 1px solid var(--border-summary);
+    border-radius: 8px;
+    padding: 10px 16px;
+  }
+
+  .summary-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    margin-bottom: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  .summary-value {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+
+  .summary-unit {
+    font-size: var(--fs-xs);
+    font-weight: 400;
+    color: var(--text-sub);
+    margin-left: 2px;
+    font-family: var(--font-jp);
+  }
+
+  /* 精算明細セクション */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .section-title {
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: 0.02em;
+  }
+
+  .section-count {
+    font-size: var(--fs-sm);
+    color: var(--text-subtle);
+    background-color: transparent;
+  }
+
+  /* ページ全体のカスタムスクロールバー */
+  body::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  body::-webkit-scrollbar-track {
+    background: #ffffff;
+    border-left: 1px solid var(--border-table);
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid #ffffff;
+    border-radius: 8px;
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  /* データテーブル */
+  .data-table-wrapper {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .data-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .data-scroll::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+
+  .data-scroll::-webkit-scrollbar-track {
+    background: #ffffff;
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid #ffffff;
+    border-radius: 8px;
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-base);
+    table-layout: fixed;
+  }
+
+  .data-table-footer {
+    border-top: 1px solid #c7d9ef;
+  }
+
+  .data-table thead th {
+    background-color: #FFDCE4;
+    color: var(--text-label);
+    font-weight: 600;
+    padding: 10px 16px;
+    text-align: right;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    white-space: nowrap;
+    font-size: var(--fs-sm);
+    letter-spacing: 0.02em;
+  }
+
+  .data-table thead th:last-child {
+    border-right: none;
+  }
+
+  .data-table thead th:first-child,
+  .data-table thead th.text-left {
+    text-align: left;
+  }
+
+  .data-table tbody td {
+    padding: 11px 16px;
+    text-align: right;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: var(--fs-base);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .data-table tbody td:last-child {
+    border-right: none;
+  }
+
+  .data-table tbody td.text-left {
+    text-align: left;
+  }
+
+  .data-table tbody td.jp {
+    font-family: var(--font-jp);
+    font-variant-numeric: normal;
+    text-align: left;
+  }
+
+  .data-table tr.total-row td {
+    background-color: var(--bg-total);
+    color: var(--accent-blue-total);
+    font-weight: 600;
+    border-top: none;
+    border-bottom: none;
+    padding: 11px 16px;
+    text-align: right;
+    border-right: 1px solid var(--border-table);
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table tr.total-row td:last-child {
+    border-right: none;
+  }
+
+  .data-table tr.total-row td.label {
+    font-family: var(--font-jp);
+    font-weight: 700;
+    text-align: left;
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 900px) {
+    body {
+      padding: 16px 8px;
+    }
+    .container {
+      padding: 20px 16px 24px;
+    }
+    .summary-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 520px) {
+    .summary-grid {
+      grid-template-columns: 1fr;
+    }
+    .search-input, .search-select {
+      width: 100%;
+      min-width: 0;
+    }
+    .search-field {
+      width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-row">
+      <button class="btn-back" type="button">
+        <span>ログアウト</span>
+      </button>
+    </div>
+
+    <h1 class="page-title">PAYGATE Station精算情報照会</h1>
+
+    <!-- 検索エリア -->
+    <div class="search-box">
+      <div class="search-field">
+        <label class="search-label" for="target-month">対象月</label>
+        <input type="text" id="target-month" class="search-input" value="2026/05" />
+      </div>
+      <div class="search-field">
+        <label class="search-label" for="payment-company">決済会社</label>
+        <select id="payment-company" class="search-select">
+          <option>JCB</option>
+          <option>NETSTARS</option>
+          <option>VISA・Master</option>
+          <option>楽天ペイ</option>
+          <option>スマレジ</option>
+        </select>
+      </div>
+      <div class="search-field">
+        <label class="search-label" for="payment-type">決済種類</label>
+        <select id="payment-type" class="search-select">
+          <option>AMEXカード</option>
+          <option>VISAカード</option>
+          <option>Masterカード</option>
+          <option>JCBカード</option>
+        </select>
+      </div>
+      <div class="search-actions">
+        <button class="btn btn-search" type="button">
+          <span>🔍</span><span>検索</span>
+        </button>
+        <button class="btn btn-clear" type="button">クリア</button>
+      </div>
+    </div>
+
+    <!-- サマリーカード -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-label">合計 売上件数</div>
+        <div class="summary-value">55<span class="summary-unit">件</span></div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">合計 売上金額</div>
+        <div class="summary-value">317,953<span class="summary-unit">円</span></div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">合計 決済手数料</div>
+        <div class="summary-value">8,741<span class="summary-unit">円</span></div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">合計 支払金額②</div>
+        <div class="summary-value">308,573<span class="summary-unit">円</span></div>
+      </div>
+    </div>
+
+    <!-- 精算明細 -->
+    <div class="section-header">
+      <span class="section-title">精算明細</span>
+      <span class="section-count">全 7 件</span>
+    </div>
+
+    <div class="data-table-wrapper">
+      <div class="data-scroll">
+        <table class="data-table">
+          <colgroup>
+            <col style="width: 11%">
+            <col style="width: 11%">
+            <col style="width: 14%">
+            <col style="width: 12%">
+            <col style="width: 13%">
+            <col style="width: 13%">
+            <col style="width: 13%">
+            <col style="width: 13%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="text-left">取引コード</th>
+              <th>合計 / 売上件数</th>
+              <th>合計 / 売上金額 (円)</th>
+              <th>決済手数料① (円)</th>
+              <th>支払金額① (円)</th>
+              <th>手数料 (本体)(円)</th>
+              <th>手数料 (消費税)(円)</th>
+              <th>支払金額② (円)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="text-left">01-001</td><td>5</td><td>14,550</td><td>400</td><td>14,150</td><td>26</td><td>3</td><td>14,121</td></tr>
+            <tr><td class="text-left">01-024</td><td>11</td><td>52,122</td><td>1,433</td><td>50,689</td><td>95</td><td>10</td><td>50,584</td></tr>
+            <tr><td class="text-left">02-030</td><td>4</td><td>30,000</td><td>825</td><td>29,175</td><td>55</td><td>5</td><td>29,115</td></tr>
+            <tr><td class="text-left">03-048</td><td>24</td><td>169,416</td><td>4,658</td><td>164,758</td><td>309</td><td>31</td><td>164,418</td></tr>
+            <tr><td class="text-left">03-068</td><td>6</td><td>24,915</td><td>685</td><td>24,230</td><td>45</td><td>5</td><td>24,180</td></tr>
+            <tr><td class="text-left">04-064</td><td>4</td><td>18,700</td><td>514</td><td>18,186</td><td>35</td><td>3</td><td>18,148</td></tr>
+            <tr><td class="text-left">11-060</td><td>1</td><td>8,250</td><td>226</td><td>8,024</td><td>15</td><td>2</td><td>8,007</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <table class="data-table data-table-footer">
+        <colgroup>
+          <col style="width: 11%">
+          <col style="width: 11%">
+          <col style="width: 14%">
+          <col style="width: 12%">
+          <col style="width: 13%">
+          <col style="width: 13%">
+          <col style="width: 13%">
+          <col style="width: 13%">
+        </colgroup>
+        <tbody>
+          <tr class="total-row">
+            <td class="label text-left">合計</td>
+            <td>55</td><td>317,953</td><td>8,741</td><td>309,212</td><td>580</td><td>59</td><td>308,573</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const PAYMENT_TYPES_BY_COMPANY = {
+      'JCB': [
+        'ＪＣＢカード',
+        'ＡＭＥＸカード',
+        'スマートコード',
+        '交通系電子マネー',
+        'ｎａｎａｃｏ',
+        'ＱＵＩＣＰａｙ',
+        'ＷＡＯＮ',
+        'ダイナースクラブ',
+        '銀聯カード',
+        'ディスカバー'
+      ],
+      'NETSTARS': [
+        'Alipay',
+        'PayPay',
+        'd払い',
+        'WeChatPay'
+      ]
+    };
+
+    const COMPANIES_WITHOUT_PAYMENT_TYPE = ['VISA・Master', '楽天ペイ', 'スマレジ'];
+
+    const paymentCompanyEl = document.getElementById('payment-company');
+    const paymentTypeEl = document.getElementById('payment-type');
+
+    function updatePaymentTypeOptions() {
+      const company = paymentCompanyEl.value;
+
+      if (COMPANIES_WITHOUT_PAYMENT_TYPE.includes(company)) {
+        paymentTypeEl.disabled = true;
+        return;
+      }
+
+      paymentTypeEl.disabled = false;
+
+      const types = PAYMENT_TYPES_BY_COMPANY[company] || [];
+      paymentTypeEl.innerHTML = '';
+      types.forEach((type) => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        paymentTypeEl.appendChild(option);
+      });
+    }
+
+    paymentCompanyEl.addEventListener('change', updatePaymentTypeOptions);
+    updatePaymentTypeOptions();
+
+    document.querySelector('.btn-clear').addEventListener('click', () => {
+      document.getElementById('target-month').value = '';
+    });
+
+    document.querySelector('.btn-back').addEventListener('click', () => {
+      window.top.location.href = '/login';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>社員一覧 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    /* === 色トークン (他画面と統一) === */
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-search: #eef3fa;
+    --bg-label: #ede8db;
+    --bg-label-soft: #f5f2eb;
+    --bg-white: #ffffff;
+    --bg-hover: #faf8f2;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-table: #e5e2d8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+    --text-subtle: #9a9a9a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+
+    /* === フォントトークン === */
+    --font-jp: "Inter", "Noto Sans JP", sans-serif;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+
+    /* === フォントサイズトークン === */
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 22px;
+
+    /* === レイアウトトークン === */
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    min-height: 100vh;
+  }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ページ全体のカスタムスクロールバー */
+  body::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  body::-webkit-scrollbar-track {
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-table);
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid var(--bg-page);
+    border-radius: 8px;
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  /* ヘッダー */
+  .header-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+  }
+
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .btn-back:hover {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-title {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  /* 検索エリア */
+  .search-box {
+    background-color: var(--bg-search);
+    border: 1px solid #dde5f0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 14px;
+  }
+
+  .search-label {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    width: 280px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-family: var(--font-jp);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: var(--fs-base);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+  }
+
+  .btn-search {
+    background-color: var(--accent-blue-light);
+    border: 1px solid var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .btn-search:hover {
+    background-color: #d5e4f6;
+  }
+
+  .btn-clear {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    color: var(--text-main);
+  }
+
+  .btn-clear:hover {
+    background-color: var(--bg-hover);
+  }
+
+  /* 新規登録ツールバー */
+  .toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .btn-new {
+    background-color: #faeeda;
+    border: 1px solid #ecd9b0;
+    color: #8a5a1a;
+    font-weight: 600;
+  }
+
+  .btn-new:hover {
+    background-color: #f3e2c4;
+    border-color: #c08a3e;
+  }
+
+  /* 結果ヘッダー */
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .result-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-left: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .per-page-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-select {
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    font-family: var(--font-jp);
+    font-size: var(--fs-xs);
+    color: var(--text-main);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .per-page-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* ページネーション */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .page-numbers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .page-btn:hover:not(:disabled):not(.is-active) {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .page-number.is-active {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .page-ellipsis {
+    min-width: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+  }
+
+  .page-nav {
+    font-weight: 600;
+  }
+
+  /* データテーブル */
+  .data-table-wrapper {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .data-scroll {
+    overflow-y: auto;
+    max-height: 560px;
+  }
+
+  .data-scroll::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  .data-scroll::-webkit-scrollbar-track {
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-table);
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid var(--bg-page);
+    border-radius: 8px;
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .data-table col.c-no { width: 140px; }
+  .data-table col.c-name { width: 220px; }
+  .data-table col.c-kana { width: 260px; }
+  .data-table col.c-dept { width: auto; }
+  .data-table col.c-tel { width: 180px; }
+  .data-table col.c-fax { width: 180px; }
+
+  .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #FAEEDA;
+    color: var(--text-label);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .data-table thead th:last-child {
+    border-right: none;
+  }
+
+  .data-table tbody td {
+    padding: 11px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: var(--font-jp);
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .data-table tbody td:last-child {
+    border-right: none;
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .data-table tbody td.no {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table tbody td.name {
+    font-weight: normal;
+  }
+
+  .data-table tbody td.kana {
+    color: var(--text-sub);
+  }
+
+  .data-table tbody td.tel,
+  .data-table tbody td.fax {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table tbody td.fax.empty {
+    color: var(--text-subtle);
+    font-family: var(--font-jp);
+  }
+
+  .data-table tbody tr:hover td {
+    background: var(--bg-hover);
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- ログアウトボタン -->
+    <div class="header-row">
+      <button class="btn-back" type="button">
+        <span>ログアウト</span>
+      </button>
+    </div>
+
+    <!-- タイトル -->
+    <h1 class="page-title">社員一覧</h1>
+
+    <!-- 新規登録 -->
+    <div class="toolbar">
+      <button class="btn btn-new" type="button" id="new-employee-btn">
+        <span>＋</span>
+        <span>新規登録</span>
+      </button>
+    </div>
+
+    <!-- 検索エリア -->
+    <div class="search-box">
+      <label class="search-label" for="employee-kana">社員名カナ</label>
+      <div class="search-row">
+        <input type="text" id="employee-kana" class="search-input" placeholder="社員名カナを入力" />
+        <button class="btn btn-search" type="button">
+          <span>🔍</span>
+          <span>絞込み</span>
+        </button>
+        <button class="btn btn-clear" type="button">クリア</button>
+      </div>
+    </div>
+
+    <!-- 結果ヘッダー -->
+    <div class="result-header">
+      <span class="result-summary" id="result-summary"></span>
+      <div class="per-page-control">
+        <label class="per-page-label" for="per-page-select">表示件数</label>
+        <select id="per-page-select" class="per-page-select">
+          <option value="10" selected>10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 社員一覧テーブル -->
+    <div class="data-table-wrapper">
+      <div class="data-scroll">
+        <table class="data-table">
+          <colgroup>
+            <col class="c-no">
+            <col class="c-name">
+            <col class="c-kana">
+            <col class="c-dept">
+            <col class="c-tel">
+            <col class="c-fax">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>社員番号</th>
+              <th>社員名</th>
+              <th>社員名 (カナ)</th>
+              <th>部署</th>
+              <th>電話番号</th>
+              <th>FAX</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="no">S001</td><td class="name">田中 一郎</td><td class="kana">タナカ イチロウ</td><td>営業部</td><td class="tel">03-1234-5678</td><td class="fax">03-1234-5679</td></tr>
+            <tr><td class="no">S002</td><td class="name">佐藤 花子</td><td class="kana">サトウ ハナコ</td><td>営業部</td><td class="tel">03-1234-5680</td><td class="fax">03-1234-5681</td></tr>
+            <tr><td class="no">S003</td><td class="name">鈴木 太郎</td><td class="kana">スズキ タロウ</td><td>システム開発部</td><td class="tel">03-1234-5682</td><td class="fax empty">—</td></tr>
+            <tr><td class="no">S004</td><td class="name">高橋 美咲</td><td class="kana">タカハシ ミサキ</td><td>システム開発部</td><td class="tel">03-1234-5683</td><td class="fax">03-1234-5684</td></tr>
+            <tr><td class="no">S005</td><td class="name">伊藤 健太</td><td class="kana">イトウ ケンタ</td><td>経理部</td><td class="tel">03-1234-5685</td><td class="fax">03-1234-5686</td></tr>
+            <tr><td class="no">S006</td><td class="name">渡辺 由美</td><td class="kana">ワタナベ ユミ</td><td>経理部</td><td class="tel">03-1234-5687</td><td class="fax empty">—</td></tr>
+            <tr><td class="no">S007</td><td class="name">山本 隆</td><td class="kana">ヤマモト タカシ</td><td>総務部</td><td class="tel">03-1234-5688</td><td class="fax">03-1234-5689</td></tr>
+            <tr><td class="no">S008</td><td class="name">中村 あかね</td><td class="kana">ナカムラ アカネ</td><td>総務部</td><td class="tel">03-1234-5690</td><td class="fax">03-1234-5691</td></tr>
+            <tr><td class="no">S009</td><td class="name">小林 大輔</td><td class="kana">コバヤシ ダイスケ</td><td>営業部</td><td class="tel">03-1234-5692</td><td class="fax">03-1234-5693</td></tr>
+            <tr><td class="no">S010</td><td class="name">加藤 さくら</td><td class="kana">カトウ サクラ</td><td>システム開発部</td><td class="tel">03-1234-5694</td><td class="fax">03-1234-5695</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ページネーション -->
+    <div class="pagination" id="pagination">
+      <button class="page-btn page-nav" type="button" data-nav="prev" aria-label="前のページ">‹</button>
+      <div class="page-numbers" id="page-numbers"></div>
+      <button class="page-btn page-nav" type="button" data-nav="next" aria-label="次のページ">›</button>
+    </div>
+
+  </div>
+
+  <script>
+    // クリアボタン: 検索入力をクリア
+    document.querySelector('.btn-clear').addEventListener('click', function () {
+      document.getElementById('employee-kana').value = '';
+    });
+
+    // ログアウトボタン: ログイン画面へ遷移
+    document.querySelector('.btn-back').addEventListener('click', function () {
+      window.top.location.href = '/login';
+    });
+
+    // 新規登録ボタン: 同じ枠 (iframe) 内で社員管理画面を登録モードで開く
+    document.getElementById('new-employee-btn').addEventListener('click', function () {
+      window.location.href = '/employee_edit?mode=new';
+    });
+
+    // 表の社員 (行) を選択したら、同じ枠 (iframe) 内で社員編集画面へ遷移する
+    // 新規タブを開かず現在のウィンドウを遷移させることで、
+    // 親シェル (menu) の左サイドバーを表示したまま編集画面を表示する
+    document.querySelectorAll('.data-table tbody tr').forEach(function (row) {
+      row.addEventListener('click', function () {
+        var numberCell = row.querySelector('td.no');
+        var employeeNumber = numberCell ? numberCell.textContent.trim() : '';
+        window.location.href =
+            '/employee_edit?employeeNumber=' + encodeURIComponent(employeeNumber);
+      });
+    });
+
+    // ページネーション: 表示件数の切替と複数ページの表示制御
+    (function () {
+      var rows = Array.prototype.slice.call(
+        document.querySelectorAll('.data-table tbody tr')
+      );
+      var perPageSelect = document.getElementById('per-page-select');
+      var pageNumbersEl = document.getElementById('page-numbers');
+      var summaryEl = document.getElementById('result-summary');
+      var pagination = document.getElementById('pagination');
+      var prevBtn = pagination.querySelector('[data-nav="prev"]');
+      var nextBtn = pagination.querySelector('[data-nav="next"]');
+
+      var totalItems = rows.length;
+      var perPage = parseInt(perPageSelect.value, 10);
+      var currentPage = 1;
+
+      // 総ページ数 (最低1ページ)
+      function getTotalPages() {
+        return Math.max(1, Math.ceil(totalItems / perPage));
+      }
+
+      // 表示するページ番号の並びを生成 (両端と現在ページ周辺、省略は'...')
+      function buildPageItems(current, total) {
+        var items = [];
+        if (total <= 7) {
+          for (var i = 1; i <= total; i++) {
+            items.push(i);
+          }
+          return items;
+        }
+        items.push(1);
+        var left = Math.max(2, current - 1);
+        var right = Math.min(total - 1, current + 1);
+        if (left > 2) {
+          items.push('...');
+        }
+        for (var page = left; page <= right; page++) {
+          items.push(page);
+        }
+        if (right < total - 1) {
+          items.push('...');
+        }
+        items.push(total);
+        return items;
+      }
+
+      // 現在ページに応じて行の表示・概要・ページUIを再描画する
+      function render() {
+        var totalPages = getTotalPages();
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+        var startIndex = (currentPage - 1) * perPage;
+        var endIndex = Math.min(startIndex + perPage, totalItems);
+
+        rows.forEach(function (row, index) {
+          row.style.display =
+            (index >= startIndex && index < endIndex) ? '' : 'none';
+        });
+
+        if (totalItems === 0) {
+          summaryEl.textContent = '0 件';
+        } else {
+          summaryEl.textContent =
+            (startIndex + 1) + '-' + endIndex + ' / ' + totalItems + ' 件';
+        }
+
+        pageNumbersEl.innerHTML = '';
+        buildPageItems(currentPage, totalPages).forEach(function (item) {
+          if (item === '...') {
+            var ellipsis = document.createElement('span');
+            ellipsis.className = 'page-ellipsis';
+            ellipsis.textContent = '…';
+            pageNumbersEl.appendChild(ellipsis);
+            return;
+          }
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className =
+            'page-btn page-number' + (item === currentPage ? ' is-active' : '');
+          button.textContent = item;
+          button.addEventListener('click', function () {
+            currentPage = item;
+            render();
+          });
+          pageNumbersEl.appendChild(button);
+        });
+
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage === totalPages;
+      }
+
+      prevBtn.addEventListener('click', function () {
+        if (currentPage > 1) {
+          currentPage--;
+          render();
+        }
+      });
+
+      nextBtn.addEventListener('click', function () {
+        if (currentPage < getTotalPages()) {
+          currentPage++;
+          render();
+        }
+      });
+
+      perPageSelect.addEventListener('change', function () {
+        perPage = parseInt(perPageSelect.value, 10);
+        currentPage = 1;
+        render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>キャッシュレス管理システム</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+<style>
+  :root {
+    --color-bg-page: #F5F5F0;
+    --color-bg-primary: #FFFFFF;
+    --color-bg-secondary: #F1EFE8;
+    --color-bg-hover: #E8E6DE;
+    --color-text-primary: #2C2C2A;
+    --color-text-secondary: #5F5E5A;
+    --color-text-tertiary: #888780;
+    --color-border-tertiary: rgba(0, 0, 0, 0.10);
+    --color-border-secondary: rgba(0, 0, 0, 0.18);
+    --color-blue-50: #E6F1FB;
+    --color-blue-600: #185FA5;
+    --color-blue-800: #0C447C;
+    --color-blue-accent: #378ADD;
+    --color-green-50: #EAF3DE;
+    --color-green-600: #3B6D11;
+    --color-green-800: #27500A;
+    --color-green-accent: #639922;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-pill: 999px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Segoe UI", system-ui, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--color-bg-page);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+  }
+
+  .page-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+  }
+
+  .page-header .eyebrow {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin: 0 0 2px;
+    letter-spacing: 0.08em;
+  }
+
+  .page-header h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 768px) {
+    .columns {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    font-weight: 500;
+  }
+
+  .badge.inquiry {
+    background: var(--color-blue-50);
+    color: var(--color-blue-800);
+  }
+
+  .badge.operation {
+    background: var(--color-green-50);
+    color: var(--color-green-800);
+  }
+
+  .card {
+    background: var(--color-bg-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .card.inquiry {
+    border-left: 3px solid var(--color-blue-accent);
+  }
+
+  .card.operation {
+    border-left: 3px solid var(--color-green-accent);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .card-header .ti {
+    font-size: 16px;
+  }
+
+  .card.inquiry .card-header .ti {
+    color: var(--color-blue-600);
+  }
+
+  .card.operation .card-header .ti {
+    color: var(--color-green-600);
+  }
+
+  .card-header .label {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+
+  .menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    font-size: 13px;
+    color: var(--color-text-primary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .menu-item:hover {
+    background: var(--color-bg-hover);
+  }
+
+  .menu-item:focus {
+    outline: 2px solid var(--color-blue-accent);
+    outline-offset: 1px;
+  }
+
+  .menu-item .arrow {
+    font-size: 14px;
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  .menu-item .sub {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    margin-left: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header class="page-header">
+    <p class="eyebrow">CASHLESS MANAGEMENT</p>
+    <h1>キャッシュレス管理システム</h1>
+  </header>
+
+  <div class="columns">
+
+    <section>
+      <div class="section-label">
+        <span class="badge inquiry"><i class="ti ti-search" aria-hidden="true"></i>照会機能</span>
+      </div>
+
+      <div class="card inquiry">
+        <div class="card-header">
+          <i class="ti ti-user" aria-hidden="true"></i>
+          <p class="label">会員情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="#" class="menu-item">
+            <span>会員情報照会</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="card inquiry">
+        <div class="card-header">
+          <i class="ti ti-building-store" aria-hidden="true"></i>
+          <p class="label">店舗・端末情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="#" class="menu-item">
+            <span>店舗・端末・SMCC加盟店番号情報照会</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="card inquiry">
+        <div class="card-header">
+          <i class="ti ti-receipt" aria-hidden="true"></i>
+          <p class="label">精算情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="#" class="menu-item">
+            <span>PAYGATE Station 精算情報照会</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="#" class="menu-item">
+            <span>stera terminal 精算情報照会<span class="sub">(JCB)</span></span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="#" class="menu-item">
+            <span>stera terminal 精算情報照会<span class="sub">(SMCC)</span></span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-label">
+        <span class="badge operation"><i class="ti ti-settings" aria-hidden="true"></i>運用機能</span>
+      </div>
+
+      <div class="card operation">
+        <div class="card-header">
+          <i class="ti ti-user-plus" aria-hidden="true"></i>
+          <p class="label">会員情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="#" class="menu-item">
+            <span>加盟会員店マスターデータ 登録・更新</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="#" class="menu-item">
+            <span>各決済会社所定申込フォーム作成</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="card operation">
+        <div class="card-header">
+          <i class="ti ti-device-desktop" aria-hidden="true"></i>
+          <p class="label">店舗・端末情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="#" class="menu-item">
+            <span>店舗・端末・加盟店番号データ作成</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="card operation">
+        <div class="card-header">
+          <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
+          <p class="label">精算情報</p>
+        </div>
+        <div class="menu-list">
+          <a href="#" class="menu-item">
+            <span>JFTD精算データ作成<span class="sub">(PAYGATE Station)</span></span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="#" class="menu-item">
+            <span>その他精算データ作成<span class="sub">(PAYGATE Station)</span></span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+          <a href="#" class="menu-item">
+            <span>精算帳票出力</span>
+            <i class="ti ti-arrow-right arrow" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,128 @@
+/* ===========================================================================
+   キャッシュレス管理システム 共通スタイル
+   - 全画面で共有するトークン (色 / フォント / サイズ / レイアウト)
+   - 共通ベース (body / scrollbar / btn-back)
+   各画面で個別カスタマイズが必要な箇所は HTML 側 <style> で上書きしてください
+   =========================================================================== */
+
+:root {
+  /* === 色トークン === */
+  --bg-page: #f5f3ee;
+  --bg-card: #fbfaf6;
+  --bg-search: #eef3fa;
+  --bg-label: #ede8db;          /* テーブル項目ラベル背景 (旧#f5f2ebからコントラスト強化) */
+  --bg-label-soft: #f5f2eb;     /* 補助ラベル背景 */
+  --bg-item: #ffffff;
+  --bg-white: #ffffff;
+  --border-color: #e8e4da;
+  --border-input: #d8d4c8;
+  --border-table: #e5e2d8;
+  --border-item: #e5e2d8;
+  --text-main: #2a2a2a;
+  --text-sub: #4a4a4a;
+  --text-muted: #8a8a8a;
+  --text-label: #5a5a5a;
+  --text-subtle: #9a9a9a;
+  --text-arrow: #9a9a9a;
+  --accent-blue: #3a6db5;
+  --accent-blue-light: #e3edfb;
+  --accent-blue-border: #b9d0ec;
+  --tab-active: #2b5fa8;
+  --tag-blue-bg: #e6efff;
+  --tag-blue-text: #3a5a9a;
+  --tag-green-bg: #dcead9;
+  --tag-green-text: #3d6b3a;
+
+  /* === フォントトークン === */
+  --font-jp: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --font-base: "Inter", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+
+  /* === フォントサイズトークン === */
+  --fs-xs: 12px;     /* タグ・補助ラベル */
+  --fs-sm: 13px;     /* 補助テキスト */
+  --fs-base: 14px;   /* 本文・テーブル */
+  --fs-md: 16px;     /* セクションタイトル */
+  --fs-lg: 20px;     /* ページタイトル */
+  --fs-xl: 22px;     /* システムタイトル */
+
+  /* === レイアウトトークン === */
+  --container-min: 1280px;
+  --container-max: 1440px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100vh;
+}
+
+body {
+  font-family: var(--font-base);
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  padding: 0;
+  min-height: 100vh;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-font-smoothing: antialiased;
+  font-size: var(--fs-base);
+  font-feature-settings: "palt";
+}
+
+/* ページ全体の縦スクロールバー (ベージュテーマ) */
+body::-webkit-scrollbar {
+  width: 14px;
+}
+body::-webkit-scrollbar-track {
+  background: #f5f3ee;
+  border-left: 1px solid var(--border-table);
+}
+body::-webkit-scrollbar-thumb {
+  background: #c9c4b4;
+  border: 3px solid #f5f3ee;
+  border-radius: 8px;
+}
+body::-webkit-scrollbar-thumb:hover {
+  background: #aea892;
+}
+
+/* === 共通: 戻るボタン === */
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--bg-white);
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: var(--fs-base);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+.btn-back:hover {
+  background-color: #faf8f2;
+  border-color: #c4bfae;
+}
+
+/* === 共通: ページタイトル === */
+.page-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text-main);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 10px;
+  letter-spacing: 0.01em;
+}
+
+/* === 共通: tabular-nums ヘルパー === */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
