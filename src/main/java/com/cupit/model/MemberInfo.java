@@ -1,24 +1,71 @@
 package com.cupit.model;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+/**
+ * 会員情報を表すエンティティ。
+ * member_info テーブルの 1 行に対応する。
+ */
+@Entity
+@Table(name = "member_info")
 public class MemberInfo {
 
+    @Id
+    @Column(name = "transaction_code")
     private String transactionCode;
+
+    @Column(name = "store_name")
     private String storeName;
+
+    @Column(name = "store_name_kana")
     private String storeNameKana;
+
+    @Column(name = "member_type")
     private String memberType;
+
+    @Column(name = "parent_store_code")
     private String parentStoreCode;
+
+    @Column(name = "parent_store_name")
     private String parentStoreName;
+
+    @Column(name = "new_transaction_code")
     private String newTransactionCode;
+
+    @Column(name = "prev_transaction_code")
     private String prevTransactionCode;
+
+    @Column(name = "middle_code")
     private String middleCode;
+
+    @Column(name = "block_code")
     private String blockCode;
+
+    @Column(name = "join_date")
     private String joinDate;
+
+    @Column(name = "corporation_flag")
     private String corporationFlag;
+
+    @Column(name = "cooperative_flag")
     private String cooperativeFlag;
+
+    @Column(name = "representative_name")
     private String representativeName;
+
+    @Column(name = "representative_kana")
     private String representativeKana;
+
+    @Column(name = "postal_code")
     private String postalCode;
+
+    @Column(name = "address")
     private String address;
+
+    @Column(name = "phone_number")
     private String phoneNumber;
 
     public String getTransactionCode() {

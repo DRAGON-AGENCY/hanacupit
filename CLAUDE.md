@@ -214,3 +214,71 @@ Java言語でアプリケーションの開発を行う場合は、下記のコ�
 110.Javadocの記述を揃える
 111.オーバーライドするメソッドにはOverrideアノテーションを使用する
 112.関数型インタフェースの定義にはFunctionalInterfaceアノテーションを使用する(JavaSE8 以降)
+
+---
+
+## ランタイム構成・デプロイ手順
+
+本プロジェクトは **外部 Tomcat 10.1 + PostgreSQL 17** で稼働する Spring Boot WAR アプリ。組み込み Tomcat ではなく、Windows サービスとして動作する Apache Tomcat 10.1 にデプロイする。
+
+### スタック
+
+| 項目 | 値 |
+|---|---|
+| Tomcat | `C:\Program Files\Apache Software Foundation\Tomcat 10.1` |
+| Tomcat サービス名 | `Tomcat10` |
+| HTTP ポート | 8080 |
+| WAR 出力 | `C:\git\hanacupit\target\ROOT.war`（pom.xml の `<finalName>ROOT</finalName>`） |
+| デプロイ先 | `C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\ROOT.war` |
+| 接続先 DB | **PostgreSQL 17（ポート 5433）** ※ PG 9.5 も同居しているが 5432 で別用途。アプリは PG17 を使う |
+| DB ロール / DB 名 | `hanacupit` / `hanacupit`（ローカル開発用パスワード `hanacupit`） |
+| Java | JDK 21（pom.xml `java.version=21`）。サービス起動 JVM は jdk-23 でも動作確認済み |
+
+### `application.properties` のプレースホルダ
+
+```
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5433/hanacupit}
+spring.datasource.username=${DB_USERNAME:hanacupit}
+spring.datasource.password=${DB_PASSWORD:hanacupit}
+```
+
+環境変数 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` で上書き可能。未設定時は上記デフォルトを使用する。
+
+`spring.sql.init.mode=always` のため、起動のたびに `src/main/resources/schema.sql` `data.sql` が実行される（`CREATE TABLE IF NOT EXISTS` で冪等）。
+
+### デプロイ手順
+
+1. **WAR ビルド**：Eclipse でプロジェクト右クリック → `実行` → `Maven clean` → `Maven install`
+2. **再デプロイ**（管理者 PowerShell）：
+   ```powershell
+   Stop-Service Tomcat10
+   Remove-Item -Recurse -Force 'C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\ROOT'
+   Remove-Item -Force 'C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\ROOT.war'
+   Copy-Item 'C:\git\hanacupit\target\ROOT.war' 'C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\ROOT.war' -Force
+   Start-Service Tomcat10
+   ```
+   ※ 展開済み `webapps/ROOT/` を消さずに上書きすると、古い設定で起動してしまうことがあるため必ず削除する。
+3. 起動完了まで約 30〜40 秒待ってから `http://localhost:8080/` にアクセス。
+
+### DB 初期構築（初回のみ）
+
+PostgreSQL 17 の `postgres` スーパーユーザーで以下を実行:
+
+```sql
+CREATE ROLE hanacupit WITH LOGIN PASSWORD 'hanacupit';
+CREATE DATABASE hanacupit OWNER hanacupit ENCODING 'UTF8';
+GRANT ALL PRIVILEGES ON DATABASE hanacupit TO hanacupit;
+```
+
+### HTML テンプレートの配置
+
+- Controller から `return "xxx";` でレンダリングする画面 → `src/main/resources/templates/xxx.html`
+- 静的 HTML / CSS / JS / 画像 → `src/main/resources/static/`
+- プロジェクト直下（`C:\git\hanacupit\*.html`）にあるファイルは **WAR に含まれない**（デザイン原本扱い）
+
+### トラブルシューティング
+
+- **404 が出るが画面が出ない** → ルート原因は WAR デプロイ失敗のことが多い。`C:\Program Files\Apache Software Foundation\Tomcat 10.1\logs\catalina.<日付>.log` を末尾から確認し、`HostConfig.deployWAR` の `重大` 行から `Caused by:` を辿る。
+- **DB 認証失敗** → 接続先は PG17（5433）。PG9.5（5432）と取り違えない。
+- ログのエンコーディングは Shift_JIS。PowerShell で読むと日本語が化けるが、クラス名・例外型は ASCII なので原因特定は可能。
+
