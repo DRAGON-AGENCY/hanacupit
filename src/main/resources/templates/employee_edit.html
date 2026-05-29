@@ -1,12 +1,21 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- CSRF トークン。更新系の要求でヘッダーに設定して送信する。 -->
+<meta name="csrf-token" th:content="${csrfToken}" content="">
 <title>社員情報 編集 | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<!-- 取得前でも代替フォントで即座に画面を表示し、応答性を確保する。 -->
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
 <style>
   :root {
     /* === 色トークン (他画面と統一) === */
@@ -371,38 +380,42 @@
 <body>
   <div class="container">
 
-    <!-- ログアウトボタン -->
-    <div class="header-row">
-      <button class="btn-back" type="button">
-        <span>ログアウト</span>
-      </button>
-    </div>
-
     <!-- タイトル -->
     <div class="title-row">
       <h1 class="page-title">社員管理</h1>
       <span class="mode-indicator" id="mode-indicator"></span>
     </div>
 
+    <!-- 入力エラー表示 -->
+    <div id="form-error" role="alert"
+         style="display:none; margin-bottom:12px; padding:10px 14px;
+                border-radius:6px; background:#fdf4f4; border:1px solid #e6c4c4;
+                color:#b33a3a; font-size:15px;"></div>
+
     <!-- フォーム -->
     <div class="form-box">
       <div class="form-section-title">基本情報</div>
 
+      <!-- 編集対象を一意に識別するユーザー ID (画面では非表示) -->
+      <input type="hidden" id="employee-userid" th:value="${employee?.userId}" />
+
       <div class="form-row">
         <div class="form-field">
-          <label>社員番号 <span class="required">必須</span></label>
-          <input type="text" id="employee-number" class="mono" value="S001"
-                 placeholder="自動採番されます" readonly />
-          <div class="field-hint">自動採番されます</div>
+          <label>メールアドレス <span class="required">必須</span></label>
+          <input type="email" id="employee-email" class="mono"
+                 th:value="${employee?.email}"
+                 placeholder="メールアドレスを入力" />
+          <div class="field-hint">例: name@example.com</div>
         </div>
         <div class="form-field">
           <label>社員名 <span class="required">必須</span></label>
-          <input type="text" id="employee-name" value="田中 一郎"
+          <input type="text" id="employee-name" th:value="${employee?.employeeName}"
                  placeholder="社員名を入力" />
         </div>
         <div class="form-field">
           <label>社員名 (カナ) <span class="required">必須</span></label>
-          <input type="text" id="employee-kana" value="タナカ イチロウ"
+          <input type="text" id="employee-kana"
+                 th:value="${employee?.employeeNameKana}"
                  placeholder="社員名カナを入力" />
         </div>
       </div>
@@ -410,27 +423,53 @@
       <div class="form-row">
         <div class="form-field">
           <label>部署 <span class="required">必須</span></label>
+          <input type="text" id="employee-dept" th:value="${employee?.department}"
+                 placeholder="部署を入力" />
+          <div class="field-hint">例: 営業部</div>
+        </div>
+        <div class="form-field">
+          <label>権限コード <span class="required">必須</span></label>
           <div class="select-wrap">
-            <select id="employee-dept">
-              <option>営業部</option>
-              <option>システム開発部</option>
-              <option>経理部</option>
-              <option>総務部</option>
+            <select id="employee-authority">
+              <option value="01" th:selected="${employee?.authorityCode == '01'}">01：管理者</option>
+              <option value="02" th:selected="${employee?.authorityCode == '02'}">02：担当者</option>
+              <option value="03" th:selected="${employee?.authorityCode == '03'}">03：閲覧のみ</option>
             </select>
             <svg class="select-arrow" width="10" height="10" viewBox="0 0 10 10"><path d="M1 3.5 L5 7 L9 3.5" stroke="#6b6b68" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
           </div>
         </div>
         <div class="form-field">
           <label>電話番号 <span class="required">必須</span></label>
-          <input type="text" id="employee-tel" class="mono" value="03-1234-5678"
+          <input type="text" id="employee-tel" class="mono"
+                 th:value="${employee?.phoneNumber}"
                  placeholder="03-0000-0000" />
           <div class="field-hint">半角数字とハイフンで入力してください</div>
         </div>
+      </div>
+
+      <div class="form-row">
         <div class="form-field">
           <label>FAX</label>
-          <input type="text" id="employee-fax" class="mono" value="03-1234-5679"
+          <input type="text" id="employee-fax" class="mono"
+                 th:value="${employee?.faxNumber}"
                  placeholder="03-0000-0000" />
           <div class="field-hint">任意項目です</div>
+        </div>
+        <div class="form-field">
+          <label>パスワード</label>
+          <input type="password" id="employee-password" autocomplete="new-password"
+                 placeholder="パスワードを入力" />
+          <div class="field-hint" id="password-hint">
+            変更する場合のみ入力してください（空欄なら現状維持）。
+            8〜72文字で、英大文字・英小文字・数字・記号を各1文字以上。
+          </div>
+        </div>
+        <div class="form-field">
+          <label>パスワード入力間違い回数 <span class="required">必須</span></label>
+          <input type="number" id="employee-error-count" class="mono" min="0"
+                 th:value="${employee != null ? employee.passwordErrorCount : 0}"
+                 placeholder="0" />
+          <div class="field-hint">ロック解除する場合は 0 を入力してください</div>
         </div>
       </div>
     </div>
@@ -452,71 +491,263 @@
       <span class="notice-icon">!</span>
       <div class="notice-text" id="notice-text">
         <strong>更新時のご注意:</strong>
-        社員番号は自動採番のため変更できません。
+        メールアドレスは社員を識別する情報です。変更する場合は重複していないか確認してください。
       </div>
     </div>
 
   </div>
 
   <script>
-    // ログアウトボタン: ログイン画面へ遷移
-    document.querySelector('.btn-back').addEventListener('click', function () {
-      window.top.location.href = '/login';
-    });
+    // CSRF トークン。更新系の要求のヘッダーに設定して送信する。
+    var csrfToken = document
+        .querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    // 各入力欄
+    var userIdInput = document.getElementById('employee-userid');
+    var emailInput = document.getElementById('employee-email');
+    var nameInput = document.getElementById('employee-name');
+    var kanaInput = document.getElementById('employee-kana');
+    var deptInput = document.getElementById('employee-dept');
+    var authoritySelect = document.getElementById('employee-authority');
+    var telInput = document.getElementById('employee-tel');
+    var faxInput = document.getElementById('employee-fax');
+    var passwordInput = document.getElementById('employee-password');
+    var errorCountInput = document.getElementById('employee-error-count');
+    var formError = document.getElementById('form-error');
+    var submitButton = document.getElementById('submit-btn');
+    var deleteButton = document.getElementById('delete-btn');
+    var clearButton = document.getElementById('clear-btn');
+
+    // メールアドレスの形式チェック用 (サーバー側と同じ条件)
+    var EMAIL_PATTERN = /^[A-Za-z0-9._+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
+
+    // パスワードのポリシーチェック用 (サーバー側と同じ条件)
+    var PASSWORD_MIN_LENGTH = 8;
+    var PASSWORD_MAX_LENGTH = 72;
+    var PASSWORD_ALLOWED_PATTERN = /^[\x21-\x7E]+$/;
+    var PASSWORD_UPPERCASE_PATTERN = /[A-Z]/;
+    var PASSWORD_LOWERCASE_PATTERN = /[a-z]/;
+    var PASSWORD_DIGIT_PATTERN = /[0-9]/;
+    var PASSWORD_SYMBOL_PATTERN = /[!-\/:-@\[-`{-~]/;
+
+    // 電話番号・FAX の形式チェック用 (半角数字とハイフンのみ)
+    var PHONE_NUMBER_PATTERN = /^[0-9-]+$/;
+
+    // 登録モード (mode=new) と編集モード (既定) を URL で判定する
+    var searchParams = new URLSearchParams(window.location.search);
+    var mode = searchParams.get('mode') === 'new' ? 'new' : 'edit';
+
+    // エラーメッセージの表示・非表示
+    function showError(message) {
+      formError.textContent = message;
+      formError.style.display = 'block';
+    }
+
+    function hideError() {
+      formError.style.display = 'none';
+    }
+
+    // 画面の入力内容を新規登録時の初期値に戻す
+    // (登録モードの初期化とクリアボタンで共用)
+    function clearEmployeeForm() {
+      emailInput.value = '';
+      nameInput.value = '';
+      kanaInput.value = '';
+      deptInput.value = '';
+      authoritySelect.selectedIndex = 0;
+      telInput.value = '';
+      faxInput.value = '';
+      passwordInput.value = '';
+      errorCountInput.value = '0';
+      // 直前のエラー表示と登録ボタンの無効化も初期状態に戻す
+      hideError();
+      submitButton.disabled = false;
+      emailInput.focus();
+    }
 
     // 戻るボタン: 同じ枠 (iframe) 内で社員一覧へ戻る
     document.querySelector('.btn-cancel').addEventListener('click', function () {
       window.location.href = '/employee_list';
     });
 
-    // 入力欄をすべて空に戻す (登録モードの初期化とクリアボタンで共用)
-    function clearEmployeeForm() {
-      document.getElementById('employee-number').value = '';
-      document.getElementById('employee-name').value = '';
-      document.getElementById('employee-kana').value = '';
-      document.getElementById('employee-dept').selectedIndex = 0;
-      document.getElementById('employee-tel').value = '';
-      document.getElementById('employee-fax').value = '';
-      document.getElementById('employee-name').focus();
+    // 入力チェック。問題があればメッセージを返す (問題なければ null)
+    function validateForm() {
+      var email = emailInput.value.trim();
+      if (email === '') {
+        return 'メールアドレスを入力してください。';
+      }
+      if (!EMAIL_PATTERN.test(email)) {
+        return 'メールアドレスの形式が正しくありません。';
+      }
+      if (nameInput.value.trim() === '') {
+        return '社員名を入力してください。';
+      }
+      if (kanaInput.value.trim() === '') {
+        return '社員名 (カナ) を入力してください。';
+      }
+      if (deptInput.value.trim() === '') {
+        return '部署を入力してください。';
+      }
+      if (telInput.value.trim() === '') {
+        return '電話番号を入力してください。';
+      }
+      if (!PHONE_NUMBER_PATTERN.test(telInput.value.trim())) {
+        return '電話番号は半角数字とハイフンで入力してください。';
+      }
+      // FAX は任意項目のため、入力された場合のみ形式を検査する
+      if (faxInput.value.trim() !== ''
+          && !PHONE_NUMBER_PATTERN.test(faxInput.value.trim())) {
+        return 'FAX は半角数字とハイフンで入力してください。';
+      }
+      var errorCount = parseInt(errorCountInput.value, 10);
+      if (isNaN(errorCount) || errorCount < 0) {
+        return 'パスワード入力間違い回数は 0 以上で入力してください。';
+      }
+      // パスワードの検査。登録モードでは必須、編集モードでは入力が
+      // あった場合のみポリシーを検査する (空欄なら現状維持)。
+      var password = passwordInput.value;
+      if (mode === 'new' && password === '') {
+        return 'パスワードを入力してください。';
+      }
+      if (password !== '') {
+        var passwordMessage = validatePassword(password);
+        if (passwordMessage !== null) {
+          return passwordMessage;
+        }
+      }
+      return null;
     }
 
-    // URLのmodeパラメータで「登録モード」と「編集モード」を切り替える
-    // 登録モード (mode=new): 空のフォームで新規社員を登録する
-    // 編集モード (既定):     一覧で選択した社員の内容を更新する
-    var searchParams = new URLSearchParams(window.location.search);
-    var mode = searchParams.get('mode');
+    // パスワードがポリシーを満たすか検査する (満たせば null)。
+    // 8〜72文字の半角英数字・記号で、英大文字・英小文字・数字・記号を
+    // それぞれ1文字以上含むことを必須とする。
+    function validatePassword(password) {
+      if (password.length < PASSWORD_MIN_LENGTH
+          || password.length > PASSWORD_MAX_LENGTH) {
+        return 'パスワードは 8 文字以上 72 文字以内で入力してください。';
+      }
+      if (!PASSWORD_ALLOWED_PATTERN.test(password)) {
+        return 'パスワードは半角の英数字と記号で入力してください。';
+      }
+      if (!PASSWORD_UPPERCASE_PATTERN.test(password)
+          || !PASSWORD_LOWERCASE_PATTERN.test(password)
+          || !PASSWORD_DIGIT_PATTERN.test(password)
+          || !PASSWORD_SYMBOL_PATTERN.test(password)) {
+        return 'パスワードは英大文字・英小文字・数字・記号を'
+            + 'それぞれ 1 文字以上含めてください。';
+      }
+      return null;
+    }
+
+    // 入力値を組み立ててサーバーへ保存要求を送る
+    function saveEmployee() {
+      hideError();
+      var validationMessage = validateForm();
+      if (validationMessage !== null) {
+        showError(validationMessage);
+        return;
+      }
+
+      var payload = {
+        mode: mode,
+        userId: userIdInput.value,
+        email: emailInput.value.trim(),
+        employeeName: nameInput.value.trim(),
+        employeeNameKana: kanaInput.value.trim(),
+        department: deptInput.value.trim(),
+        authorityCode: authoritySelect.value,
+        phoneNumber: telInput.value.trim(),
+        faxNumber: faxInput.value.trim(),
+        password: passwordInput.value,
+        passwordErrorCount: parseInt(errorCountInput.value, 10)
+      };
+
+      submitButton.disabled = true;
+      fetch('/employee/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify(payload)
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.success) {
+            window.location.href = '/employee_list';
+            return;
+          }
+          showError(data.message);
+          submitButton.disabled = false;
+        })
+        .catch(function () {
+          showError('通信エラーが発生しました。時間をおいて再度お試しください。');
+          submitButton.disabled = false;
+        });
+    }
+
+    // 社員を削除する
+    function deleteEmployee() {
+      if (!window.confirm('この社員を削除しますか？')) {
+        return;
+      }
+      hideError();
+      deleteButton.disabled = true;
+      fetch('/employee/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({ userId: userIdInput.value })
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.success) {
+            window.location.href = '/employee_list';
+            return;
+          }
+          showError(data.message);
+          deleteButton.disabled = false;
+        })
+        .catch(function () {
+          showError('通信エラーが発生しました。時間をおいて再度お試しください。');
+          deleteButton.disabled = false;
+        });
+    }
+
+    submitButton.addEventListener('click', saveEmployee);
+    deleteButton.addEventListener('click', deleteEmployee);
 
     if (mode === 'new') {
       // 見出しに登録モードであることを示す
       document.getElementById('mode-indicator').textContent = '（登録モード）';
 
-      // 入力欄を空にして新規入力に備える
-      clearEmployeeForm();
-
       // 登録モードでは削除対象が無いため削除ボタンを隠し、
       // 代わりに入力内容を消去するクリアボタンを表示する
-      document.getElementById('delete-btn').hidden = true;
-      document.getElementById('clear-btn').hidden = false;
-
-      // クリアボタン: 入力内容をすべて消去する
-      document.getElementById('clear-btn').addEventListener('click', function () {
-        clearEmployeeForm();
-      });
+      deleteButton.hidden = true;
+      clearButton.hidden = false;
+      clearButton.addEventListener('click', clearEmployeeForm);
 
       // 実行ボタンを「登録」に変更する
-      document.getElementById('submit-btn').textContent = '登録';
+      submitButton.textContent = '登録';
+
+      // 登録モードではパスワードを必須とするため注記を差し替える
+      document.getElementById('password-hint').textContent =
+          'パスワードを入力してください（必須）。'
+          + '8〜72文字で、英大文字・英小文字・数字・記号を各1文字以上。';
 
       // 注意書きを登録向けの内容に差し替える
       document.getElementById('notice-text').innerHTML =
           '<strong>登録時のご注意:</strong> '
-          + '社員番号は登録時に自動採番されます。';
-    } else {
-      // 編集モードでは削除ボタンを表示する (既定の表示のまま)
-      // 一覧で選択した社員番号を社員番号欄へ反映する
-      var employeeNumber = searchParams.get('employeeNumber');
-      if (employeeNumber) {
-        document.getElementById('employee-number').value = employeeNumber;
-      }
+          + 'メールアドレスは社員を識別する情報です。重複しないアドレスを入力してください。';
+
+      // 入力欄を空にして新規入力に備える
+      clearEmployeeForm();
     }
   </script>
 </body>

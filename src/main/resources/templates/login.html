@@ -1,12 +1,32 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
+<!-- CSRF トークン。更新系の要求でヘッダーに設定して送信する。 -->
+<meta name="csrf-token" th:content="${csrfToken}" content="">
+<script>
+  // このログイン画面が iframe (メニュー画面のコンテンツ枠) 内に読み込まれた
+  // 場合の対処。セッションタイムアウト時にインターセプターが iframe 内の
+  // リクエストを /login へリダイレクトすると、サイドメニュー付きシェルの中に
+  // ログイン画面が表示されてしまう。最上位ウィンドウごとログイン画面へ遷移し、
+  // サイドメニューの無い通常のログイン画面を全画面で表示する。
+  // 画面描画前に実行するため <head> の先頭に配置している。
+  if (window.top !== window.self) {
+    window.top.location.replace(window.location.href);
+  }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ログイン | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<!-- 取得前でも代替フォントで即座に画面を表示し、応答性を確保する。 -->
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
 <style>
   :root {
     --bg-page: #ffffff;
@@ -119,6 +139,17 @@
     outline: none;
     border-color: var(--accent-blue);
     box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* 入力チェックでエラーになった項目のハイライト */
+  .login-input.input-error {
+    border-color: var(--error-red);
+    background-color: var(--error-bg);
+  }
+
+  .login-input.input-error:focus {
+    border-color: var(--error-red);
+    box-shadow: 0 0 0 2px rgba(198, 74, 74, 0.18);
   }
 
   /* パスワード表示切替 */
@@ -273,18 +304,18 @@
     <!-- エラーメッセージ -->
     <div class="error-message" id="error-message">
       <span class="error-icon">!</span>
-      <span id="error-text">ユーザーIDまたはパスワードが正しくありません。</span>
+      <span id="error-text">ユーザIDまたはパスワードが正しくありません。</span>
     </div>
 
     <!-- ログインフォーム -->
     <div class="login-form-box">
       <div class="form-field">
-        <label class="form-label" for="user-id">ユーザーID</label>
+        <label class="form-label" for="userId">ユーザID</label>
         <input
           type="text"
-          id="user-id"
+          id="userId"
           class="login-input"
-          placeholder="例: admin001"
+          placeholder="例: user001"
           autocomplete="username"
         />
       </div>
@@ -326,6 +357,10 @@
   </div>
 
   <script>
+    // CSRF トークン。更新系の要求のヘッダーに設定して送信する。
+    const csrfToken = document
+        .querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     // パスワード表示切替
     const passwordInput = document.getElementById('password');
     const passwordToggle = document.getElementById('password-toggle');
@@ -340,8 +375,8 @@
       }
     });
 
-    // ログインボタン (デモ用バリデーション)
-    const userIdInput = document.getElementById('user-id');
+    // ログインフォームの入力チェック
+    const userIdInput = document.getElementById('userId');
     const errorMessage = document.getElementById('error-message');
     const errorText = document.getElementById('error-text');
     const btnLogin = document.getElementById('btn-login');
@@ -355,30 +390,124 @@
       errorMessage.classList.remove('show');
     }
 
+    // エラーになった入力欄にハイライトを付ける・解除する
+    function setFieldError(input) {
+      input.classList.add('input-error');
+    }
+
+    function clearFieldErrors() {
+      userIdInput.classList.remove('input-error');
+      passwordInput.classList.remove('input-error');
+    }
+
+    // ユーザIDの入力チェック (チェック1)
+    // 戻り値: エラーメッセージ。問題が無ければ null
+    function validateUserId(userId) {
+      // 未入力 (半角・全角スペースのみはトリム後に空文字となる)
+      if (userId === '') {
+        return 'ユーザIDを入力してください。';
+      }
+      // 全角文字 (ASCII 以外) が含まれる
+      if (/[^\x00-\x7F]/.test(userId)) {
+        return 'ユーザIDは半角で入力してください。';
+      }
+      // 使用できない文字 (許可するのは半角英数字)
+      if (/[^A-Za-z0-9]/.test(userId)) {
+        return 'ユーザIDに使用できない文字が含まれています。'
+            + '半角英数字で入力してください。';
+      }
+      // 文字数の上限超過
+      if (userId.length > 20) {
+        return 'ユーザIDは20文字以内で入力してください。';
+      }
+      return null;
+    }
+
+    // パスワードの入力チェック (チェック2)
+    // 戻り値: エラーメッセージ。問題が無ければ null
+    // ※ログイン時は未入力のみを確認する。桁数・文字種・複雑性の検査は
+    //   登録／変更時の責務であり、ログイン時に課すと既存パスワードでの
+    //   ログインを妨げるため行わない。実際の正否はサーバーで m_employee の
+    //   ユーザIDと照合して判定する。
+    function validatePassword(password) {
+      // 未入力 (半角・全角スペースのみは空とみなす)
+      if (password.trim() === '') {
+        return 'パスワードを入力してください。';
+      }
+      return null;
+    }
+
     btnLogin.addEventListener('click', () => {
       hideError();
-      const userId = userIdInput.value.trim();
-      const password = passwordInput.value.trim();
+      clearFieldErrors();
 
-      if (!userId && !password) {
-        showError('ユーザーIDとパスワードを入力してください。');
-        return;
-      }
-      if (!userId) {
-        showError('ユーザーIDを入力してください。');
+      // ユーザIDは前後の空白をトリムし、入力欄にも反映する
+      const userId = userIdInput.value.trim();
+      userIdInput.value = userId;
+      const password = passwordInput.value;
+
+      // チェック2 No.9: ユーザIDとパスワードがどちらも未入力
+      if (userId === '' && password.trim() === '') {
+        showError('ユーザIDとパスワードを入力してください。');
+        setFieldError(userIdInput);
+        setFieldError(passwordInput);
         userIdInput.focus();
         return;
       }
-      if (!password) {
-        showError('パスワードを入力してください。');
+
+      const userIdError = validateUserId(userId);
+      if (userIdError !== null) {
+        showError(userIdError);
+        setFieldError(userIdInput);
+        userIdInput.focus();
+        return;
+      }
+
+      const passwordError = validatePassword(password);
+      if (passwordError !== null) {
+        showError(passwordError);
+        setFieldError(passwordInput);
         passwordInput.focus();
         return;
       }
 
-      // 実際の認証処理はここに実装
-      // 認証成功時はメニュー画面へ遷移
-      window.location.href = '/menu';
+      // 形式チェック通過後、サーバーで m_employee の登録内容と照合する
+      authenticateWithServer(userId, password);
     });
+
+    // ユーザIDとパスワードをサーバーへ送信し、m_employee との
+    // 照合結果に応じてメニューへ遷移、またはエラーメッセージを表示する。
+    // チェック1 No.18-20 (未登録・無効・ロック中) はサーバー側で判定する。
+    function authenticateWithServer(userId, password) {
+      btnLogin.disabled = true;
+      fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({ userId: userId, password: password })
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.success) {
+            // iframe (メニュー画面のコンテンツ枠) 内に表示されている場合でも
+            // 最上位ウィンドウを遷移させ、メニュー画面が入れ子にならないようにする
+            window.top.location.href = '/menu';
+            return;
+          }
+          showError(data.message);
+          setFieldError(userIdInput);
+          setFieldError(passwordInput);
+          btnLogin.disabled = false;
+        })
+        .catch(function () {
+          showError('通信エラーが発生しました。時間をおいて再度お試しください。');
+          btnLogin.disabled = false;
+        });
+    }
 
     // Enterキーでログイン
     [userIdInput, passwordInput].forEach(input => {
@@ -387,7 +516,11 @@
           btnLogin.click();
         }
       });
-      input.addEventListener('input', hideError);
+      // 再入力されたらエラー表示とハイライトを解除する
+      input.addEventListener('input', () => {
+        hideError();
+        clearFieldErrors();
+      });
     });
 
     // ログイン画面を起動時の初期表示に戻す
@@ -398,6 +531,7 @@
       passwordInput.type = 'password';
       passwordToggle.textContent = '表示';
       hideError();
+      clearFieldErrors();
     }
 
     window.addEventListener('pageshow', resetLoginForm);

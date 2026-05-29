@@ -217,6 +217,35 @@ Java言語でアプリケーションの開発を行う場合は、下記のコ�
 
 ---
 
+## レスポンス（応答性能）を考慮したコーディング
+
+画面・APIの応答速度を意識して実装する。「動く」だけでなく「待たせない」ことを重視する。
+
+### フロントエンド（画面表示）
+
+- 外部CDN・Webフォント等のレンダリングをブロックするリソースは、非同期で読み込む。
+  本プロジェクトは社内ネットワークの外部HTTPSが遅い／遮断されることがあり、`<head>`
+  内の同期 `<link rel="stylesheet">` が読み込み完了まで画面描画を止めるため、初期表示が
+  数秒間ブランクになる。`media="print" onload="this.media='all'"` で非ブロッキング化し、
+  JS無効環境向けに `<noscript>` のフォールバックを併記する。代替（システム）フォントで
+  即座に描画し、外部リソースは読み込めたら差し替える。
+- Webフォントの読み込みには `&display=swap` を付け、フォント取得待ちで文字が見えなくなる
+  のを防ぐ。
+- 初期表示に不要なデータ・スクリプトは遅延読み込みにする。
+- 時間のかかる操作はボタンを無効化し、処理中であることをユーザーに示す。
+
+### サーバーサイド（処理ロジック）
+
+- 不要なDBアクセスを発行しない。値が変わらない場合はUPDATEを実行しない、同じ値を
+  ループ内で何度も問い合わせない、など。
+- N+1問題を避ける。一覧取得では必要な件数を1～数回のクエリで取得する。
+- ループの内側でDB／ファイル等のI/Oを行わない（一括取得・一括更新にまとめる）。
+- BCryptなど高コストな処理を重複して実行しない。
+- 画面初期表示に不要な重い集計・取得は、必要になった時点で実行する（遅延取得）。
+- SELECTは必要な列・件数に絞る。全件・全列の取得を安易に行わない。
+
+---
+
 ## ランタイム構成・デプロイ手順
 
 本プロジェクトは **外部 Tomcat 10.1 + PostgreSQL 17** で稼働する Spring Boot WAR アプリ。組み込み Tomcat ではなく、Windows サービスとして動作する Apache Tomcat 10.1 にデプロイする。
@@ -230,14 +259,14 @@ Java言語でアプリケーションの開発を行う場合は、下記のコ�
 | HTTP ポート | 8080 |
 | WAR 出力 | `C:\git\hanacupit\target\ROOT.war`（pom.xml の `<finalName>ROOT</finalName>`） |
 | デプロイ先 | `C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\ROOT.war` |
-| 接続先 DB | **PostgreSQL 17（ポート 5433）** ※ PG 9.5 も同居しているが 5432 で別用途。アプリは PG17 を使う |
+| 接続先 DB | **PostgreSQL 17（ポート 5432）** 2026-05-29 の再インストールで 5433→5432 に変更。PG9.5 は撤去済みで PG17 のみ |
 | DB ロール / DB 名 | `hanacupit` / `hanacupit`（ローカル開発用パスワード `hanacupit`） |
 | Java | JDK 21（pom.xml `java.version=21`）。サービス起動 JVM は jdk-23 でも動作確認済み |
 
 ### `application.properties` のプレースホルダ
 
 ```
-spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5433/hanacupit}
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/hanacupit}
 spring.datasource.username=${DB_USERNAME:hanacupit}
 spring.datasource.password=${DB_PASSWORD:hanacupit}
 ```
@@ -279,6 +308,65 @@ GRANT ALL PRIVILEGES ON DATABASE hanacupit TO hanacupit;
 ### トラブルシューティング
 
 - **404 が出るが画面が出ない** → ルート原因は WAR デプロイ失敗のことが多い。`C:\Program Files\Apache Software Foundation\Tomcat 10.1\logs\catalina.<日付>.log` を末尾から確認し、`HostConfig.deployWAR` の `重大` 行から `Caused by:` を辿る。
-- **DB 認証失敗** → 接続先は PG17（5433）。PG9.5（5432）と取り違えない。
+- **DB 接続エラー / 認証失敗** → 接続先は PG17（5432）。接続タイムアウト時は待受ポート不一致を疑う（`Get-NetTCPConnection -State Listen -LocalPort 5432` で確認）。
 - ログのエンコーディングは Shift_JIS。PowerShell で読むと日本語が化けるが、クラス名・例外型は ASCII なので原因特定は可能。
+
+---
+
+## セキュリティ（CSRF 対策）
+
+本プロジェクトは Spring Security のフィルタチェーンを使わず（依存は BCrypt 用の
+`spring-security-crypto` のみ）、独自のセッション認証インターセプターで動作する。
+そのため Spring 標準の CSRF 機構が無く、**シンクロナイザートークン方式を自前で
+実装している**。状態を変更するリクエストには CSRF トークンの送信が必須。
+
+### 構成要素
+
+| 役割 | クラス／ファイル |
+|---|---|
+| トークン生成・保持 | `com.cupit.security.CsrfTokenManager` |
+| トークン検査（更新系のみ） | `com.cupit.interceptor.CsrfProtectionInterceptor` |
+| 全画面へトークン供給 | `com.cupit.advice.CsrfTokenControllerAdvice` |
+| インターセプター登録 | `com.cupit.config.WebConfig` |
+
+- `CsrfTokenManager`：`SecureRandom`(32 バイト)＋Base64URL でトークンを生成し、
+  セッション属性 `csrfToken` に 1 セッション 1 トークンで保持する。
+- `CsrfProtectionInterceptor`：更新系メソッド（POST / PUT / PATCH / DELETE）のみ
+  検査する。リクエストヘッダー `X-CSRF-TOKEN` とセッションのトークンを定数時間比較
+  （`MessageDigest.isEqual`）し、不一致・欠落は **403（Forbidden）** で中断する。
+  参照系（GET など）は検査せず通過させる。
+- `CsrfTokenControllerAdvice`：`@ControllerAdvice` ＋ `@ModelAttribute` で全画面の
+  モデルにトークン（モデル属性名 `csrfToken`）を供給する。トークンが無ければ生成する。
+- `WebConfig`：CSRF 検査は **`/login` の POST も対象**にするため、認証インターセプター
+  のように `/` `/login` を除外せず、静的リソース・favicon・error のみ除外する。
+- リダイレクト時にトークンが URL のクエリへ漏れないことは、`@EnableWebMvc` を使わず
+  Spring Boot 自動設定（`ignoreDefaultModelOnRedirect=true`）に委ねることで担保している。
+
+### 画面（テンプレート）側の実装
+
+状態を変更するリクエスト（`fetch` の POST 等）を行う画面では、以下を必ず行う。
+
+1. `<head>` にトークンを埋め込む。Thymeleaf でレンダリングされるため `th:content` で
+   差し込む（生 HTML 表示時のフォールバックとして空の `content=""` も併記する）。
+   ```html
+   <meta name="csrf-token" th:content="${csrfToken}" content="">
+   ```
+   `th:` を使うため `<html lang="ja" xmlns:th="http://www.thymeleaf.org">` と宣言する。
+2. JS で meta からトークンを読み取り、更新系 `fetch` のヘッダーに付与する。
+   ```javascript
+   var csrfToken = document
+       .querySelector('meta[name="csrf-token"]').getAttribute('content');
+   fetch('/path', {
+       method: 'POST',
+       headers: {
+           'Content-Type': 'application/json',
+           'X-CSRF-TOKEN': csrfToken
+       },
+       body: JSON.stringify(payload)
+   });
+   ```
+
+現在の対象エンドポイントは `/login`・`/employee/save`・`/employee/delete`。
+**新たに状態変更エンドポイントや画面を追加する場合は、上記の meta 埋め込みと
+`X-CSRF-TOKEN` ヘッダー付与を必ず実装する**こと（漏れると 403 で動かない）。
 

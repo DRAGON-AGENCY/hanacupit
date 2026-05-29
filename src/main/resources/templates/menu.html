@@ -4,10 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>キャッシュレス管理システム</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部 CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<!-- 取得前でも代替フォントで即座に画面を表示し、応答性を確保する。 -->
+<!-- (media="print" で初回はブロッキング対象外とし、読み込み完了後に all へ切り替える) -->
+<link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css"
+    media="print" onload="this.media='all'">
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
 <style>
   :root {
     /* === 色トークン (他画面と統一) === */
@@ -99,6 +110,46 @@
     flex-shrink: 0;
     padding: 14px 22px 12px;
     border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sidebar-header-titles {
+    min-width: 0;
+  }
+
+  /* ログアウトボタン */
+  .logout-button {
+    align-self: flex-end;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius-pill);
+    background: var(--bg-white);
+    color: var(--text-sub);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .logout-button:hover {
+    background: var(--bg-secondary);
+    color: var(--text-main);
+  }
+
+  .logout-button:focus-visible {
+    outline: 2px solid var(--color-blue-accent);
+    outline-offset: 1px;
+  }
+
+  .logout-button .ti {
+    font-size: 16px;
   }
 
   .sidebar-header .eyebrow {
@@ -115,6 +166,7 @@
     font-weight: 700;
     color: var(--text-main);
     letter-spacing: 0.01em;
+    white-space: nowrap;
   }
 
   /* === ナビゲーション (スクロール領域) === */
@@ -350,8 +402,14 @@
 
   <aside class="sidebar">
     <header class="sidebar-header">
-      <h1>キャッシュレス管理システム</h1>
-      <p class="eyebrow">CASHLESS MANAGEMENT</p>
+      <div class="sidebar-header-titles">
+        <h1>キャッシュレス管理システム</h1>
+        <p class="eyebrow">CASHLESS MANAGEMENT</p>
+      </div>
+      <button type="button" class="logout-button" id="logout-button">
+        <i class="ti ti-logout" aria-hidden="true"></i>
+        <span>ログアウト</span>
+      </button>
     </header>
 
     <nav class="sidebar-nav">
@@ -511,6 +569,16 @@
       frame.hidden = false;
     });
   });
+
+  // ログアウトボタン: 確認のうえセッションを破棄してログイン画面へ戻る
+  const logoutButton = document.getElementById('logout-button');
+  if (logoutButton) {
+    logoutButton.addEventListener('click', () => {
+      if (window.confirm('ログアウトしますか？')) {
+        window.location.href = '/logout';
+      }
+    });
+  }
 </script>
 
 </body>

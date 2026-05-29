@@ -109,7 +109,7 @@
   .table-body-scroll::-webkit-scrollbar-button { display: none; }
 
   table.data { table-layout: fixed; width: 100%; }
-  col.c-no    { width: 110px; }
+  col.c-email { width: 280px; }
   col.c-name  { width: 200px; }
   col.c-kana  { width: 220px; }
   col.c-dept  { width: 200px; }
@@ -153,7 +153,7 @@
     border-right: none;
     text-align: center;
   }
-  table.data tbody td.no {
+  table.data tbody td.email {
     font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
   }
   table.data tbody td.name {
@@ -250,7 +250,7 @@
       <div class="table-head">
         <table class="data">
           <colgroup>
-            <col class="c-no">
+            <col class="c-email">
             <col class="c-name">
             <col class="c-kana">
             <col class="c-dept">
@@ -260,7 +260,7 @@
           </colgroup>
           <thead>
             <tr>
-              <th>社員番号</th>
+              <th>メールアドレス</th>
               <th>社員名</th>
               <th>社員名 (カナ)</th>
               <th>部署</th>
@@ -278,7 +278,7 @@
       <div class="table-body-scroll">
         <table class="data">
           <colgroup>
-            <col class="c-no">
+            <col class="c-email">
             <col class="c-name">
             <col class="c-kana">
             <col class="c-dept">
@@ -288,7 +288,7 @@
           </colgroup>
           <tbody>
             <tr>
-              <td class="no">S001</td>
+              <td class="email">tanaka.ichiro@example.com</td>
               <td class="name">田中 一郎</td>
               <td class="kana">タナカ イチロウ</td>
               <td>営業部</td>
@@ -306,7 +306,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S002</td>
+              <td class="email">sato.hanako@example.com</td>
               <td class="name">佐藤 花子</td>
               <td class="kana">サトウ ハナコ</td>
               <td>営業部</td>
@@ -320,7 +320,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S003</td>
+              <td class="email">suzuki.taro@example.com</td>
               <td class="name">鈴木 太郎</td>
               <td class="kana">スズキ タロウ</td>
               <td>システム開発部</td>
@@ -334,7 +334,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S004</td>
+              <td class="email">takahashi.misaki@example.com</td>
               <td class="name">高橋 美咲</td>
               <td class="kana">タカハシ ミサキ</td>
               <td>システム開発部</td>
@@ -348,7 +348,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S005</td>
+              <td class="email">ito.kenta@example.com</td>
               <td class="name">伊藤 健太</td>
               <td class="kana">イトウ ケンタ</td>
               <td>経理部</td>
@@ -362,7 +362,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S006</td>
+              <td class="email">watanabe.yumi@example.com</td>
               <td class="name">渡辺 由美</td>
               <td class="kana">ワタナベ ユミ</td>
               <td>経理部</td>
@@ -376,7 +376,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S007</td>
+              <td class="email">yamamoto.takashi@example.com</td>
               <td class="name">山本 隆</td>
               <td class="kana">ヤマモト タカシ</td>
               <td>総務部</td>
@@ -390,7 +390,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S008</td>
+              <td class="email">nakamura.akane@example.com</td>
               <td class="name">中村 あかね</td>
               <td class="kana">ナカムラ アカネ</td>
               <td>総務部</td>
@@ -404,7 +404,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S009</td>
+              <td class="email">kobayashi.daisuke@example.com</td>
               <td class="name">小林 大輔</td>
               <td class="kana">コバヤシ ダイスケ</td>
               <td>営業部</td>
@@ -418,7 +418,7 @@
               </td>
             </tr>
             <tr>
-              <td class="no">S010</td>
+              <td class="email">kato.sakura@example.com</td>
               <td class="name">加藤 さくら</td>
               <td class="kana">カトウ サクラ</td>
               <td>システム開発部</td>

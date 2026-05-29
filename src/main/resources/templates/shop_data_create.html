@@ -6,7 +6,14 @@
 <title>店舗・端末・加盟店番号データ作成 | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<!-- 取得前でも代替フォントで即座に画面を表示し、応答性を確保する。 -->
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
 <style>
   :root {
     /* === 色トークン === */
@@ -298,10 +305,6 @@
 </head>
 <body>
   <div class="container">
-    <div class="header-row">
-      <button class="btn-back" type="button"><span>ログアウト</span></button>
-    </div>
-
     <h1 class="page-title">店舗・端末・加盟店番号データ作成</h1>
 
     <div class="form-box">
@@ -386,11 +389,6 @@
         }
       };
       input.click();
-    });
-
-    // ログアウトボタン: ログイン画面へ遷移
-    document.querySelector('.btn-back').addEventListener('click', () => {
-      window.top.location.href = '/login';
     });
   </script>
 </body>

@@ -1,11 +1,16 @@
 package com.cupit.controller;
 
+import jakarta.servlet.http.HttpSession;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.cupit.interceptor.AuthenticationInterceptor;
+import com.cupit.model.Employee;
 import com.cupit.model.MemberInfo;
+import com.cupit.service.EmployeeService;
 import com.cupit.service.MemberInfoService;
 
 @Controller
@@ -13,6 +18,14 @@ public class MenuController {
 
     private static final String DEFAULT_TRANSACTION_CODE = "01-001";
     private static final String ATTRIBUTE_NAME_INFO = "info";
+    private static final String ATTRIBUTE_NAME_EMPLOYEES = "employees";
+    private static final String ATTRIBUTE_NAME_AUTHORITY_CODE = "authorityCode";
+    private static final String ATTRIBUTE_NAME_EMPLOYEE = "employee";
+    private static final String ATTRIBUTE_NAME_MODE = "mode";
+    private static final String MODE_NEW = "new";
+    private static final String AUTHORITY_ADMINISTRATOR = "01";
+    private static final String REDIRECT_EMPLOYEE_LIST =
+            "redirect:/employee_list";
     private static final String VIEW_NAME_LOGIN = "login";
     private static final String VIEW_NAME_MENU = "menu";
     private static final String VIEW_NAME_MEMBER_INFO = "member_info";
@@ -33,9 +46,13 @@ public class MenuController {
     private static final String VIEW_NAME_EMPLOYEE_EDIT = "employee_edit";
 
     private final MemberInfoService memberInfoService;
+    private final EmployeeService employeeService;
 
-    public MenuController(MemberInfoService memberInfoService) {
+    public MenuController(
+            MemberInfoService memberInfoService,
+            EmployeeService employeeService) {
         this.memberInfoService = memberInfoService;
+        this.employeeService = employeeService;
     }
 
     @GetMapping({"/", "/login"})
@@ -125,12 +142,49 @@ public class MenuController {
     }
 
     @GetMapping("/employee_list")
-    public String employeeList() {
+    public String employeeList(HttpSession session, Model model) {
+        model.addAttribute(
+                ATTRIBUTE_NAME_EMPLOYEES, employeeService.findAllEmployees());
+        model.addAttribute(
+                ATTRIBUTE_NAME_AUTHORITY_CODE, getAuthorityCode(session));
         return VIEW_NAME_EMPLOYEE_LIST;
     }
 
     @GetMapping("/employee_edit")
-    public String employeeEdit() {
+    public String employeeEdit(
+            @RequestParam(name = "mode", required = false) String mode,
+            @RequestParam(name = "email", required = false) String email,
+            HttpSession session,
+            Model model) {
+        String authorityCode = getAuthorityCode(session);
+
+        // メンテナンスは管理者 (01) のみ。それ以外は一覧へ戻す
+        if (!AUTHORITY_ADMINISTRATOR.equals(authorityCode)) {
+            return REDIRECT_EMPLOYEE_LIST;
+        }
+
+        // 編集モードでは選択された社員の内容を読み込む
+        if (!MODE_NEW.equals(mode)) {
+            Employee employee = employeeService.findByEmail(email);
+            model.addAttribute(ATTRIBUTE_NAME_EMPLOYEE, employee);
+        }
+        model.addAttribute(ATTRIBUTE_NAME_MODE, mode);
+        model.addAttribute(ATTRIBUTE_NAME_AUTHORITY_CODE, authorityCode);
         return VIEW_NAME_EMPLOYEE_EDIT;
+    }
+
+    /**
+     * セッションに保持された権限コードを取得する。
+     *
+     * @param session 対象のセッション
+     * @return 権限コード。未設定の場合は null
+     */
+    private String getAuthorityCode(HttpSession session) {
+        Object authorityCode = session.getAttribute(
+                AuthenticationInterceptor.SESSION_ATTRIBUTE_AUTHORITY_CODE);
+        if (authorityCode == null) {
+            return null;
+        }
+        return authorityCode.toString();
     }
 }

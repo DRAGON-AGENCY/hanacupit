@@ -1,12 +1,19 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>社員一覧 | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<!-- 取得前でも代替フォントで即座に画面を表示し、応答性を確保する。 -->
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
 <style>
   :root {
     /* === 色トークン (他画面と統一) === */
@@ -356,11 +363,14 @@
 
   .data-scroll {
     overflow-y: auto;
+    /* テーブルが幅にあふれたときは横スクロールで全列 (FAX まで) 表示する */
+    overflow-x: auto;
     max-height: 560px;
   }
 
   .data-scroll::-webkit-scrollbar {
     width: 14px;
+    height: 14px;
   }
 
   .data-scroll::-webkit-scrollbar-track {
@@ -380,16 +390,20 @@
 
   .data-table {
     width: 100%;
+    /* 画面が狭くても各列が読める最小幅を確保し、 */
+    /* これ以下では .data-scroll の横スクロールで全列を表示する */
+    min-width: 920px;
     border-collapse: collapse;
     table-layout: fixed;
   }
 
-  .data-table col.c-no { width: 140px; }
-  .data-table col.c-name { width: 220px; }
-  .data-table col.c-kana { width: 260px; }
-  .data-table col.c-dept { width: auto; }
-  .data-table col.c-tel { width: 180px; }
-  .data-table col.c-fax { width: 180px; }
+  /* 列幅は比率指定にして画面幅に合わせて自動調整する (合計100%) */
+  .data-table col.c-email { width: 22%; }
+  .data-table col.c-name { width: 17%; }
+  .data-table col.c-kana { width: 20%; }
+  .data-table col.c-dept { width: 14%; }
+  .data-table col.c-tel { width: 14%; }
+  .data-table col.c-fax { width: 13%; }
 
   .data-table thead th {
     position: sticky;
@@ -429,13 +443,18 @@
     border-right: none;
   }
 
+  /* 部署列 (4列目) と電話番号列の間の縦線を消す */
+  .data-table thead th:nth-child(4),
+  .data-table tbody td:nth-child(4) {
+    border-right: none;
+  }
+
   .data-table tbody tr:last-child td {
     border-bottom: none;
   }
 
-  .data-table tbody td.no {
+  .data-table tbody td.email {
     font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
   }
 
   .data-table tbody td.name {
@@ -457,28 +476,47 @@
     font-family: var(--font-jp);
   }
 
-  .data-table tbody tr:hover td {
+  .data-table tbody tr.data-row:hover td {
     background: var(--bg-hover);
     cursor: pointer;
+  }
+
+  /* 絞込み結果が0件のときの空状態 */
+  .data-table tbody td.empty-cell {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-jp);
+    padding: 28px 16px;
+    white-space: normal;
+  }
+
+  .data-table tbody tr.empty-row:hover td {
+    background: var(--bg-white);
+    cursor: default;
   }
 </style>
 </head>
 <body>
   <div class="container">
 
-    <!-- ログアウトボタン -->
-    <div class="header-row">
-      <button class="btn-back" type="button">
-        <span>ログアウト</span>
-      </button>
-    </div>
-
     <!-- タイトル -->
     <h1 class="page-title">社員一覧</h1>
 
-    <!-- 新規登録 -->
+    <!-- ログイン中ユーザーの権限コード (行クリックの権限制御で参照する) -->
+    <input type="hidden" id="authority-code" th:value="${authorityCode}" />
+
+    <!-- 権限不足エラー (担当者・閲覧のみが明細を選択したときに表示) -->
+    <div id="permission-error" role="alert"
+         style="display:none; margin-bottom:12px; padding:10px 14px;
+                border-radius:6px; background:#fbeaea; border:1px solid #f0c4c4;
+                color:#c64a4a; font-size:14px;">
+      権限がありません。
+    </div>
+
+    <!-- 新規登録 (管理者のみ表示) -->
     <div class="toolbar">
-      <button class="btn btn-new" type="button" id="new-employee-btn">
+      <button class="btn btn-new" type="button" id="new-employee-btn"
+              th:if="${authorityCode == '01'}">
         <span>＋</span>
         <span>新規登録</span>
       </button>
@@ -517,7 +555,7 @@
       <div class="data-scroll">
         <table class="data-table">
           <colgroup>
-            <col class="c-no">
+            <col class="c-email">
             <col class="c-name">
             <col class="c-kana">
             <col class="c-dept">
@@ -526,7 +564,7 @@
           </colgroup>
           <thead>
             <tr>
-              <th>社員番号</th>
+              <th>メールアドレス</th>
               <th>社員名</th>
               <th>社員名 (カナ)</th>
               <th>部署</th>
@@ -535,16 +573,19 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td class="no">S001</td><td class="name">田中 一郎</td><td class="kana">タナカ イチロウ</td><td>営業部</td><td class="tel">03-1234-5678</td><td class="fax">03-1234-5679</td></tr>
-            <tr><td class="no">S002</td><td class="name">佐藤 花子</td><td class="kana">サトウ ハナコ</td><td>営業部</td><td class="tel">03-1234-5680</td><td class="fax">03-1234-5681</td></tr>
-            <tr><td class="no">S003</td><td class="name">鈴木 太郎</td><td class="kana">スズキ タロウ</td><td>システム開発部</td><td class="tel">03-1234-5682</td><td class="fax empty">—</td></tr>
-            <tr><td class="no">S004</td><td class="name">高橋 美咲</td><td class="kana">タカハシ ミサキ</td><td>システム開発部</td><td class="tel">03-1234-5683</td><td class="fax">03-1234-5684</td></tr>
-            <tr><td class="no">S005</td><td class="name">伊藤 健太</td><td class="kana">イトウ ケンタ</td><td>経理部</td><td class="tel">03-1234-5685</td><td class="fax">03-1234-5686</td></tr>
-            <tr><td class="no">S006</td><td class="name">渡辺 由美</td><td class="kana">ワタナベ ユミ</td><td>経理部</td><td class="tel">03-1234-5687</td><td class="fax empty">—</td></tr>
-            <tr><td class="no">S007</td><td class="name">山本 隆</td><td class="kana">ヤマモト タカシ</td><td>総務部</td><td class="tel">03-1234-5688</td><td class="fax">03-1234-5689</td></tr>
-            <tr><td class="no">S008</td><td class="name">中村 あかね</td><td class="kana">ナカムラ アカネ</td><td>総務部</td><td class="tel">03-1234-5690</td><td class="fax">03-1234-5691</td></tr>
-            <tr><td class="no">S009</td><td class="name">小林 大輔</td><td class="kana">コバヤシ ダイスケ</td><td>営業部</td><td class="tel">03-1234-5692</td><td class="fax">03-1234-5693</td></tr>
-            <tr><td class="no">S010</td><td class="name">加藤 さくら</td><td class="kana">カトウ サクラ</td><td>システム開発部</td><td class="tel">03-1234-5694</td><td class="fax">03-1234-5695</td></tr>
+            <tr class="data-row" th:each="employee : ${employees}">
+              <td class="email" th:text="${employee.email}"></td>
+              <td class="name" th:text="${employee.employeeName}"></td>
+              <td class="kana" th:text="${employee.employeeNameKana}"></td>
+              <td th:text="${employee.department}"></td>
+              <td class="tel" th:text="${employee.phoneNumber}"></td>
+              <td th:class="${#strings.isEmpty(employee.faxNumber) ? 'fax empty' : 'fax'}"
+                  th:text="${#strings.isEmpty(employee.faxNumber) ? '—' : employee.faxNumber}"></td>
+            </tr>
+            <!-- 絞込み結果が0件のときに表示する空状態の行 -->
+            <tr id="empty-row" class="empty-row" style="display:none;">
+              <td class="empty-cell" colspan="6">該当する社員がいません。</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -560,38 +601,50 @@
   </div>
 
   <script>
-    // クリアボタン: 検索入力をクリア
-    document.querySelector('.btn-clear').addEventListener('click', function () {
-      document.getElementById('employee-kana').value = '';
-    });
+    // ログイン中ユーザーの権限コード ('01'=管理者 / '02'=担当者 / '03'=閲覧のみ)
+    var authorityCodeInput = document.getElementById('authority-code');
+    var currentAuthorityCode =
+        authorityCodeInput ? authorityCodeInput.value : '';
+    var ADMINISTRATOR_AUTHORITY_CODE = '01';
+    var permissionError = document.getElementById('permission-error');
 
-    // ログアウトボタン: ログイン画面へ遷移
-    document.querySelector('.btn-back').addEventListener('click', function () {
-      window.top.location.href = '/login';
-    });
-
-    // 新規登録ボタン: 同じ枠 (iframe) 内で社員管理画面を登録モードで開く
-    document.getElementById('new-employee-btn').addEventListener('click', function () {
-      window.location.href = '/employee_edit?mode=new';
-    });
+    // 新規登録ボタン: 管理者のみ表示されるため存在する場合だけ処理を割り当てる
+    var newEmployeeButton = document.getElementById('new-employee-btn');
+    if (newEmployeeButton) {
+      newEmployeeButton.addEventListener('click', function () {
+        window.location.href = '/employee_edit?mode=new';
+      });
+    }
 
     // 表の社員 (行) を選択したら、同じ枠 (iframe) 内で社員編集画面へ遷移する
     // 新規タブを開かず現在のウィンドウを遷移させることで、
     // 親シェル (menu) の左サイドバーを表示したまま編集画面を表示する
-    document.querySelectorAll('.data-table tbody tr').forEach(function (row) {
+    // ただしメンテナンスは管理者のみのため、管理者以外は遷移させず
+    // 「権限がありません。」を表示する
+    document.querySelectorAll('.data-table tbody tr.data-row').forEach(function (row) {
       row.addEventListener('click', function () {
-        var numberCell = row.querySelector('td.no');
-        var employeeNumber = numberCell ? numberCell.textContent.trim() : '';
+        if (currentAuthorityCode !== ADMINISTRATOR_AUTHORITY_CODE) {
+          permissionError.style.display = 'block';
+          return;
+        }
+        permissionError.style.display = 'none';
+        var emailCell = row.querySelector('td.email');
+        var email = emailCell ? emailCell.textContent.trim() : '';
         window.location.href =
-            '/employee_edit?employeeNumber=' + encodeURIComponent(employeeNumber);
+            '/employee_edit?email=' + encodeURIComponent(email);
       });
     });
 
-    // ページネーション: 表示件数の切替と複数ページの表示制御
+    // 絞込み (社員名カナ) とページネーション
     (function () {
-      var rows = Array.prototype.slice.call(
-        document.querySelectorAll('.data-table tbody tr')
+      var allRows = Array.prototype.slice.call(
+        document.querySelectorAll('.data-table tbody tr.data-row')
       );
+      var filteredRows = allRows.slice();
+      var kanaInput = document.getElementById('employee-kana');
+      var searchButton = document.querySelector('.btn-search');
+      var clearButton = document.querySelector('.btn-clear');
+      var emptyRow = document.getElementById('empty-row');
       var perPageSelect = document.getElementById('per-page-select');
       var pageNumbersEl = document.getElementById('page-numbers');
       var summaryEl = document.getElementById('result-summary');
@@ -599,13 +652,25 @@
       var prevBtn = pagination.querySelector('[data-nav="prev"]');
       var nextBtn = pagination.querySelector('[data-nav="next"]');
 
-      var totalItems = rows.length;
       var perPage = parseInt(perPageSelect.value, 10);
       var currentPage = 1;
 
+      // 検索文字列・カナを比較用に正規化する。
+      // 前後・途中の空白を除去し、ひらがなをカタカナに統一することで、
+      // ひらがな入力でもカタカナの社員名カナに一致するようにする
+      function normalizeKana(text) {
+        if (!text) {
+          return '';
+        }
+        var normalized = text.replace(/[\s　]+/g, '');
+        return normalized.replace(/[ぁ-ゖ]/g, function (character) {
+          return String.fromCharCode(character.charCodeAt(0) + 0x60);
+        });
+      }
+
       // 総ページ数 (最低1ページ)
       function getTotalPages() {
-        return Math.max(1, Math.ceil(totalItems / perPage));
+        return Math.max(1, Math.ceil(filteredRows.length / perPage));
       }
 
       // 表示するページ番号の並びを生成 (両端と現在ページ周辺、省略は'...')
@@ -635,6 +700,7 @@
 
       // 現在ページに応じて行の表示・概要・ページUIを再描画する
       function render() {
+        var totalItems = filteredRows.length;
         var totalPages = getTotalPages();
         if (currentPage > totalPages) {
           currentPage = totalPages;
@@ -642,10 +708,18 @@
         var startIndex = (currentPage - 1) * perPage;
         var endIndex = Math.min(startIndex + perPage, totalItems);
 
-        rows.forEach(function (row, index) {
-          row.style.display =
-            (index >= startIndex && index < endIndex) ? '' : 'none';
+        // いったん全行を隠し、該当ページの行だけを表示する
+        allRows.forEach(function (row) {
+          row.style.display = 'none';
         });
+        for (var index = startIndex; index < endIndex; index++) {
+          filteredRows[index].style.display = '';
+        }
+
+        // 絞込み結果が0件のときは空状態の行を表示する
+        if (emptyRow) {
+          emptyRow.style.display = (totalItems === 0) ? '' : 'none';
+        }
 
         if (totalItems === 0) {
           summaryEl.textContent = '0 件';
@@ -697,6 +771,42 @@
         perPage = parseInt(perPageSelect.value, 10);
         currentPage = 1;
         render();
+      });
+
+      // 入力された社員名カナで一覧を絞り込み、1ページ目から再表示する。
+      // 部分一致 (入力がカナのどこかに含まれる) で判定する
+      function applyFilter() {
+        var query = normalizeKana(kanaInput.value);
+        if (query === '') {
+          filteredRows = allRows.slice();
+        } else {
+          filteredRows = allRows.filter(function (row) {
+            var kanaCell = row.querySelector('td.kana');
+            var kana = kanaCell ? normalizeKana(kanaCell.textContent) : '';
+            return kana.indexOf(query) !== -1;
+          });
+        }
+        currentPage = 1;
+        render();
+      }
+
+      // 絞込みを解除し、入力を消して全件を1ページ目から再表示する
+      function clearFilter() {
+        kanaInput.value = '';
+        filteredRows = allRows.slice();
+        currentPage = 1;
+        render();
+      }
+
+      searchButton.addEventListener('click', applyFilter);
+      clearButton.addEventListener('click', clearFilter);
+
+      // 入力欄で Enter キーを押したときも絞込みを実行する
+      kanaInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          applyFilter();
+        }
       });
 
       render();
