@@ -460,7 +460,7 @@
           <input type="password" id="employee-password" autocomplete="new-password"
                  placeholder="パスワードを入力" />
           <div class="field-hint" id="password-hint">
-            変更する場合のみ入力してください（空欄なら現状維持）。
+            変更する場合のみ入力してください（空欄なら現状維持）。<br>
             8〜72文字で、英大文字・英小文字・数字・記号を各1文字以上。
           </div>
         </div>
@@ -737,8 +737,8 @@
       submitButton.textContent = '登録';
 
       // 登録モードではパスワードを必須とするため注記を差し替える
-      document.getElementById('password-hint').textContent =
-          'パスワードを入力してください（必須）。'
+      document.getElementById('password-hint').innerHTML =
+          'パスワードを入力してください（必須）。<br>'
           + '8〜72文字で、英大文字・英小文字・数字・記号を各1文字以上。';
 
       // 注意書きを登録向けの内容に差し替える
