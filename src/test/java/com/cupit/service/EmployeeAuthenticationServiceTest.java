@@ -27,6 +27,7 @@ import com.cupit.repository.EmployeeRepository;
  * パスワード照合には実際の BCryptPasswordEncoder を使用する。
  */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("null")
 class EmployeeAuthenticationServiceTest {
 
     private static final String EMAIL = "sato.taro@example.com";

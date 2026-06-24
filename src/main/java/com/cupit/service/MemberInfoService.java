@@ -1,5 +1,6 @@
 package com.cupit.service;
 
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import com.cupit.exception.MemberInfoNotFoundException;
@@ -37,7 +38,7 @@ public class MemberInfoService {
                         MESSAGE_NOT_FOUND + resolvedTransactionCode));
     }
 
-    private String resolveTransactionCode(String transactionCode) {
+    private @NonNull String resolveTransactionCode(String transactionCode) {
         if (transactionCode == null || transactionCode.isBlank()) {
             return DEFAULT_TRANSACTION_CODE;
         }

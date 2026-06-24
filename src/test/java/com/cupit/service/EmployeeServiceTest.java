@@ -27,6 +27,7 @@ import com.cupit.repository.EmployeeRepository;
  * パスワードのハッシュ化には実際の BCryptPasswordEncoder を使用する。
  */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("null")
 class EmployeeServiceTest {
 
     private static final String VALID_PASSWORD = "Passw0rd!";
