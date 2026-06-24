@@ -1,0 +1,41 @@
+-- 会員情報 初期データ (従来サービスのハードコード値を移行)
+INSERT INTO member_info (
+    transaction_code,
+    store_name,
+    store_name_kana,
+    member_type,
+    parent_store_code,
+    parent_store_name,
+    new_transaction_code,
+    prev_transaction_code,
+    middle_code,
+    block_code,
+    join_date,
+    corporation_flag,
+    cooperative_flag,
+    representative_name,
+    representative_kana,
+    postal_code,
+    address,
+    phone_number
+) VALUES (
+    '01-001',
+    '赤坂生花店',
+    'アカサカセイカテン',
+    '正会員',
+    '01-001',
+    '赤坂生花店',
+    '—',
+    '—',
+    '—',
+    '資格区分',
+    '1960/08/16',
+    '社団法人',
+    '協同組合',
+    '山田 太郎',
+    'ヤマダ タロウ',
+    '107-0052',
+    '東京都港区赤坂1-2-3',
+    '03-1234-5678'
+)
+ON CONFLICT (transaction_code) DO NOTHING;

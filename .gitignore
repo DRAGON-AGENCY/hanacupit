@@ -1,0 +1,5 @@
+# ローカル開発用の環境固有設定（パスワード等）- コミット対象外
+application-local.properties
+
+# ビルド成果物
+/target/
