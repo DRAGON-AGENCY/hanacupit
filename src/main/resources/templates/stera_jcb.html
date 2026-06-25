@@ -458,6 +458,7 @@
       </div>
     </div>
 
+    <div id="results" style="display: none;">
     <div class="summary-grid">
       <div class="summary-card">
         <div class="summary-label">合計 総計</div>
@@ -599,11 +600,17 @@
         </tbody>
       </table>
     </div>
+    </div>
   </div>
 
   <script>
+    document.querySelector('.btn-search').addEventListener('click', () => {
+      document.getElementById('results').style.display = '';
+    });
+
     document.querySelector('.btn-clear').addEventListener('click', () => {
       document.getElementById('target-month').value = '';
+      document.getElementById('results').style.display = 'none';
     });
   </script>
 </body>

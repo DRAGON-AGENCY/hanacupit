@@ -76,6 +76,16 @@ public class LoginController {
     }
 
     /**
+     * パスワード再設定画面を表示する。
+     *
+     * @return パスワード再設定画面のビュー名
+     */
+    @GetMapping("/password-reset")
+    public String showPasswordReset() {
+        return "password_reset";
+    }
+
+    /**
      * セッションを破棄してログアウトし、ログイン画面へ遷移する。
      *
      * @param session 破棄対象のセッション

@@ -20,6 +20,7 @@ public class WebConfig implements WebMvcConfigurer {
     private static final String PATTERN_ALL = "/**";
     private static final String PATTERN_ROOT = "/";
     private static final String PATTERN_LOGIN = "/login";
+    private static final String PATTERN_PASSWORD_RESET = "/password-reset";
     private static final String PATTERN_STATIC_CSS = "/css/**";
     private static final String PATTERN_STATIC_JS = "/js/**";
     private static final String PATTERN_STATIC_IMAGES = "/images/**";
@@ -33,6 +34,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         PATTERN_ROOT,
                         PATTERN_LOGIN,
+                        PATTERN_PASSWORD_RESET,
                         PATTERN_STATIC_CSS,
                         PATTERN_STATIC_JS,
                         PATTERN_STATIC_IMAGES,

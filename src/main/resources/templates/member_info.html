@@ -128,82 +128,6 @@
     letter-spacing: 0.01em;
   }
 
-  /* 検索エリア */
-  .search-box {
-    background-color: var(--bg-search);
-    border: 1px solid #dde5f0;
-    border-radius: 8px;
-    padding: 12px 18px;
-    margin-bottom: 14px;
-  }
-
-  .search-label {
-    display: block;
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    color: var(--text-label);
-    margin-bottom: 8px;
-    letter-spacing: 0.03em;
-  }
-
-  .search-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .search-input {
-    width: 240px;
-    padding: 8px 12px;
-    border: 1px solid var(--border-input);
-    border-radius: 6px;
-    background-color: var(--bg-white);
-    font-family: var(--font-mono);
-    font-size: var(--fs-base);
-    color: var(--text-main);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--accent-blue);
-    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 8px 18px;
-    border-radius: 6px;
-    font-size: var(--fs-base);
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.15s ease;
-  }
-
-  .btn-search {
-    background-color: var(--accent-blue-light);
-    border: 1px solid var(--accent-blue-border);
-    color: var(--accent-blue);
-    font-weight: 500;
-  }
-
-  .btn-search:hover {
-    background-color: #d5e4f6;
-  }
-
-  .btn-clear {
-    background-color: var(--bg-white);
-    border: 1px solid var(--border-input);
-    color: var(--text-main);
-  }
-
-  .btn-clear:hover {
-    background-color: #faf8f2;
-  }
-
   /* 店名テーブル */
   .info-table {
     width: 100%;
@@ -438,26 +362,13 @@
 </head>
 <body>
   <div class="container">
+    <!-- ヘッダー行 -->
+    <div class="header-row">
+      <button class="btn-back" type="button" onclick="location.href='/member_list'">← 戻る</button>
+    </div>
+
     <!-- タイトル -->
     <h1 class="page-title">会員情報照会</h1>
-
-    <!-- 検索エリア -->
-    <div class="search-box">
-      <label class="search-label" for="transaction-code">取引コード</label>
-      <div class="search-row">
-        <input
-          type="text"
-          id="transaction-code"
-          class="search-input"
-          value="01-001"
-        />
-        <button class="btn btn-search" type="button">
-          <span>🔍</span>
-          <span>検索</span>
-        </button>
-        <button class="btn btn-clear" type="button">クリア</button>
-      </div>
-    </div>
 
     <!-- 店名情報テーブル -->
     <table class="info-table">
@@ -478,7 +389,7 @@
 
     <!-- タブナビゲーション -->
     <div class="tabs" role="tablist">
-      <button class="tab active" role="tab" data-tab="main" aria-selected="true">MAIN</button>
+      <button class="tab active" role="tab" data-tab="main" aria-selected="true">基本情報</button>
       <button class="tab" role="tab" data-tab="store" aria-selected="false">店舗情報</button>
       <button class="tab" role="tab" data-tab="corporate" aria-selected="false">法人情報</button>
       <button class="tab" role="tab" data-tab="parent" aria-selected="false">親会社情報</button>
@@ -987,10 +898,6 @@
       });
     });
 
-    // クリアボタン
-    document.querySelector('.btn-clear').addEventListener('click', () => {
-      document.getElementById('transaction-code').value = '';
-    });
-  </script>
+</script>
 </body>
 </html>

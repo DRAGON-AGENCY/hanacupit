@@ -1,5 +1,5 @@
 -- 会員情報 初期データ (従来サービスのハードコード値を移行)
-INSERT INTO member_info (
+INSERT INTO m_member_info (
     transaction_code,
     store_name,
     store_name_kana,

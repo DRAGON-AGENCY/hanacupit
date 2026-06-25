@@ -493,6 +493,7 @@
       </div>
     </div>
 
+    <div id="results" style="display: none;">
     <!-- サマリーカード -->
     <div class="summary-grid">
       <div class="summary-card">
@@ -574,6 +575,7 @@
         </tbody>
       </table>
     </div>
+    </div>
   </div>
 
   <script>
@@ -626,8 +628,15 @@
     paymentCompanyEl.addEventListener('change', updatePaymentTypeOptions);
     updatePaymentTypeOptions();
 
+    document.querySelector('.btn-search').addEventListener('click', () => {
+      document.getElementById('results').style.display = '';
+    });
+
     document.querySelector('.btn-clear').addEventListener('click', () => {
       document.getElementById('target-month').value = '';
+      paymentCompanyEl.selectedIndex = 0;
+      updatePaymentTypeOptions();
+      document.getElementById('results').style.display = 'none';
     });
   </script>
 </body>

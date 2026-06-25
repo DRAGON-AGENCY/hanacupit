@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
  * member_info テーブルの 1 行に対応する。
  */
 @Entity
-@Table(name = "member_info")
+@Table(name = "m_member_info")
 public class MemberInfo {
 
     @Id

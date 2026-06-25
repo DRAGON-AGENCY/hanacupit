@@ -1,5 +1,5 @@
 -- 会員情報テーブル
-CREATE TABLE IF NOT EXISTS member_info (
+CREATE TABLE IF NOT EXISTS m_member_info (
     transaction_code      VARCHAR(20)  NOT NULL,
     store_name            VARCHAR(100),
     store_name_kana       VARCHAR(100),
@@ -18,5 +18,5 @@ CREATE TABLE IF NOT EXISTS member_info (
     postal_code           VARCHAR(20),
     address               VARCHAR(200),
     phone_number          VARCHAR(20),
-    CONSTRAINT pk_member_info PRIMARY KEY (transaction_code)
+    CONSTRAINT pk_m_member_info PRIMARY KEY (transaction_code)
 );

@@ -554,6 +554,7 @@
       </div>
     </div>
 
+    <div id="results" style="display: none;">
     <!-- サマリーカード -->
     <div class="summary-grid" id="summary-vm-emi">
       <div class="summary-card">
@@ -622,6 +623,7 @@
           <!-- テーブルはJSで動的に生成 -->
         </div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -977,10 +979,15 @@
     }
 
     paymentTypeSelect.addEventListener('change', applyView);
-    document.querySelector('.btn-search').addEventListener('click', applyView);
+    document.querySelector('.btn-search').addEventListener('click', () => {
+      document.getElementById('results').style.display = '';
+      applyView();
+    });
 
     document.querySelector('.btn-clear').addEventListener('click', () => {
       document.getElementById('target-month').value = '';
+      document.getElementById('payment-type').value = 'vm-emi';
+      document.getElementById('results').style.display = 'none';
     });
 
     // ========================================
