@@ -554,49 +554,49 @@
       </div>
     </div>
 
-    <div id="results" style="display: none;">
+    <div id="results">
     <!-- サマリーカード -->
     <div class="summary-grid" id="summary-vm-emi">
       <div class="summary-card">
         <div class="summary-label">合計 総計</div>
-        <div class="summary-value">406,533<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-vm-total">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 仕入手数料額</div>
-        <div class="summary-value">11,181<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-vm-fee1">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 当社手数料額</div>
-        <div class="summary-value">814<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-vm-fee2">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 精算金額</div>
-        <div class="summary-value">394,538<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-vm-settlement">—</span><span class="summary-unit">円</span></div>
       </div>
     </div>
 
     <div class="summary-grid" id="summary-code" style="display:none">
       <div class="summary-card">
         <div class="summary-label">合計 総計</div>
-        <div class="summary-value">84,598<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-code-total">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 仕入手数料額</div>
-        <div class="summary-value">2,327<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-code-fee1">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 当社手数料額</div>
-        <div class="summary-value">168<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-code-fee2">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 精算金額</div>
-        <div class="summary-value">82,103<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-code-settlement">—</span><span class="summary-unit">円</span></div>
       </div>
     </div>
 
     <div class="section-header">
       <span class="section-title">精算明細</span>
-      <span class="section-count" id="section-count">全 6 件</span>
+      <span class="section-count" id="section-count" style="display:none">全 6 件</span>
       <div class="section-actions">
         <button class="btn-toggle-all" type="button" id="btn-expand-all">
           <span>▼</span><span>すべて展開</span>
@@ -778,6 +778,10 @@
       Object.keys(totals.byPayment).forEach(k => {
         totals.byPayment[k] = totals.byPayment[k].map(v => v === 0 ? null : v);
       });
+      if (totals.total === 0) totals.total = null;
+      if (totals.fee1 === 0) totals.fee1 = null;
+      if (totals.fee2 === 0) totals.fee2 = null;
+      if (totals.settlement === 0) totals.settlement = null;
       return totals;
     }
 
@@ -843,70 +847,44 @@
       theadHtml += '</tr>';
       theadHtml += '</thead>';
 
-      // ボディ
+      // ボディ（データあり：実データ行、データなし：空行10行）
       let tbodyHtml = '<tbody>';
-      data.rows.forEach(row => {
-        tbodyHtml += '<tr>';
-        tbodyHtml += `<td class="text-left">${row.txCode}</td>`;
-        tbodyHtml += `<td class="text-left">${row.branchCode}</td>`;
-        tbodyHtml += `<td class="jp">${row.shopName}</td>`;
-        data.paymentTypes.forEach(pt => {
-          const isExpanded = expandedSet.has(pt.key);
-          if (isExpanded) {
-            row.amounts[pt.key].forEach(v => {
-              tbodyHtml += cell(v, 'detail-cell');
-            });
-          } else {
-            tbodyHtml += cell(sumPaymentType(row.amounts[pt.key]));
-          }
-        });
-        tbodyHtml += cell(row.total);
-        tbodyHtml += cell(row.fee1);
-        tbodyHtml += cell(row.fee2);
-        tbodyHtml += cell(row.settlement);
-        tbodyHtml += '</tr>';
-      });
-      tbodyHtml += '</tbody>';
-
-      // フッター（総計）
-      let tfootHtml = '<tbody>';
-      tfootHtml += '<tr class="total-row">';
-      tfootHtml += '<td colspan="3" class="label">総計</td>';
-      data.paymentTypes.forEach(pt => {
-        const isExpanded = expandedSet.has(pt.key);
-        if (isExpanded) {
-          totals.byPayment[pt.key].forEach(v => {
-            if (v === null) {
-              tfootHtml += '<td class="muted detail-cell">—</td>';
+      if (data.rows.length > 0) {
+        data.rows.forEach(row => {
+          tbodyHtml += '<tr>';
+          tbodyHtml += `<td class="text-left">${row.txCode}</td>`;
+          tbodyHtml += `<td class="text-left">${row.branchCode}</td>`;
+          tbodyHtml += `<td class="jp">${row.shopName}</td>`;
+          data.paymentTypes.forEach(pt => {
+            const isExpanded = expandedSet.has(pt.key);
+            if (isExpanded) {
+              row.amounts[pt.key].forEach(v => {
+                tbodyHtml += cell(v, 'detail-cell');
+              });
             } else {
-              tfootHtml += `<td class="detail-cell">${fmt(v)}</td>`;
+              tbodyHtml += cell(sumPaymentType(row.amounts[pt.key]));
             }
           });
-        } else {
-          const sum = totals.byPayment[pt.key].reduce((s, v) => s + (v || 0), 0) || null;
-          if (sum === null) {
-            tfootHtml += '<td class="muted">—</td>';
-          } else {
-            tfootHtml += `<td>${fmt(sum)}</td>`;
-          }
+          tbodyHtml += cell(row.total);
+          tbodyHtml += cell(row.fee1);
+          tbodyHtml += cell(row.fee2);
+          tbodyHtml += cell(row.settlement);
+          tbodyHtml += '</tr>';
+        });
+      } else {
+        const totalCols = 3 + data.paymentTypes.reduce((s, pt) =>
+          s + (expandedSet.has(pt.key) ? pt.methods.length : 1), 0) + 4;
+        for (let i = 0; i < 10; i++) {
+          tbodyHtml += '<tr>' + '<td></td>'.repeat(totalCols) + '</tr>';
         }
-      });
-      tfootHtml += `<td>${fmt(totals.total)}</td>`;
-      tfootHtml += `<td>${fmt(totals.fee1)}</td>`;
-      tfootHtml += `<td>${fmt(totals.fee2)}</td>`;
-      tfootHtml += `<td>${fmt(totals.settlement)}</td>`;
-      tfootHtml += '</tr>';
-      tfootHtml += '</tbody>';
+      }
+      tbodyHtml += '</tbody>';
 
       const html = `
         <table class="data-table">
           ${colgroupHtml}
           ${theadHtml}
           ${tbodyHtml}
-        </table>
-        <table class="data-table data-table-footer">
-          ${colgroupHtml}
-          ${tfootHtml}
         </table>
       `;
 
@@ -946,9 +924,13 @@
     setupDelegatedClick(vmEmiContainer, vmEmiData, expandedVmEmi);
     setupDelegatedClick(codeContainer, codeData, expandedCode);
 
+    let dataLoaded = false;
+
     function rerenderAll() {
-      renderTable(vmEmiContainer, vmEmiData, expandedVmEmi);
-      renderTable(codeContainer, codeData, expandedCode);
+      const vmData = dataLoaded ? vmEmiData : { ...vmEmiData, rows: [] };
+      const cdData = dataLoaded ? codeData : { ...codeData, rows: [] };
+      renderTable(vmEmiContainer, vmData, expandedVmEmi);
+      renderTable(codeContainer, cdData, expandedCode);
     }
 
     rerenderAll();
@@ -979,15 +961,35 @@
     }
 
     paymentTypeSelect.addEventListener('change', applyView);
+    applyView();
+
+    function setSummaryValues(loaded) {
+      document.getElementById('sum-vm-total').textContent      = loaded ? '406,533' : '—';
+      document.getElementById('sum-vm-fee1').textContent       = loaded ? '11,181'  : '—';
+      document.getElementById('sum-vm-fee2').textContent       = loaded ? '814'     : '—';
+      document.getElementById('sum-vm-settlement').textContent = loaded ? '394,538' : '—';
+      document.getElementById('sum-code-total').textContent      = loaded ? '84,598' : '—';
+      document.getElementById('sum-code-fee1').textContent       = loaded ? '2,327'  : '—';
+      document.getElementById('sum-code-fee2').textContent       = loaded ? '168'    : '—';
+      document.getElementById('sum-code-settlement').textContent = loaded ? '82,103' : '—';
+    }
+
     document.querySelector('.btn-search').addEventListener('click', () => {
-      document.getElementById('results').style.display = '';
+      dataLoaded = true;
+      rerenderAll();
       applyView();
+      setSummaryValues(true);
+      document.getElementById('section-count').style.display = '';
     });
 
     document.querySelector('.btn-clear').addEventListener('click', () => {
       document.getElementById('target-month').value = '';
       document.getElementById('payment-type').value = 'vm-emi';
-      document.getElementById('results').style.display = 'none';
+      dataLoaded = false;
+      rerenderAll();
+      applyView();
+      setSummaryValues(false);
+      document.getElementById('section-count').style.display = 'none';
     });
 
     // ========================================

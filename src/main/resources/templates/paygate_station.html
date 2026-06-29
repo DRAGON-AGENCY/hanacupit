@@ -493,31 +493,30 @@
       </div>
     </div>
 
-    <div id="results" style="display: none;">
     <!-- サマリーカード -->
     <div class="summary-grid">
       <div class="summary-card">
         <div class="summary-label">合計 売上件数</div>
-        <div class="summary-value">55<span class="summary-unit">件</span></div>
+        <div class="summary-value"><span id="sum-count">—</span><span class="summary-unit">件</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 売上金額</div>
-        <div class="summary-value">317,953<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-sales">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 決済手数料</div>
-        <div class="summary-value">8,741<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-fee">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 支払金額②</div>
-        <div class="summary-value">308,573<span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-pay2">—</span><span class="summary-unit">円</span></div>
       </div>
     </div>
 
     <!-- 精算明細 -->
     <div class="section-header">
       <span class="section-title">精算明細</span>
-      <span class="section-count">全 7 件</span>
+      <span class="section-count" id="section-count" style="display:none">全 7 件</span>
     </div>
 
     <div class="data-table-wrapper">
@@ -545,36 +544,20 @@
               <th>支払金額② (円)</th>
             </tr>
           </thead>
-          <tbody>
-            <tr><td class="text-left">01-001</td><td>5</td><td>14,550</td><td>400</td><td>14,150</td><td>26</td><td>3</td><td>14,121</td></tr>
-            <tr><td class="text-left">01-024</td><td>11</td><td>52,122</td><td>1,433</td><td>50,689</td><td>95</td><td>10</td><td>50,584</td></tr>
-            <tr><td class="text-left">02-030</td><td>4</td><td>30,000</td><td>825</td><td>29,175</td><td>55</td><td>5</td><td>29,115</td></tr>
-            <tr><td class="text-left">03-048</td><td>24</td><td>169,416</td><td>4,658</td><td>164,758</td><td>309</td><td>31</td><td>164,418</td></tr>
-            <tr><td class="text-left">03-068</td><td>6</td><td>24,915</td><td>685</td><td>24,230</td><td>45</td><td>5</td><td>24,180</td></tr>
-            <tr><td class="text-left">04-064</td><td>4</td><td>18,700</td><td>514</td><td>18,186</td><td>35</td><td>3</td><td>18,148</td></tr>
-            <tr><td class="text-left">11-060</td><td>1</td><td>8,250</td><td>226</td><td>8,024</td><td>15</td><td>2</td><td>8,007</td></tr>
+          <tbody id="detail-body">
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
           </tbody>
         </table>
       </div>
-      <table class="data-table data-table-footer">
-        <colgroup>
-          <col style="width: 11%">
-          <col style="width: 11%">
-          <col style="width: 14%">
-          <col style="width: 12%">
-          <col style="width: 13%">
-          <col style="width: 13%">
-          <col style="width: 13%">
-          <col style="width: 13%">
-        </colgroup>
-        <tbody>
-          <tr class="total-row">
-            <td class="label text-left">合計</td>
-            <td>55</td><td>317,953</td><td>8,741</td><td>309,212</td><td>580</td><td>59</td><td>308,573</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
     </div>
   </div>
 
@@ -628,15 +611,36 @@
     paymentCompanyEl.addEventListener('change', updatePaymentTypeOptions);
     updatePaymentTypeOptions();
 
+    const EMPTY_ROWS = '<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(10);
+    const DATA_ROWS = [
+      '<tr><td class="text-left">01-001</td><td>5</td><td>14,550</td><td>400</td><td>14,150</td><td>26</td><td>3</td><td>14,121</td></tr>',
+      '<tr><td class="text-left">01-024</td><td>11</td><td>52,122</td><td>1,433</td><td>50,689</td><td>95</td><td>10</td><td>50,584</td></tr>',
+      '<tr><td class="text-left">02-030</td><td>4</td><td>30,000</td><td>825</td><td>29,175</td><td>55</td><td>5</td><td>29,115</td></tr>',
+      '<tr><td class="text-left">03-048</td><td>24</td><td>169,416</td><td>4,658</td><td>164,758</td><td>309</td><td>31</td><td>164,418</td></tr>',
+      '<tr><td class="text-left">03-068</td><td>6</td><td>24,915</td><td>685</td><td>24,230</td><td>45</td><td>5</td><td>24,180</td></tr>',
+      '<tr><td class="text-left">04-064</td><td>4</td><td>18,700</td><td>514</td><td>18,186</td><td>35</td><td>3</td><td>18,148</td></tr>',
+      '<tr><td class="text-left">11-060</td><td>1</td><td>8,250</td><td>226</td><td>8,024</td><td>15</td><td>2</td><td>8,007</td></tr>'
+    ].join('');
+
     document.querySelector('.btn-search').addEventListener('click', () => {
-      document.getElementById('results').style.display = '';
+      document.getElementById('sum-count').textContent = '55';
+      document.getElementById('sum-sales').textContent = '317,953';
+      document.getElementById('sum-fee').textContent = '8,741';
+      document.getElementById('sum-pay2').textContent = '308,573';
+      document.getElementById('detail-body').innerHTML = DATA_ROWS;
+      document.getElementById('section-count').style.display = '';
     });
 
     document.querySelector('.btn-clear').addEventListener('click', () => {
       document.getElementById('target-month').value = '';
       paymentCompanyEl.selectedIndex = 0;
       updatePaymentTypeOptions();
-      document.getElementById('results').style.display = 'none';
+      document.getElementById('sum-count').textContent = '—';
+      document.getElementById('sum-sales').textContent = '—';
+      document.getElementById('sum-fee').textContent = '—';
+      document.getElementById('sum-pay2').textContent = '—';
+      document.getElementById('detail-body').innerHTML = EMPTY_ROWS;
+      document.getElementById('section-count').style.display = 'none';
     });
   </script>
 </body>

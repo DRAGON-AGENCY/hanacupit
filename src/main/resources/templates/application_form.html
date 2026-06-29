@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -150,7 +150,7 @@
   /* カスタムセレクト */
   .custom-select {
     position: relative;
-    width: 260px;
+    width: 320px;
   }
 
   .select-display {
@@ -341,7 +341,8 @@
             </div>
             <div class="select-options">
               <div class="select-option selected" data-value="JCB">JCB</div>
-              <div class="select-option" data-value="SMCC">SMCC</div>
+              <div class="select-option" data-value="SMCC_KAMEI">SMCC（加盟店申込書）</div>
+              <div class="select-option" data-value="SMCC_TENPO">SMCC（店舗・店子情報一覧）</div>
             </div>
           </div>
         </div>
@@ -359,7 +360,7 @@
       </div>
       <ol class="notice-list">
         <li>申請元となる会員店データファイル (CSV) を参照ボタンから選択してください。</li>
-        <li>申請先 (JCB / SMCC) に応じた所定フォーマットの申込フォームが自動生成されます。</li>
+        <li>申請先（JCB / SMCC（加盟店申込書）/ SMCC（店舗・店子情報一覧））に応じた所定フォーマットの申込フォームが自動生成されます。</li>
       </ol>
     </div>
   </div>
@@ -380,7 +381,7 @@
       opt.addEventListener('click', () => {
         options.forEach(o => o.classList.remove('selected'));
         opt.classList.add('selected');
-        valueSpan.textContent = opt.dataset.value;
+        valueSpan.textContent = opt.textContent;
         select.classList.remove('open');
       });
     });
