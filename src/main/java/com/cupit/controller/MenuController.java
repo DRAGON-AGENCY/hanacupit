@@ -16,7 +16,7 @@ import com.cupit.service.MemberInfoService;
 @Controller
 public class MenuController {
 
-    private static final String DEFAULT_TRANSACTION_CODE = "01-001";
+    private static final String DEFAULT_TRADE_CODE = "01-001";
     private static final String ATTRIBUTE_NAME_INFO = "info";
     private static final String ATTRIBUTE_NAME_EMPLOYEES = "employees";
     private static final String ATTRIBUTE_NAME_AUTHORITY_CODE = "authorityCode";
@@ -36,6 +36,8 @@ public class MenuController {
     private static final String VIEW_NAME_PAYGATE_STATION = "paygate_station";
     private static final String VIEW_NAME_MEMBER_MASTER = "member_master";
     private static final String VIEW_NAME_SHOP_DATA_CREATE = "shop_data_create";
+    private static final String VIEW_NAME_PAYGATE_MAPPING_CREATE = "paygate_mapping_create";
+    private static final String VIEW_NAME_PAYGATE_MAPPING_INFO = "paygate_mapping_info";
     private static final String VIEW_NAME_APPLICATION_FORM = "application_form";
     private static final String VIEW_NAME_JFTD_SETTLEMENT = "jftd_settlement";
     private static final String VIEW_NAME_JFTD = "jftd";
@@ -67,11 +69,11 @@ public class MenuController {
 
     @GetMapping("/member_info")
     public String memberInfo(
-            @RequestParam(name = "transactionCode",
+            @RequestParam(name = "tradeCode",
                     required = false,
-                    defaultValue = DEFAULT_TRANSACTION_CODE) String transactionCode,
+                    defaultValue = DEFAULT_TRADE_CODE) String tradeCode,
             Model model) {
-        MemberInfo memberInfo = memberInfoService.findByTransactionCode(transactionCode);
+        MemberInfo memberInfo = memberInfoService.findByTradeCode(tradeCode);
         model.addAttribute(ATTRIBUTE_NAME_INFO, memberInfo);
         return VIEW_NAME_MEMBER_INFO;
     }
@@ -109,6 +111,19 @@ public class MenuController {
     @GetMapping("/shop_data_create")
     public String shopDataCreate() {
         return VIEW_NAME_SHOP_DATA_CREATE;
+    }
+
+    @GetMapping("/paygate_mapping_create")
+    public String paygateMappingCreate() {
+        return VIEW_NAME_PAYGATE_MAPPING_CREATE;
+    }
+
+    @GetMapping("/paygate_mapping_info")
+    public String paygateMappingInfo(
+            @RequestParam(name = "tradeCode", required = false) String tradeCode,
+            Model model) {
+        model.addAttribute("tradeCode", tradeCode);
+        return VIEW_NAME_PAYGATE_MAPPING_INFO;
     }
 
     @GetMapping("/application_form")

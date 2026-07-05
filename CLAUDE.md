@@ -273,7 +273,8 @@ spring.datasource.password=${DB_PASSWORD:hanacupit}
 
 環境変数 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` で上書き可能。未設定時は上記デフォルトを使用する。
 
-`spring.sql.init.mode=always` のため、起動のたびに `src/main/resources/schema.sql` `data.sql` が実行される（`CREATE TABLE IF NOT EXISTS` で冪等）。
+`spring.sql.init.mode=never` のため、起動時に `schema.sql` / `data.sql` は**自動実行されない**。
+テーブルの新規作成やカラム追加が必要な場合は、`C:\work\20260401_花キューピット\07_テーブル作成sql\` の各 SQL ファイルを psql または pgAdmin で手動実行すること。
 
 ### デプロイ手順
 
@@ -369,4 +370,228 @@ GRANT ALL PRIVILEGES ON DATABASE hanacupit TO hanacupit;
 現在の対象エンドポイントは `/login`・`/employee/save`・`/employee/delete`。
 **新たに状態変更エンドポイントや画面を追加する場合は、上記の meta 埋め込みと
 `X-CSRF-TOKEN` ヘッダー付与を必ず実装する**こと（漏れると 403 で動かない）。
+
+---
+
+## CSV ファイルインポート共通規約
+
+本プロジェクトで CSV ファイルをインプットとして処理する機能すべてに適用する。
+
+### 対応文字コード
+
+| 文字コード | 判定方法 | 備考 |
+|---|---|---|
+| **UTF-8（BOM付き）** | 先頭バイト `EF BB BF` | Excel の「CSV UTF-8（コンマ区切り）」形式 |
+| **Shift-JIS（MS932）** | BOM なし | 各決済会社からの受領ファイルに多い |
+
+上記以外（UTF-8 BOMなし・UTF-16 等）は**エラーとして処理を中断する**。
+
+### バックエンド実装規則
+
+- CSV を読み込む全インポータークラスは `AbstractFileImporter#detectCharset(MultipartFile)` を
+  使って文字コードを自動判定すること。ハードコードで `MS932` や `UTF-8` を指定しない。
+- `detectCharset` の判定ロジック：
+  1. `EF BB BF` → `StandardCharsets.UTF_8` を返す
+  2. `FF FE` / `FE FF`（UTF-16）→ `IllegalArgumentException` をスロー
+  3. それ以外 → `Charset.forName("MS932")` を返す
+- UTF-8 BOM のファイルはヘッダー行の先頭に BOM 文字（U+FEFF）が付く。ヘッダー行は
+  スキップするため影響はないが、スキップしない場合は `replace(/^﻿/, '')` で除去する。
+
+### フロントエンド実装規則
+
+ファイル選択時のフロントエンドチェック（`checkShiftJisCsv`）でも BOM を検出し、
+サーバー送信前にユーザーへ案内する。
+
+1. `FileReader.readAsArrayBuffer` でバイト列を取得する。
+2. 先頭バイトで判定する：
+   - `0xEF 0xBB 0xBF` → UTF-8 BOM として `TextDecoder('utf-8')` でデコードする。
+   - `0xFF 0xFE` / `0xFE 0xFF` → 非対応エラーを即表示する。
+   - それ以外 → `TextDecoder('shift-jis')` でデコードする。
+3. Shift-JIS デコード後にヘッダー不一致が多い場合は UTF-8 でも試行し、
+   UTF-8 無 BOM と判定できればその旨のエラーを表示する。
+
+### エラー時のユーザー案内
+
+文字コードエラーが発生した画面には以下を注意文言として表示する。
+
+- 対応文字コードは **UTF-8（BOM付き）** または **Shift-JIS（MS932）** である旨。
+- エラー時の対処方法：Excel でファイルを開き「名前を付けて保存」→
+  「CSV UTF-8（コンマ区切り）(*.csv)」を選択して保存し直す。
+
+### インポート時のエラー行の扱い（部分登録）
+
+「取引コード紐付データ作成」（`/paygate_mapping_create`）・「JFTD精算データ作成」
+（`/jftd_settlement`）のアップロード（登録）処理は、**1件でもデータエラーが
+あるとファイル全体を登録しない、という全件ロールバック方式は採らない**。
+
+- エラーが発生した行（列数不足・数値/日付変換エラー・
+  `m_paygate_store_mapping` にマッピングが存在しない行・CSV内取引コード重複等）は
+  **その行だけを登録せずスキップ**し、ファイルの最後まで処理を継続する。
+- エラーが無かった行は通常どおりすべて登録する（部分登録を許容する）。
+- 発生した**全エラー**を `ImportResponse.errors` に含めて画面に返す。エラー件数の
+  上限（旧 `MAX_IMPORT_ERRORS`）は設けない。フロントエンドのエラー一覧テーブルも
+  全件をそのまま表示する（`errorLimitReached` は常に `false` になる）。
+- レスポンスの `success` は「エラーが1件も無かったか」を表す（`errors.isEmpty()`）。
+  エラーが1件でもあれば `success=false` を返すが、`importedCount` には実際に
+  登録できた件数が入る（0件とは限らない）。`errorMessage` に登録件数・エラー件数・
+  データ行数を含めるため、画面側の実装（`success===false` のとき
+  `errorMessage`・エラーテーブルを表示する分岐）はそのまま利用でき、
+  部分登録の件数もメッセージ内で表示される。
+- 対象クラス：`AbstractFileImporter`（`throwIfErrors`／`MAX_IMPORT_ERRORS` は廃止）、
+  `JcbFileImporter`・`SumarejoFileImporter`・`NetstarFileImporter`・
+  `RakutenpayFileImporter`・`JushinSbiFileImporter`・`PaygateMappingFileImporter`。
+  各 `importFile()` は登録件数と全エラーをまとめた `ImportResult` を返す
+  （`FileImporter` インタフェースの戻り値型）。`JftdSettlementService`／
+  `PaygateMappingService` はこれを `ImportResponse` に変換して返す。
+- 住信SBIは区分1（店舗ヘッダー）が1ファイル中に複数回登場するため、区分1の
+  マッピング解決・データ検証に失敗した場合は、その区分1配下の区分2（明細）も
+  取引コードが未解決である旨のエラーとしてスキップする（区分1の失敗を後続の
+  区分2まで伝播させる。他の区分1ブロックの処理には影響しない）。
+- `m_import_batch.trade_code` は、JFTD精算データ作成では**行ごとに解決するため
+  バッチ単位の値を持てない**ことがあり、`NULL` を許容する（`NOT NULL` 制約を
+  外している）。取引コード紐付データ作成側は従来どおりログインユーザーIDを設定する。
+
+### ヘッダー行の扱い（取引コード紐付データ作成CSV）
+
+「取引コード紐付データ作成」画面（`/paygate_mapping_create`）が取り込む PAYGATE
+会員コード紐付 CSV は、**1行目の内容によらず常にヘッダー行として扱いスキップする**。
+列名（`hana cupid管理番号`・`店舗名` 等）による一致チェックは行わない。
+
+- 理由：列名の表記はファイルの作成元・作成時期によって変更される可能性があり、
+  列名の完全一致を要求すると、構造（列の並び・列数）は正しいCSVが列名のわずかな
+  表記ゆれだけで弾かれてしまうため。
+- 検証するのは **拡張子（.csv）・列数（13列固定）・各データ行の取引コード
+  （1列目）が空でないこと・CSV内で取引コードが重複していないこと** のみとする。
+  ヘッダー行の有無を自動判定する仕組みは持たない（＝ヘッダー行は必須。ヘッダー
+  なし＝1行目からデータ、という運用はサポートしない）。
+- 同一CSV内に同じ取引コードの行が複数存在する場合はエラーとする（1取引コード
+  につき1行を前提とする。複数端末分を1つの取引コードにまとめて登録する運用は
+  サポートしない）。
+- 対象クラス：`PaygateMappingCsvValidator`・`PaygateMappingFileImporter`、および
+  同ロジックを重複実装している `paygate_mapping_create.html` のフロントエンドJS。
+  3箇所は必ず同期して修正すること。
+- 同じCSVの取込は **取引コード単位の洗い替え**（存在しなければ新規登録、存在すれば
+  該当取引コードのレコードのみ削除して登録し直す）とし、CSVに含まれない取引コードの
+  既存データは削除しない（`m_paygate_store_mapping` 全体を無条件に削除する実装には
+  しないこと）。
+
+### 取引コード（trade_code）の解決規則（JFTD精算データ作成）
+
+「JFTD精算データ作成」画面（`/jftd_settlement`）が取り込む決済会社別の精算ファイル
+（JCB・スマレジ・ネットスターズ・楽天ペイ・住信SBI）は、**1ファイルに花キューピット
+全店舗分のデータが行単位（住信SBIは区分1ブロック単位）で混在する**。そのため
+取引コードは、**ファイル単位で1回だけ解決してはならず、行（区分1ブロック）ごとに
+その行自身の識別キーで `m_paygate_store_mapping` を引き直して解決する**。
+
+- 背景：`m_paygate_store_mapping` は「1レコード＝1店舗」で、各決済会社の識別コード
+  （JCB加盟店番号・端末識別番号・ネットスターズ店舗コード・住信SBI加盟店ID・
+  Rpay店舗コード）と取引コード（hana cupid管理番号）を1対1で保持している。一方、
+  決済会社から届く精算ファイルは店舗横断の集計ファイルであり、1ファイルに複数店舗の
+  行が含まれる。ファイルの先頭1行だけで取引コードを解決して全行にコピーすると、
+  マッピングが存在しない店舗の行にも別店舗の取引コードが誤って付与されてしまう
+  （実際に発生した不具合）。
+- 識別キーと `m_paygate_store_mapping` の対応カラム：
+
+  | 決済種類 | 識別キーの取得元 | 対応カラム |
+  |---|---|---|
+  | JCB | 加盟店番号（列2） | `jcb_merchant_no` |
+  | スマレジ（端末月額） | 端末識別番号（列6） | `terminal_id` |
+  | ネットスターズ | 店舗コード（列B） | `netstar_store_code` |
+  | 楽天ペイ | STORE_NO（列C） | `rpay_store_code` |
+  | 住信SBI | 加盟店ID（区分1の6列目） | `sbi_merchant_id` |
+
+- マッピングが見つからない行（住信SBIは区分1ブロック）は、その行の行番号・識別キー・
+  列名を含むエラーとして収集し、**その行だけを登録せずスキップして処理を継続する**
+  （エラー行の扱いの詳細は前項「インポート時のエラー行の扱い（部分登録）」を参照）。
+- 住信SBIは区分1（店舗ヘッダー）が1ファイル中に複数回登場する。区分1ごとに解決した
+  取引コードを、後続の区分2（明細）が次の区分1に達するまで引き継ぐ（1パス処理）。
+- 対象クラス：`JcbFileImporter`・`SumarejoFileImporter`・`NetstarFileImporter`・
+  `RakutenpayFileImporter`・`JushinSbiFileImporter`。いずれも `PaygateMappingRepository`
+  を注入し、`batch.getTradeCode()` を全行に使い回すのではなく、行ごとに
+  `findFirstByXxx()` で引き直した値を明細エンティティに設定すること。
+- `JftdSettlementService.importFile()` は `m_paygate_store_mapping` への照会を
+  自分では行わない。`importer.extractLookupKey(file)` はデータ行が1件も無い
+  構造的に空なファイルを早期に弾くためだけに呼び出し、戻り値（識別キー）は
+  使用しない（トレードコードの解決・整合性保証は行ごとの処理に一本化する）。
+
+---
+
+## DB 設計規約
+
+### テーブル命名規則
+
+テーブル名にはカテゴリプレフィックスを付ける。プレフィックスは `m_` に統一する
+（`m_employee`、`m_member_info`、`m_import_batch` のように、すべてのテーブルが
+`m_` で始まる）。
+
+- 新規テーブルを追加する際は必ず `m_` で始まるテーブル名とすること。
+- プレフィックスなしのテーブル名（`employee`、`import_batch` など）は使用しない。
+
+### 3ファイルの同期ルール
+
+テーブルの追加・変更・削除を行う場合、以下の3箇所を**必ず同時に**修正する。
+どれか1つだけ変更すると起動時にテーブル不一致でエラーになる。
+
+| # | 対象 | 場所 |
+|---|---|---|
+| A | 実行 SQL | `src/main/resources/schema.sql` |
+| B | 作業用 SQL（設計書） | `C:\work\20260401_花キューピット\07_テーブル作成sql\` |
+| C | Java エンティティ | `src/main/java/com/cupit/model/XxxYyy.java` の `@Table(name = "m_xxx_yyy")` |
+
+※ テーブル仕様書（`.xlsx`）は上記 B と内容を揃えること（手動更新）。
+
+### 制約名・インデックス名の命名規則
+
+| 種別 | パターン | 例 |
+|---|---|---|
+| PRIMARY KEY 制約名 | `pk_<テーブル名>` | `pk_m_import_batch` |
+| インデックス名 | `idx_<テーブル略称>_<カラム略称>` | `idx_jcb_batch`、`idx_visa_hdr_merchant` |
+
+- テーブル略称はテーブル名から代表的な単語を抜粋する（`m_jcb_sales_detail` → `jcb`）。
+- 同一テーブルに複数インデックスがある場合はカラム略称で区別する（`_batch`、`_store`）。
+
+### 共通カラムの規約
+
+すべてのテーブルに以下の3カラムを設ける。
+
+| カラム名 | 型・制約 | 用途 |
+|---|---|---|
+| `registered_date` | `DATE NOT NULL DEFAULT CURRENT_DATE` | レコード登録日 |
+| `updated_date` | `DATE` | レコード更新日（更新時にアプリがセット） |
+| `updated_by` | `VARCHAR(50)` | 最終更新者のユーザーID |
+
+Java エンティティ側でも対応するフィールドを定義する。
+
+```java
+@Column(name = "registered_date", nullable = false)
+private LocalDate registeredDate;
+
+@Column(name = "updated_date")
+private LocalDate updatedDate;
+
+@Column(name = "updated_by")
+private String updatedBy;
+```
+
+---
+
+## 画面 UI 規約
+
+### 表形式（一覧）画面
+
+- 表形式のデータを表示する画面は**ページ指定 UI（ページネーション）**を必ず実装する。
+  - 表示件数セレクト（10 / 20 / 30 / 50 / 100件）を設ける。
+  - 現在位置サマリー（「○–○ / ○件」）を表の上部に表示する。
+  - ページ番号ボタンは両端＋現在ページ周辺を表示し、間は「…」で省略する。
+  - 前・次ナビボタンを設ける。
+  - 実装パターンは `employee_list.html` に準拠する。
+
+- 明細行は**できるだけ 1 行で収まる**ようレイアウトを調整する。
+  - `table-layout: fixed` で列幅を明示的に指定する。
+  - 各セルに `white-space: nowrap; overflow: hidden; text-overflow: ellipsis;` を設定し、
+    はみ出した内容は省略記号（…）で示す。
+  - 列幅はデータの実際の桁数・文字数に合わせて設定し、横スクロールで全列が見えるようにする。
+  - テーブル領域に `overflow-x: auto` と `max-height` を設定し、ヘッダー行は `position: sticky` で固定する。
+  - 日本語テキスト列（店名・ステータス等）はフォントを `var(--font-base)`、
+    数値・コード列は `var(--font-mono)` を使い、`font-variant-numeric: tabular-nums` を設定する。
 

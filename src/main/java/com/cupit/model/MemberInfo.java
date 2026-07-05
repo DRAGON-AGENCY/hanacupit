@@ -1,5 +1,7 @@
 package com.cupit.model;
 
+import java.time.LocalDate;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -14,8 +16,8 @@ import jakarta.persistence.Table;
 public class MemberInfo {
 
     @Id
-    @Column(name = "transaction_code")
-    private String transactionCode;
+    @Column(name = "trade_code")
+    private String tradeCode;
 
     @Column(name = "store_name")
     private String storeName;
@@ -32,11 +34,11 @@ public class MemberInfo {
     @Column(name = "parent_store_name")
     private String parentStoreName;
 
-    @Column(name = "new_transaction_code")
-    private String newTransactionCode;
+    @Column(name = "new_trade_code")
+    private String newTradeCode;
 
-    @Column(name = "prev_transaction_code")
-    private String prevTransactionCode;
+    @Column(name = "prev_trade_code")
+    private String prevTradeCode;
 
     @Column(name = "middle_code")
     private String middleCode;
@@ -68,12 +70,21 @@ public class MemberInfo {
     @Column(name = "phone_number")
     private String phoneNumber;
 
-    public String getTransactionCode() {
-        return transactionCode;
+    @Column(name = "create_date", nullable = false)
+    private LocalDate createDate;
+
+    @Column(name = "updated_date")
+    private LocalDate updatedDate;
+
+    @Column(name = "update_employee")
+    private String updateEmployee;
+
+    public String getTradeCode() {
+        return tradeCode;
     }
 
-    public void setTransactionCode(String transactionCode) {
-        this.transactionCode = transactionCode;
+    public void setTradeCode(String tradeCode) {
+        this.tradeCode = tradeCode;
     }
 
     public String getStoreName() {
@@ -116,20 +127,20 @@ public class MemberInfo {
         this.parentStoreName = parentStoreName;
     }
 
-    public String getNewTransactionCode() {
-        return newTransactionCode;
+    public String getNewTradeCode() {
+        return newTradeCode;
     }
 
-    public void setNewTransactionCode(String newTransactionCode) {
-        this.newTransactionCode = newTransactionCode;
+    public void setNewTradeCode(String newTradeCode) {
+        this.newTradeCode = newTradeCode;
     }
 
-    public String getPrevTransactionCode() {
-        return prevTransactionCode;
+    public String getPrevTradeCode() {
+        return prevTradeCode;
     }
 
-    public void setPrevTransactionCode(String prevTransactionCode) {
-        this.prevTransactionCode = prevTransactionCode;
+    public void setPrevTradeCode(String prevTradeCode) {
+        this.prevTradeCode = prevTradeCode;
     }
 
     public String getMiddleCode() {
@@ -212,17 +223,41 @@ public class MemberInfo {
         this.phoneNumber = phoneNumber;
     }
 
+    public LocalDate getCreateDate() {
+        return createDate;
+    }
+
+    public void setCreateDate(LocalDate createDate) {
+        this.createDate = createDate;
+    }
+
+    public LocalDate getUpdatedDate() {
+        return updatedDate;
+    }
+
+    public void setUpdatedDate(LocalDate updatedDate) {
+        this.updatedDate = updatedDate;
+    }
+
+    public String getUpdateEmployee() {
+        return updateEmployee;
+    }
+
+    public void setUpdateEmployee(String updateEmployee) {
+        this.updateEmployee = updateEmployee;
+    }
+
     @Override
     public String toString() {
         return "MemberInfo{"
-                + "transactionCode=" + transactionCode
+                + "tradeCode=" + tradeCode
                 + ", storeName=" + storeName
                 + ", storeNameKana=" + storeNameKana
                 + ", memberType=" + memberType
                 + ", parentStoreCode=" + parentStoreCode
                 + ", parentStoreName=" + parentStoreName
-                + ", newTransactionCode=" + newTransactionCode
-                + ", prevTransactionCode=" + prevTransactionCode
+                + ", newTradeCode=" + newTradeCode
+                + ", prevTradeCode=" + prevTradeCode
                 + ", middleCode=" + middleCode
                 + ", blockCode=" + blockCode
                 + ", joinDate=" + joinDate

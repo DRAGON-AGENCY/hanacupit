@@ -1,13 +1,13 @@
 -- 会員情報 初期データ (従来サービスのハードコード値を移行)
 INSERT INTO m_member_info (
-    transaction_code,
+    trade_code,
     store_name,
     store_name_kana,
     member_type,
     parent_store_code,
     parent_store_name,
-    new_transaction_code,
-    prev_transaction_code,
+    new_trade_code,
+    prev_trade_code,
     middle_code,
     block_code,
     join_date,
@@ -17,7 +17,8 @@ INSERT INTO m_member_info (
     representative_kana,
     postal_code,
     address,
-    phone_number
+    phone_number,
+    create_date
 ) VALUES (
     '01-001',
     '赤坂生花店',
@@ -36,6 +37,7 @@ INSERT INTO m_member_info (
     'ヤマダ タロウ',
     '107-0052',
     '東京都港区赤坂1-2-3',
-    '03-1234-5678'
+    '03-1234-5678',
+    CURRENT_DATE
 )
-ON CONFLICT (transaction_code) DO NOTHING;
+ON CONFLICT (trade_code) DO NOTHING;

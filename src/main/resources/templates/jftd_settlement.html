@@ -1,13 +1,12 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" th:content="${csrfToken}" content="">
 <title>JFTD精算データ作成 (PAYGATE Station) | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
-<!-- 取得前でも代替フォントで即座に画面を表示し、応答性を確保する。 -->
 <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
     media="print" onload="this.media='all'">
@@ -16,59 +15,50 @@
 </noscript>
 <style>
   :root {
-    /* === 色トークン === */
     --bg-page: #ffffff;
     --bg-card: #ffffff;
     --bg-form: #eef3fa;
-    --bg-label: #ede8db;
-    --bg-label-soft: #f5f2eb;
     --bg-white: #ffffff;
     --bg-notice: #fbeed5;
     --bg-notice-border: #f1d9a0;
     --bg-option-hover: #e6f5dc;
+    --bg-ok: #edf7ed;
+    --bg-ng: #fdf0f0;
     --border-color: #e8e4da;
     --border-input: #d8d4c8;
     --border-form: #cddef2;
     --border-table: #e5e2d8;
+    --border-ok: #a5d6a7;
+    --border-ng: #f5c6cb;
     --text-main: #2a2a2a;
-    --text-sub: #4a4a4a;
     --text-label: #5a5a5a;
     --text-muted: #8a8a8a;
-    --text-subtle: #9a9a9a;
     --text-notice: #8a5a1a;
+    --text-ok: #2e7d32;
+    --text-ng: #b71c1c;
     --accent-blue: #3a6db5;
     --accent-blue-light: #e3edfb;
     --accent-blue-border: #aecbeb;
-
-    /* === フォントトークン === */
-    --font-jp: "Inter", "Noto Sans JP", sans-serif;
     --font-base: "Inter", "Noto Sans JP", sans-serif;
     --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
-
-    /* === フォントサイズトークン === */
     --fs-xs: 14px;
     --fs-sm: 15px;
     --fs-base: 16px;
     --fs-md: 18px;
     --fs-lg: 22px;
-
-    /* === レイアウトトークン === */
     --container-min: 1200px;
     --container-max: 1760px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   html, body { min-height: 100vh; }
 
   body {
     font-family: var(--font-base);
     background-color: var(--bg-page);
     color: var(--text-main);
-    padding: 0;
     min-height: 100vh;
     overflow-x: auto;
-    overflow-y: auto;
     -webkit-font-smoothing: antialiased;
     font-size: var(--fs-base);
     font-feature-settings: "palt";
@@ -80,26 +70,11 @@
     width: 100%;
     margin: 0 auto;
     background-color: var(--bg-card);
-    border: none;
-    border-radius: 0;
     padding: 10px 32px 14px;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
   }
-
-  .header-row { display: flex; justify-content: flex-end; margin-bottom: 6px; }
-
-  .btn-back {
-    display: inline-flex; align-items: center; gap: 4px;
-    background-color: var(--bg-white);
-    border: 1px solid var(--border-input);
-    border-radius: 8px; padding: 8px 16px; font-size: var(--fs-base);
-    color: var(--text-main); cursor: pointer;
-    transition: all 0.2s ease; font-family: inherit;
-  }
-
-  .btn-back:hover { background-color: #faf8f2; border-color: #c4bfae; }
 
   .page-title {
     font-size: var(--fs-lg); font-weight: 700; color: var(--text-main);
@@ -116,192 +91,179 @@
   }
 
   .form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+
   .form-label {
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    color: var(--text-label);
-    letter-spacing: 0.03em;
+    font-size: var(--fs-xs); font-weight: 600;
+    color: var(--text-label); letter-spacing: 0.03em;
   }
 
   .text-input {
-    padding: 8px 14px;
-    border: 1px solid var(--border-input);
+    padding: 8px 14px; border: 1px solid var(--border-input);
     border-radius: 6px; background-color: var(--bg-white);
-    font-size: var(--fs-base);
-    color: var(--text-main);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-base); color: var(--text-main);
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
     width: 220px;
   }
 
   .text-input:focus {
     outline: none; border-color: var(--accent-blue);
-    box-shadow: 0 0 0 2px rgba(61, 107, 58, 0.15);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
   }
 
   .file-input-row { display: flex; gap: 10px; align-items: stretch; }
 
   .file-input {
-    flex: 1; padding: 8px 14px;
-    border: 1px solid var(--border-input);
+    flex: 1; padding: 8px 14px; border: 1px solid var(--border-input);
     border-radius: 6px; background-color: var(--bg-white);
-    font-size: var(--fs-base);
-    color: var(--text-main);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .file-input:focus {
-    outline: none; border-color: var(--accent-blue);
-    box-shadow: 0 0 0 2px rgba(61, 107, 58, 0.15);
+    font-size: var(--fs-base); color: var(--text-main); font-family: var(--font-mono);
   }
 
   .custom-select { position: relative; width: 260px; }
 
   .select-display {
-    padding: 8px 14px;
-    border: 1px solid var(--border-input);
+    padding: 8px 14px; border: 1px solid var(--border-input);
     border-radius: 6px; background-color: var(--bg-white);
-    font-size: var(--fs-base);
-    color: var(--text-main);
-    cursor: pointer;
-    display: flex; justify-content: space-between; align-items: center;
+    font-size: var(--fs-base); color: var(--text-main);
+    cursor: pointer; display: flex; justify-content: space-between; align-items: center;
     font-family: inherit; user-select: none;
   }
 
   .select-display::after {
-    content: "";
-    width: 10px; height: 10px;
-    border-right: 1.5px solid #888;
-    border-bottom: 1.5px solid #888;
-    transform: rotate(45deg);
-    margin-top: -3px;
-    transition: transform 0.2s ease;
+    content: ""; width: 10px; height: 10px;
+    border-right: 1.5px solid #888; border-bottom: 1.5px solid #888;
+    transform: rotate(45deg); margin-top: -3px; transition: transform 0.2s ease;
   }
 
-  .custom-select.open .select-display::after {
-    transform: rotate(-135deg);
-    margin-top: 3px;
-  }
+  .custom-select.open .select-display::after { transform: rotate(-135deg); margin-top: 3px; }
 
   .select-options {
-    position: absolute; top: calc(100% + 4px);
-    left: 0; right: 0;
-    background-color: var(--bg-white);
-    border: 1px solid var(--border-input);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    z-index: 10; overflow: hidden;
-    display: none;
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background-color: var(--bg-white); border: 1px solid var(--border-input);
+    border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    z-index: 10; overflow: hidden; display: none;
   }
 
   .custom-select.open .select-options { display: block; }
 
-  .select-option {
-    padding: 10px 16px;
-    font-size: var(--fs-base);
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-  }
-
+  .select-option { padding: 10px 16px; font-size: var(--fs-base); cursor: pointer; transition: background-color 0.15s ease; }
   .select-option:hover { background-color: #faf8f2; }
-
-  .select-option.selected {
-    background-color: var(--bg-option-hover);
-    color: var(--accent-blue);
-    font-weight: 500;
-  }
+  .select-option.selected { background-color: var(--bg-option-hover); color: var(--accent-blue); font-weight: 500; }
 
   .form-row-with-action {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 20px;
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 20px;
   }
 
   .btn {
     display: inline-flex; align-items: center; gap: 5px;
-    padding: 8px 18px; border-radius: 6px;
-    font-size: var(--fs-base);
-    cursor: pointer; font-family: inherit;
-    transition: all 0.15s ease; border: 1px solid transparent;
-    white-space: nowrap;
+    padding: 8px 18px; border-radius: 6px; font-size: var(--fs-base);
+    cursor: pointer; font-family: inherit; transition: all 0.15s ease;
+    border: 1px solid transparent; white-space: nowrap;
   }
+
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .btn-browse {
-    background-color: var(--bg-white);
-    border-color: var(--border-input);
+    background-color: var(--bg-white); border-color: var(--border-input);
     color: var(--text-main); padding: 8px 22px;
   }
-
   .btn-browse:hover { background-color: #faf8f2; }
 
   .btn-upload {
-    background-color: var(--accent-blue-light);
-    border-color: var(--accent-blue-border);
-    color: var(--accent-blue);
-    font-weight: 500;
+    background-color: var(--accent-blue-light); border-color: var(--accent-blue-border);
+    color: var(--accent-blue); font-weight: 500;
+  }
+  .btn-upload:not(:disabled):hover { background-color: #d3e2f7; }
+
+  /* フォーマットチェック結果エリア */
+  .check-result {
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 14px;
+    display: none;
   }
 
-  .btn-upload:hover { background-color: #d3e2f7; }
+  .check-result.ok {
+    display: block; background-color: var(--bg-ok);
+    border: 1px solid var(--border-ok); color: var(--text-ok);
+  }
 
+  .check-result.ng {
+    display: block; background-color: var(--bg-ng);
+    border: 1px solid var(--border-ng); color: var(--text-ng);
+  }
+
+  .check-result-title {
+    font-weight: 700; font-size: var(--fs-base); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .check-result-summary {
+    font-size: var(--fs-sm); margin-bottom: 10px;
+  }
+
+  .error-table-wrapper { overflow-x: auto; }
+
+  .error-table {
+    width: 100%; border-collapse: collapse; font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+  }
+
+  .error-table th, .error-table td {
+    border: 1px solid var(--border-ng); padding: 6px 10px; text-align: left;
+  }
+
+  .error-table th {
+    background-color: #fae0e0; font-weight: 600; white-space: nowrap;
+  }
+
+  .error-limit-note {
+    font-size: var(--fs-xs); margin-top: 8px; color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* アップロード中スピナー */
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid currentColor; border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 注意書き */
   .notice-box {
-    background-color: var(--bg-notice);
-    border: 1px solid var(--bg-notice-border);
-    border-radius: 8px;
-    padding: 14px 20px 16px;
+    background-color: var(--bg-notice); border: 1px solid var(--bg-notice-border);
+    border-radius: 8px; padding: 14px 20px 16px;
   }
 
   .notice-title {
     display: flex; align-items: center; gap: 6px;
     font-size: var(--fs-base); font-weight: 700;
-    color: var(--text-notice); margin-bottom: 10px;
-    letter-spacing: 0.02em;
+    color: var(--text-notice); margin-bottom: 10px; letter-spacing: 0.02em;
   }
 
   .notice-icon {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px;
-    border: 1.5px solid var(--text-notice);
-    border-radius: 50%;
-    font-size: 13px; font-weight: 700;
+    width: 16px; height: 16px; border: 1.5px solid var(--text-notice);
+    border-radius: 50%; font-size: 13px; font-weight: 700;
   }
 
-  .notice-list {
-    list-style: none; counter-reset: notice-counter;
-    padding: 0; margin: 0;
-  }
+  .notice-list { list-style: none; counter-reset: n; padding: 0; margin: 0; }
 
   .notice-list li {
-    counter-increment: notice-counter;
-    position: relative; padding-left: 28px;
-    margin-bottom: 6px;
-    font-size: var(--fs-sm);
+    counter-increment: n; position: relative; padding-left: 28px;
+    margin-bottom: 6px; font-size: var(--fs-sm);
     color: var(--text-notice); line-height: 1.7;
   }
 
-  .notice-list li::before {
-    content: counter(notice-counter) ".";
-    position: absolute; left: 8px; font-weight: 500;
-  }
-
+  .notice-list li::before { content: counter(n) "."; position: absolute; left: 8px; font-weight: 500; }
   .notice-list li:last-child { margin-bottom: 0; }
 
-  /* ページ全体のカスタムスクロールバー */
   body::-webkit-scrollbar { width: 14px; }
-  body::-webkit-scrollbar-track {
-    background: #ffffff;
-    border-left: 1px solid var(--border-table);
-  }
-  body::-webkit-scrollbar-thumb {
-    background: #c9c4b4;
-    border: 3px solid #ffffff;
-    border-radius: 8px;
-  }
+  body::-webkit-scrollbar-track { background: #ffffff; border-left: 1px solid var(--border-table); }
+  body::-webkit-scrollbar-thumb { background: #c9c4b4; border: 3px solid #ffffff; border-radius: 8px; }
   body::-webkit-scrollbar-thumb:hover { background: #aea892; }
 
   @media (max-width: 640px) {
-    body { padding: 16px 8px; }
     .container { padding: 20px 16px 24px; }
     .form-row-with-action { flex-direction: column; align-items: stretch; }
     .custom-select, .text-input { width: 100%; }
@@ -315,15 +277,12 @@
 
     <div class="form-box">
       <div class="form-field">
-        <label class="form-label" for="target-month">対象年月</label>
-        <input type="text" id="target-month" class="text-input" value="2026/12" />
-      </div>
-
-      <div class="form-field">
-        <label class="form-label" for="file-input">ファイル</label>
+        <label class="form-label" for="file-display">ファイル</label>
         <div class="file-input-row">
-          <input type="text" id="file-input" class="file-input" value="paygate_settlement_202612.csv" readonly />
-          <button class="btn btn-browse" type="button">参照</button>
+          <input type="text" id="file-display" class="file-input"
+                 placeholder="ファイルを選択してください" readonly />
+          <button class="btn btn-browse" type="button" id="btn-browse">参照</button>
+          <input type="file" id="file-hidden" style="display:none" />
         </div>
       </div>
 
@@ -344,9 +303,30 @@
           </div>
         </div>
 
-        <button class="btn btn-upload" type="button">
-          <span>⬆</span><span>アップロード</span>
+        <button class="btn btn-upload" type="button" id="btn-upload" disabled>
+          <span id="upload-icon">&#11014;</span><span id="upload-label">アップロード</span>
         </button>
+      </div>
+    </div>
+
+    <!-- フォーマットチェック結果 -->
+    <div id="check-result" class="check-result">
+      <div class="check-result-title" id="result-title"></div>
+      <div class="check-result-summary" id="result-summary"></div>
+      <div class="error-table-wrapper" id="error-table-wrapper" style="display:none">
+        <table class="error-table">
+          <thead>
+            <tr>
+              <th>行番号</th>
+              <th>列名</th>
+              <th>エラー内容</th>
+            </tr>
+          </thead>
+          <tbody id="error-table-body"></tbody>
+        </table>
+        <p class="error-limit-note" id="error-limit-note" style="display:none">
+          ※ 表示件数上限（50件）に達しました。残りのエラーは省略されています。
+        </p>
       </div>
     </div>
 
@@ -356,47 +336,428 @@
         <span>データ作成時のご注意</span>
       </div>
       <ol class="notice-list">
-        <li>対象年月 (YYYY/MM形式) を指定し、各決済会社から受領した精算ファイルを参照ボタンから選択してください。</li>
-        <li>アップロード後、対象年月の結果を確認してください。誤った内容の場合はファイルを差し替えて再アップロードしてください。</li>
+        <li>各決済会社から受領した精算ファイルを参照ボタンから選択してください。</li>
+        <li>ファイル選択後、フォーマットチェックが自動で実行されます。エラーがない場合にアップロードボタンが有効になります。</li>
+        <li>アップロード後、内容を確認してください。誤った内容の場合はファイルを差し替えて再アップロードしてください。</li>
+        <li>取引コードが特定できない行やデータ形式が不正な行はその行だけ登録されず、正常な行のみ登録されます。エラーが発生した行はすべて一覧に表示されます。</li>
+        <li>対応文字コードは <strong>UTF-8（BOM付き）</strong> または <strong>Shift-JIS（MS932）</strong> です。それ以外の文字コード（UTF-8 BOMなし・UTF-16 等）はエラーになります。</li>
+        <li>文字コードエラーが表示された場合は、Excelでファイルを開き「名前を付けて保存」→ファイル形式で「CSV UTF-8（コンマ区切り）(*.csv)」を選択して保存し直してからアップロードしてください。</li>
       </ol>
     </div>
   </div>
 
   <script>
-    const select = document.getElementById('payment-type-select');
-    const display = select.querySelector('.select-display');
-    const valueSpan = document.getElementById('payment-type-value');
-    const options = select.querySelectorAll('.select-option');
+    /* =============================================
+       定数：決済種類ごとのファイル仕様
+    ============================================= */
+    const PAYMENT_FORMAT = {
+      'JCB': {
+        accept: '.csv',
+        type: 'shiftjis_csv',
+        expectedHeaders: ['加盟店名称','加盟店番号','ご契約カード会社','お支払方法',
+          'お取扱カード名','支払区分','売上方法','集計日','売上件数','売上金額（円）'],
+        columnCount: 10
+      },
+      'スマレジ': {
+        accept: '.csv',
+        type: 'shiftjis_csv',
+        expectedHeaders: ['会社名','請求対象月','請求No','発行日','加盟店名','端末識別番号','単価',
+          '数量（クレジット）','数量（QRコード決済）','数量（電子マネー・交通系）',
+          '数量（電子マネー・ID）','数量（電子マネー・WAON）','数量（電子マネー・nanaco）',
+          '数量（電子マネー・楽天Edy）','数量（電子マネー・QUICPay）','数量（SIM）',
+          'ﾄﾗﾝｻﾞｸｼｮﾝ数（クレジット）','ﾄﾗﾝｻﾞｸｼｮﾝ数（QRコード決済）',
+          'ﾄﾗﾝｻﾞｸｼｮﾝ数（電子マネー）','ﾄﾗﾝｻﾞｸｼｮﾝ数（合計）',
+          '決済金額（クレジット）','決済金額（QRコード決済）','決済金額（電子マネー）','決済金額（合計）'],
+        columnCount: 24
+      },
+      'ネットスターズ': { accept: '.xlsx', type: 'excel' },
+      '楽天ペイ': { accept: '.xlsx', type: 'excel' },
+      '住信SBI': {
+        accept: '.dat',
+        type: 'utf8_dat',
+        recordType1Columns: 12,
+        recordType2Columns: 22
+      }
+    };
 
-    display.addEventListener('click', (e) => {
+    /* =============================================
+       DOM
+    ============================================= */
+    const selectEl        = document.getElementById('payment-type-select');
+    const displayEl       = selectEl.querySelector('.select-display');
+    const valueSpan       = document.getElementById('payment-type-value');
+    const optionEls       = selectEl.querySelectorAll('.select-option');
+    const fileHidden      = document.getElementById('file-hidden');
+    const fileDisplay     = document.getElementById('file-display');
+    const btnBrowse       = document.getElementById('btn-browse');
+    const btnUpload       = document.getElementById('btn-upload');
+    const checkResult     = document.getElementById('check-result');
+    const resultTitle     = document.getElementById('result-title');
+    const resultSummary   = document.getElementById('result-summary');
+    const errorWrapper    = document.getElementById('error-table-wrapper');
+    const errorBody       = document.getElementById('error-table-body');
+    const errorLimitNote  = document.getElementById('error-limit-note');
+    const csrfToken       = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    let selectedFile = null;
+    let currentPaymentType = 'JCB';
+
+    /* =============================================
+       カスタムドロップダウン
+    ============================================= */
+    displayEl.addEventListener('click', e => {
       e.stopPropagation();
-      select.classList.toggle('open');
+      selectEl.classList.toggle('open');
     });
 
-    options.forEach(opt => {
+    optionEls.forEach(opt => {
       opt.addEventListener('click', () => {
-        options.forEach(o => o.classList.remove('selected'));
+        optionEls.forEach(o => o.classList.remove('selected'));
         opt.classList.add('selected');
         valueSpan.textContent = opt.dataset.value;
-        select.classList.remove('open');
+        currentPaymentType = opt.dataset.value;
+        selectEl.classList.remove('open');
+
+        // 決済種類変更でファイルとチェック結果をリセット
+        resetFileAndResult();
+        updateFileAccept();
       });
     });
 
-    document.addEventListener('click', () => {
-      select.classList.remove('open');
+    document.addEventListener('click', () => selectEl.classList.remove('open'));
+
+    /* =============================================
+       参照ボタン
+    ============================================= */
+    function updateFileAccept() {
+      const fmt = PAYMENT_FORMAT[currentPaymentType];
+      fileHidden.accept = fmt ? fmt.accept : '*';
+    }
+
+    updateFileAccept();
+
+    btnBrowse.addEventListener('click', () => fileHidden.click());
+
+    fileHidden.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      selectedFile = file;
+      fileDisplay.value = file.name;
+      runFrontendCheck(file);
     });
 
-    document.querySelector('.btn-browse').addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv';
-      input.onchange = e => {
-        if (e.target.files[0]) {
-          document.getElementById('file-input').value = e.target.files[0].name;
+    /* =============================================
+       フロントエンド フォーマットチェック
+    ============================================= */
+    function resetFileAndResult() {
+      selectedFile = null;
+      fileHidden.value = '';
+      fileDisplay.value = '';
+      hideResult();
+      btnUpload.disabled = true;
+    }
+
+    function hideResult() {
+      checkResult.className = 'check-result';
+    }
+
+    function showOk(message) {
+      checkResult.className = 'check-result ok';
+      resultTitle.textContent = '✓ フォーマットチェック OK';
+      resultSummary.textContent = message;
+      errorWrapper.style.display = 'none';
+      btnUpload.disabled = false;
+    }
+
+    function showNg(message, errors) {
+      checkResult.className = 'check-result ng';
+      resultTitle.textContent = '✗ フォーマットチェック NG';
+      resultSummary.textContent = message;
+      if (errors && errors.length > 0) {
+        errorBody.innerHTML = '';
+        errors.forEach(err => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + (err.rowNumber || '-') + '</td>'
+            + '<td>' + escapeHtml(err.columnName || '') + '</td>'
+            + '<td>' + escapeHtml(err.message) + '</td>';
+          errorBody.appendChild(tr);
+        });
+        errorWrapper.style.display = '';
+      } else {
+        errorWrapper.style.display = 'none';
+      }
+      btnUpload.disabled = true;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function runFrontendCheck(file) {
+      hideResult();
+      btnUpload.disabled = true;
+      const fmt = PAYMENT_FORMAT[currentPaymentType];
+      if (!fmt) {
+        showNg('未対応の決済種類です。', []);
+        return;
+      }
+
+      // 拡張子チェック
+      const ext = file.name.split('.').pop().toLowerCase();
+      const expectedExt = fmt.accept.replace('.', '');
+      if (ext !== expectedExt) {
+        showNg(
+          'ファイルの拡張子が不正です。期待: ' + fmt.accept + '、実際: .' + ext,
+          [{ rowNumber: 0, columnName: '', message: '正しいファイルを選択してください。' }]
+        );
+        return;
+      }
+
+      if (fmt.type === 'excel') {
+        // Excelは拡張子確認のみ（サーバー側検証はアップロード時）
+        showOk('拡張子チェック OK。アップロードしてサーバー側の検証を実行してください。');
+        return;
+      }
+
+      if (fmt.type === 'shiftjis_csv') {
+        checkShiftJisCsv(file, fmt);
+      } else if (fmt.type === 'utf8_dat') {
+        checkUtf8Dat(file, fmt);
+      }
+    }
+
+    function checkShiftJisCsv(file, fmt) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const buffer = e.target.result;
+          const bytes = new Uint8Array(buffer);
+
+          // BOM検出
+          let charset;
+          if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+            charset = 'utf-8';
+          } else if (bytes.length >= 2 &&
+              ((bytes[0] === 0xFF && bytes[1] === 0xFE) || (bytes[0] === 0xFE && bytes[1] === 0xFF))) {
+            showNg('ファイルの文字コードがサポートされていません（UTF-16）。', [
+              { rowNumber: '-', columnName: '文字コード',
+                message: 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
+            ]);
+            return;
+          } else {
+            charset = 'shift-jis';
+          }
+
+          const text = new TextDecoder(charset).decode(buffer);
+          // UTF-8 BOM文字（U+FEFF）を除去してから先頭行を取得
+          const firstLine = text.replace(/^﻿/, '').split('\n')[0].replace(/\r$/, '');
+          const headers = parseCsvLine(firstLine);
+
+          // 列数チェック
+          if (headers.length !== fmt.columnCount) {
+            // Shift-JISで列数不一致の場合、UTF-8 BOMなしの可能性を確認
+            if (charset === 'shift-jis') {
+              const utf8Headers = parseCsvLine(
+                new TextDecoder('utf-8').decode(buffer).split('\n')[0].replace(/\r$/, ''));
+              if (utf8Headers.length === fmt.columnCount
+                  && utf8Headers[0] === fmt.expectedHeaders[0]) {
+                showNg('ファイルがUTF-8（BOMなし）形式で保存されています。', [
+                  { rowNumber: '-', columnName: '文字コード',
+                    message: 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。' }
+                ]);
+                return;
+              }
+            }
+            showNg('ヘッダー行の列数が不正です。期待: ' + fmt.columnCount + '列、実際: ' + headers.length + '列', [
+              { rowNumber: 1, columnName: '',
+                message: '選択したファイルが ' + currentPaymentType + ' のフォーマットか確認してください。' }
+            ]);
+            return;
+          }
+
+          // ヘッダー名チェック
+          const errors = [];
+          fmt.expectedHeaders.forEach(function(expected, i) {
+            const actual = headers[i] || '';
+            if (expected !== actual) {
+              errors.push({ rowNumber: 1, columnName: '列' + (i + 1),
+                message: 'ヘッダー名が不正です。期待: 「' + expected + '」、実際: 「' + actual + '」' });
+            }
+          });
+
+          // Shift-JISで多数不一致の場合、UTF-8 BOMなしかを確認
+          if (errors.length > 0 && charset === 'shift-jis') {
+            const utf8Headers = parseCsvLine(
+              new TextDecoder('utf-8').decode(buffer).split('\n')[0].replace(/\r$/, ''));
+            const utf8Mismatches = fmt.expectedHeaders.filter((h, i) => (utf8Headers[i] || '') !== h);
+            if (utf8Mismatches.length < errors.length) {
+              showNg('ファイルがUTF-8（BOMなし）形式で保存されています。', [
+                { rowNumber: '-', columnName: '文字コード',
+                  message: 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。' }
+              ]);
+              return;
+            }
+          }
+
+          if (errors.length > 0) {
+            showNg('ヘッダー行に ' + errors.length + ' 件の不一致があります。', errors);
+          } else {
+            showOk('ヘッダーチェック OK（' + fmt.columnCount + '列）。アップロードして全行を検証します。');
+          }
+        } catch (err) {
+          showNg('ファイルの読み込みに失敗しました: ' + err.message, []);
         }
       };
-      input.click();
+      reader.readAsArrayBuffer(file);
+    }
+
+    function checkUtf8Dat(file, fmt) {
+      // 先頭100行のみチェック
+      const PREVIEW_BYTES = 8192;
+      const blob = file.slice(0, PREVIEW_BYTES);
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const text = e.target.result;
+          const lines = text.split('\n').slice(0, 100);
+          const errors = [];
+          let type1Count = 0;
+          let type2Count = 0;
+
+          lines.forEach(function(rawLine, idx) {
+            const line = rawLine.replace(/\r$/, '').trim();
+            if (!line) return;
+            const fields = parseCsvLine(line);
+            const recordType = fields[0] ? fields[0].trim() : '';
+            if (recordType === '1') {
+              type1Count++;
+              if (fields.length !== fmt.recordType1Columns) {
+                errors.push({ rowNumber: idx + 1, columnName: '',
+                  message: '集計レコード列数不正。期待: ' + fmt.recordType1Columns + '列、実際: ' + fields.length + '列' });
+              }
+            } else if (recordType === '2') {
+              type2Count++;
+              if (fields.length !== fmt.recordType2Columns) {
+                errors.push({ rowNumber: idx + 1, columnName: '',
+                  message: '明細レコード列数不正。期待: ' + fmt.recordType2Columns + '列、実際: ' + fields.length + '列' });
+              }
+            } else {
+              errors.push({ rowNumber: idx + 1, columnName: 'レコード種別',
+                message: 'レコード種別が "1"/"2" 以外: 「' + recordType + '」' });
+            }
+          });
+
+          if (errors.length > 0) {
+            showNg('先頭 ' + lines.length + ' 行に ' + errors.length + ' 件のエラーがあります。', errors);
+          } else {
+            showOk('先頭行チェック OK（集計: ' + type1Count + '件、明細: ' + type2Count + '件）。アップロードして全行を検証します。');
+          }
+        } catch (err) {
+          showNg('ファイルの読み込みに失敗しました: ' + err.message, []);
+        }
+      };
+      reader.readAsText(blob, 'UTF-8');
+    }
+
+    /* RFC 4180 準拠の CSV 1行パーサー */
+    function parseCsvLine(line) {
+      var fields = [];
+      var i = 0;
+      while (i <= line.length) {
+        if (i < line.length && line[i] === '"') {
+          i++;
+          var sb = '';
+          while (i < line.length) {
+            if (line[i] === '"') {
+              if (i + 1 < line.length && line[i + 1] === '"') { sb += '"'; i += 2; }
+              else { i++; break; }
+            } else {
+              sb += line[i++];
+            }
+          }
+          fields.push(sb);
+          if (i < line.length && line[i] === ',') i++;
+          else break;
+        } else {
+          var start = i;
+          while (i < line.length && line[i] !== ',') i++;
+          fields.push(line.substring(start, i));
+          if (i < line.length) i++;
+          else break;
+        }
+      }
+      return fields;
+    }
+
+    /* =============================================
+       アップロードボタン（サーバー登録）
+    ============================================= */
+    btnUpload.addEventListener('click', function() {
+      if (!selectedFile) return;
+
+      const uploadIcon  = document.getElementById('upload-icon');
+      const uploadLabel = document.getElementById('upload-label');
+      btnUpload.disabled = true;
+      uploadIcon.innerHTML = '<span class="spinner"></span>';
+      uploadLabel.textContent = '登録中…';
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('paymentType', currentPaymentType);
+
+      fetch('/jftd_settlement/import', {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken },
+        body: formData
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          showImportResult(data);
+        })
+        .catch(function(err) {
+          showNg('通信エラーが発生しました: ' + err.message, []);
+          btnUpload.disabled = false;
+        })
+        .finally(function() {
+          uploadIcon.innerHTML = '&#11014;';
+          uploadLabel.textContent = 'アップロード';
+        });
     });
+
+    function showImportResult(data) {
+      if (data.success) {
+        checkResult.className = 'check-result ok';
+        resultTitle.textContent = '✓ インポート完了';
+        resultSummary.textContent =
+          '登録件数: ' + data.importedCount + ' 件（バッチID: ' + data.batchId + '）';
+        errorWrapper.style.display = 'none';
+        errorLimitNote.style.display = 'none';
+        btnUpload.disabled = true; // 再クリック防止
+      } else {
+        checkResult.className = 'check-result ng';
+        resultTitle.textContent = '✗ インポートエラー';
+        resultSummary.textContent = data.errorMessage || 'エラーが発生しました。';
+        if (data.errors && data.errors.length > 0) {
+          errorBody.innerHTML = '';
+          data.errors.forEach(function(err) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + (err.rowNumber || '-') + '</td>'
+              + '<td>' + escapeHtml(err.columnName || '') + '</td>'
+              + '<td>' + escapeHtml(err.message) + '</td>';
+            errorBody.appendChild(tr);
+          });
+          errorWrapper.style.display = '';
+          errorLimitNote.style.display = data.errorLimitReached ? '' : 'none';
+        } else {
+          errorWrapper.style.display = 'none';
+        }
+        btnUpload.disabled = false;
+      }
+    }
   </script>
 </body>
 </html>

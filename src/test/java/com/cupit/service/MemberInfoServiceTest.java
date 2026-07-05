@@ -23,7 +23,7 @@ import com.cupit.repository.MemberInfoRepository;
 @ExtendWith(MockitoExtension.class)
 class MemberInfoServiceTest {
 
-    private static final String DEFAULT_TRANSACTION_CODE = "01-001";
+    private static final String DEFAULT_TRADE_CODE = "01-001";
 
     @Mock
     private MemberInfoRepository memberInfoRepository;
@@ -32,41 +32,41 @@ class MemberInfoServiceTest {
     private MemberInfoService memberInfoService;
 
     @Test
-    void findByTransactionCodeReturnsMemberInfoWhenFound() {
+    void findByTradeCodeReturnsMemberInfoWhenFound() {
         MemberInfo expected = new MemberInfo();
-        expected.setTransactionCode(DEFAULT_TRANSACTION_CODE);
+        expected.setTradeCode(DEFAULT_TRADE_CODE);
         expected.setStoreName("赤坂生花店");
-        when(memberInfoRepository.findById(DEFAULT_TRANSACTION_CODE))
+        when(memberInfoRepository.findById(DEFAULT_TRADE_CODE))
                 .thenReturn(Optional.of(expected));
 
         MemberInfo actual =
-                memberInfoService.findByTransactionCode(DEFAULT_TRANSACTION_CODE);
+                memberInfoService.findByTradeCode(DEFAULT_TRADE_CODE);
 
-        assertThat(actual.getTransactionCode())
-                .isEqualTo(DEFAULT_TRANSACTION_CODE);
+        assertThat(actual.getTradeCode())
+                .isEqualTo(DEFAULT_TRADE_CODE);
         assertThat(actual.getStoreName()).isEqualTo("赤坂生花店");
     }
 
     @Test
-    void findByTransactionCodeUsesDefaultCodeWhenBlank() {
+    void findByTradeCodeUsesDefaultCodeWhenBlank() {
         MemberInfo expected = new MemberInfo();
-        expected.setTransactionCode(DEFAULT_TRANSACTION_CODE);
-        when(memberInfoRepository.findById(DEFAULT_TRANSACTION_CODE))
+        expected.setTradeCode(DEFAULT_TRADE_CODE);
+        when(memberInfoRepository.findById(DEFAULT_TRADE_CODE))
                 .thenReturn(Optional.of(expected));
 
-        MemberInfo actual = memberInfoService.findByTransactionCode("");
+        MemberInfo actual = memberInfoService.findByTradeCode("");
 
-        assertThat(actual.getTransactionCode())
-                .isEqualTo(DEFAULT_TRANSACTION_CODE);
+        assertThat(actual.getTradeCode())
+                .isEqualTo(DEFAULT_TRADE_CODE);
     }
 
     @Test
-    void findByTransactionCodeThrowsExceptionWhenNotFound() {
+    void findByTradeCodeThrowsExceptionWhenNotFound() {
         when(memberInfoRepository.findById("99-999"))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(
-                () -> memberInfoService.findByTransactionCode("99-999"))
+                () -> memberInfoService.findByTradeCode("99-999"))
                 .isInstanceOf(MemberInfoNotFoundException.class);
     }
 }

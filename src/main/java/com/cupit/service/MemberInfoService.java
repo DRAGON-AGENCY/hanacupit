@@ -14,7 +14,7 @@ import com.cupit.repository.MemberInfoRepository;
 @Service
 public class MemberInfoService {
 
-    private static final String DEFAULT_TRANSACTION_CODE = "01-001";
+    private static final String DEFAULT_TRADE_CODE = "01-001";
     private static final String MESSAGE_NOT_FOUND = "会員情報が見つかりません: ";
 
     private final MemberInfoRepository memberInfoRepository;
@@ -27,21 +27,21 @@ public class MemberInfoService {
      * 取引コードを指定して会員情報を取得する。
      * 取引コードが未指定の場合は既定の取引コードを使用する。
      *
-     * @param transactionCode 取引コード
+     * @param tradeCode 取引コード
      * @return 取得した会員情報
      * @throws MemberInfoNotFoundException 該当する会員情報が存在しない場合
      */
-    public MemberInfo findByTransactionCode(String transactionCode) {
-        String resolvedTransactionCode = resolveTransactionCode(transactionCode);
-        return memberInfoRepository.findById(resolvedTransactionCode)
+    public MemberInfo findByTradeCode(String tradeCode) {
+        String resolvedTradeCode = resolveTradeCode(tradeCode);
+        return memberInfoRepository.findById(resolvedTradeCode)
                 .orElseThrow(() -> new MemberInfoNotFoundException(
-                        MESSAGE_NOT_FOUND + resolvedTransactionCode));
+                        MESSAGE_NOT_FOUND + resolvedTradeCode));
     }
 
-    private @NonNull String resolveTransactionCode(String transactionCode) {
-        if (transactionCode == null || transactionCode.isBlank()) {
-            return DEFAULT_TRANSACTION_CODE;
+    private @NonNull String resolveTradeCode(String tradeCode) {
+        if (tradeCode == null || tradeCode.isBlank()) {
+            return DEFAULT_TRADE_CODE;
         }
-        return transactionCode;
+        return tradeCode;
     }
 }

@@ -587,9 +587,9 @@
     document.querySelectorAll('.data-table tbody tr').forEach(function (row) {
       row.addEventListener('click', function () {
         var codeCell = row.querySelector('td.code');
-        var transactionCode = codeCell ? codeCell.textContent.trim() : '';
+        var tradeCode = codeCell ? codeCell.textContent.trim() : '';
         window.location.href =
-            detailRoute + '?transactionCode=' + encodeURIComponent(transactionCode);
+            detailRoute + '?tradeCode=' + encodeURIComponent(tradeCode);
       });
     });
 
