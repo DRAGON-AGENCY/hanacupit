@@ -40,10 +40,9 @@ public class MenuController {
     private static final String VIEW_NAME_PAYGATE_MAPPING_INFO = "paygate_mapping_info";
     private static final String VIEW_NAME_APPLICATION_FORM = "application_form";
     private static final String VIEW_NAME_JFTD_SETTLEMENT = "jftd_settlement";
-    private static final String VIEW_NAME_JFTD = "jftd";
+    private static final String VIEW_NAME_JFTD_TRANSFER = "jftd_transfer";
     private static final String VIEW_NAME_OTHER_SETTLEMENT = "other_settlement";
     private static final String VIEW_NAME_OTHER_JFTD = "other_jftd";
-    private static final String VIEW_NAME_REPORT_OUTPUT = "report_output";
     private static final String VIEW_NAME_EMPLOYEE_LIST = "employee_list";
     private static final String VIEW_NAME_EMPLOYEE_EDIT = "employee_edit";
 
@@ -136,9 +135,9 @@ public class MenuController {
         return VIEW_NAME_JFTD_SETTLEMENT;
     }
 
-    @GetMapping("/jftd")
-    public String jftd() {
-        return VIEW_NAME_JFTD;
+    @GetMapping("/jftd_transfer")
+    public String jftdTransfer() {
+        return VIEW_NAME_JFTD_TRANSFER;
     }
 
     @GetMapping("/other_settlement")
@@ -149,11 +148,6 @@ public class MenuController {
     @GetMapping("/other_jftd")
     public String otherJftd() {
         return VIEW_NAME_OTHER_JFTD;
-    }
-
-    @GetMapping("/report_output")
-    public String reportOutput() {
-        return VIEW_NAME_REPORT_OUTPUT;
     }
 
     @GetMapping("/employee_list")

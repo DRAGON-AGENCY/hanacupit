@@ -116,12 +116,12 @@ ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS mgmt_type                    
 -- 取り込みバッチ管理
 CREATE TABLE IF NOT EXISTS m_import_batch (
     batch_id          SERIAL          NOT NULL,
-    trade_code  VARCHAR(50),
     settlement_month  CHAR(6)         NOT NULL DEFAULT '',
     payment_type      VARCHAR(30)     NOT NULL,
     file_name         VARCHAR(255)    NOT NULL,
     imported_at       TIMESTAMP       NOT NULL DEFAULT NOW(),
     record_count      INTEGER,
+    error_count       INTEGER,
     update_employee   VARCHAR(50),
     create_date       DATE            NOT NULL DEFAULT CURRENT_DATE,
     updated_date      DATE,
@@ -134,16 +134,6 @@ EXCEPTION WHEN duplicate_column THEN NULL;
 END $$;
 DO $$
 BEGIN
-    ALTER TABLE m_import_batch RENAME COLUMN member_no TO trade_code;
-EXCEPTION WHEN undefined_column THEN NULL;
-END $$;
-DO $$
-BEGIN
-    ALTER TABLE m_import_batch RENAME COLUMN transaction_code TO trade_code;
-EXCEPTION WHEN undefined_column THEN NULL;
-END $$;
-DO $$
-BEGIN
     ALTER TABLE m_import_batch RENAME COLUMN updated_by TO update_employee;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
@@ -152,9 +142,16 @@ BEGIN
     ALTER TABLE m_import_batch RENAME COLUMN registered_date TO create_date;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
--- JFTD精算データ作成は1ファイルに複数店舗の行が混在するため、trade_codeは行ごとに
--- 明細テーブル側で解決する。バッチ単位の代表値を持てないケースがあるためNULL許容にする。
-ALTER TABLE m_import_batch ALTER COLUMN trade_code DROP NOT NULL;
+ALTER TABLE m_import_batch ADD COLUMN IF NOT EXISTS error_count INTEGER;
+-- trade_codeは1ファイルに複数店舗の行が混在するため、バッチ単位では代表値を
+-- 一意に決められないケースがある。代わりにerror_countで正常／エラーを判別できる
+-- ようにしたため廃止する（各明細テーブル側で行ごとにtrade_codeを保持している）。
+ALTER TABLE m_import_batch DROP COLUMN IF EXISTS trade_code;
+-- JFTD統合振込CSV作成で「既に振込CSVに含めたインポート分」を除外するためのマーカー。
+-- NULL＝未処理（今回の集計対象）、値あり＝m_jftd_transfer_batch.transfer_batch_idで
+-- 確定済みの振込バッチを指す（確定処理自体は別イテレーションで実装）。
+ALTER TABLE m_import_batch ADD COLUMN IF NOT EXISTS transfer_batch_id INTEGER;
+CREATE INDEX IF NOT EXISTS idx_import_transfer ON m_import_batch(transfer_batch_id);
 
 -- JCB売上明細
 CREATE TABLE IF NOT EXISTS m_jcb_sales_detail (
@@ -493,6 +490,153 @@ CREATE INDEX IF NOT EXISTS idx_paygate_trade    ON m_paygate_store_mapping(trade
 CREATE INDEX IF NOT EXISTS idx_paygate_terminal ON m_paygate_store_mapping(terminal_id);
 CREATE INDEX IF NOT EXISTS idx_paygate_sbi      ON m_paygate_store_mapping(sbi_merchant_id);
 
+-- 統合振込バッチ（JFTD統合振込CSV作成の確定単位のヘッダー）
+CREATE TABLE IF NOT EXISTS m_jftd_transfer_batch (
+    transfer_batch_id  SERIAL          NOT NULL,
+    created_at         TIMESTAMP       NOT NULL DEFAULT NOW(),
+    update_employee    VARCHAR(50),
+    create_date        DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date       DATE,
+    CONSTRAINT pk_m_jftd_transfer_batch PRIMARY KEY (transfer_batch_id)
+);
+
+-- 統合振込明細（確定時点の計算結果のスナップショット。CSV再ダウンロード・
+-- 帳票集計はすべてここを参照し、確定後に元データが変わっても数値が変わらないようにする）
+CREATE TABLE IF NOT EXISTS m_jftd_transfer_detail (
+    transfer_detail_id  SERIAL          NOT NULL,
+    transfer_batch_id   INTEGER         NOT NULL,
+    trade_code          VARCHAR(50)     NOT NULL,
+    item_code           VARCHAR(10)     NOT NULL,
+    quantity            INTEGER         NOT NULL DEFAULT 1,
+    amount              INTEGER         NOT NULL,
+    update_employee     VARCHAR(50),
+    create_date         DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date        DATE,
+    CONSTRAINT pk_m_jftd_transfer_detail PRIMARY KEY (transfer_detail_id)
+);
+CREATE INDEX IF NOT EXISTS idx_transfer_detail_batch ON m_jftd_transfer_detail(transfer_batch_id);
+CREATE INDEX IF NOT EXISTS idx_transfer_detail_trade ON m_jftd_transfer_detail(trade_code);
+
+-- 項目コードマスタ（決済会社×カードブランド×金額種別→会計項目コード）
+CREATE TABLE IF NOT EXISTS m_settlement_item_code (
+    item_code_id     SERIAL          NOT NULL,
+    payment_company  VARCHAR(30)     NOT NULL,
+    card_brand       VARCHAR(30)     NOT NULL,
+    amount_type      VARCHAR(10)     NOT NULL,
+    item_code        VARCHAR(10)     NOT NULL,
+    update_employee  VARCHAR(50),
+    create_date      DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date     DATE,
+    CONSTRAINT pk_m_settlement_item_code PRIMARY KEY (item_code_id),
+    CONSTRAINT uq_settlement_item_code UNIQUE (payment_company, card_brand, amount_type)
+);
+CREATE INDEX IF NOT EXISTS idx_stlitem_code ON m_settlement_item_code(item_code);
+
+-- card_brandは各決済会社の明細テーブルに実際に格納される値（例:
+-- m_jcb_sales_detail.card_name）と一致させること。amount_typeは
+-- PAYMENT(支払金額)/FEE_BASE(手数料本体)/FEE_TAX(消費税)の3種。
+-- スマレジ(端末月額)は率計算ではなく単価×数量の固定額のためPAYMENTのみ。
+-- JCB分のcard_brandは11_JCB.xlsxの生データ（＜JCB＞シートG列）の実値
+-- （全角括弧付き表記、例:【ＪＣＢカード】）で突合済み。ただし【ディスカバー】は
+-- 2025年11月分の実績が0件のため実値を確認できておらず、他ブランドの命名規則
+-- から類推した値（要確認）。
+INSERT INTO m_settlement_item_code
+    (payment_company, card_brand, amount_type, item_code) VALUES
+    ('住信SBI', 'Visa/Master', 'PAYMENT', '3300001'),
+    ('住信SBI', 'Visa/Master', 'FEE_BASE', '3300003'),
+    ('住信SBI', 'Visa/Master', 'FEE_TAX', '3300201'),
+    ('ネットスターズ', 'Alipay', 'PAYMENT', '3300007'),
+    ('ネットスターズ', 'Alipay', 'FEE_BASE', '3300009'),
+    ('ネットスターズ', 'Alipay', 'FEE_TAX', '3300203'),
+    ('ネットスターズ', 'PayPay', 'PAYMENT', '3300010'),
+    ('ネットスターズ', 'PayPay', 'FEE_BASE', '3300204'),
+    ('ネットスターズ', 'PayPay', 'FEE_TAX', '3300232'),
+    ('ネットスターズ', 'd払い', 'PAYMENT', '3300013'),
+    ('ネットスターズ', 'd払い', 'FEE_BASE', '3300205'),
+    ('ネットスターズ', 'd払い', 'FEE_TAX', '3300233'),
+    ('ネットスターズ', 'WeChatPay', 'PAYMENT', '3300004'),
+    ('ネットスターズ', 'WeChatPay', 'FEE_BASE', '3300006'),
+    ('ネットスターズ', 'WeChatPay', 'FEE_TAX', '3300202'),
+    ('JCB', '【ＪＣＢカード】', 'PAYMENT', '3300024'),
+    ('JCB', '【ＪＣＢカード】', 'FEE_BASE', '3300026'),
+    ('JCB', '【ＪＣＢカード】', 'FEE_TAX', '3300207'),
+    ('JCB', '【ＡＭＥＸカード】', 'PAYMENT', '3300027'),
+    ('JCB', '【ＡＭＥＸカード】', 'FEE_BASE', '3300029'),
+    ('JCB', '【ＡＭＥＸカード】', 'FEE_TAX', '3300208'),
+    ('JCB', '【ダイナースクラブ】', 'PAYMENT', '3300030'),
+    ('JCB', '【ダイナースクラブ】', 'FEE_BASE', '3300032'),
+    ('JCB', '【ダイナースクラブ】', 'FEE_TAX', '3300209'),
+    ('JCB', '【ディスカバー】', 'PAYMENT', '3300033'),
+    ('JCB', '【ディスカバー】', 'FEE_BASE', '3300035'),
+    ('JCB', '【ディスカバー】', 'FEE_TAX', '3300210'),
+    ('JCB', '【銀聯カード】', 'PAYMENT', '3300036'),
+    ('JCB', '【銀聯カード】', 'FEE_BASE', '3300038'),
+    ('JCB', '【銀聯カード】', 'FEE_TAX', '3300211'),
+    ('JCB', '【スマートコード】', 'PAYMENT', '3300039'),
+    ('JCB', '【スマートコード】', 'FEE_BASE', '3300041'),
+    ('JCB', '【スマートコード】', 'FEE_TAX', '3300212'),
+    ('JCB', '【ＱＵＩＣＰａｙ】', 'PAYMENT', '3300046'),
+    ('JCB', '【ＱＵＩＣＰａｙ】', 'FEE_BASE', '3300048'),
+    ('JCB', '【ＱＵＩＣＰａｙ】', 'FEE_TAX', '3300214'),
+    ('JCB', '【交通系電子マネー】', 'PAYMENT', '3300043'),
+    ('JCB', '【交通系電子マネー】', 'FEE_BASE', '3300213'),
+    ('JCB', '【交通系電子マネー】', 'FEE_TAX', '3300234'),
+    ('JCB', '【ｎａｎａｃｏ】', 'PAYMENT', '3300049'),
+    ('JCB', '【ｎａｎａｃｏ】', 'FEE_BASE', '3300215'),
+    ('JCB', '【ｎａｎａｃｏ】', 'FEE_TAX', '3300235'),
+    ('JCB', '【ＷＡＯＮ】', 'PAYMENT', '3300052'),
+    ('JCB', '【ＷＡＯＮ】', 'FEE_BASE', '3300216'),
+    ('JCB', '【ＷＡＯＮ】', 'FEE_TAX', '3300236'),
+    ('楽天ペイ', '楽天ペイ', 'PAYMENT', '3300062'),
+    ('楽天ペイ', '楽天ペイ', 'FEE_BASE', '3300223'),
+    ('楽天ペイ', '楽天ペイ', 'FEE_TAX', '3300237'),
+    ('スマレジ(端末月額)', '本体', 'PAYMENT', '3300217'),
+    ('スマレジ(端末月額)', '調整', 'PAYMENT', '3300219')
+ON CONFLICT (payment_company, card_brand, amount_type) DO NOTHING;
+
+-- 手数料率マスタ（決済会社×カードブランドごとの計算モデル・手数料率）
+CREATE TABLE IF NOT EXISTS m_settlement_fee_rate (
+    fee_rate_id        SERIAL          NOT NULL,
+    payment_company    VARCHAR(30)     NOT NULL,
+    card_brand         VARCHAR(30)     NOT NULL,
+    calc_model         VARCHAR(20)     NOT NULL,
+    acquirer_fee_rate  NUMERIC(6,5),
+    our_fee_rate_base  NUMERIC(6,5)    NOT NULL,
+    our_fee_rate_tax   NUMERIC(6,5),
+    update_employee    VARCHAR(50),
+    create_date        DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date       DATE,
+    CONSTRAINT pk_m_settlement_fee_rate PRIMARY KEY (fee_rate_id),
+    CONSTRAINT uq_settlement_fee_rate UNIQUE (payment_company, card_brand)
+);
+
+-- calc_model: STRAIGHT(直線式)/PURCHASE_COLLECT(仕入・収代二段階式)/
+-- SBI_RESIDUAL(住信SBI残差式、acquirer_fee_rateは明細行のfee_rateを使うためNULL)。
+-- スマレジ(端末月額)は率計算を行わない（単価×数量のみ）ためこのマスタに行を持たない。
+-- PURCHASE_COLLECTのacquirer_fee_rateは「仕入手数料の本体分の率」を保持する
+-- （消費税分は含まない。消費税は本体金額×10%を計算時に別途算出するため）。
+-- ネットスターズ(PayPay・d払い)・楽天ペイの生データで、本体を四捨五入・消費税を
+-- 本体×10%の切り捨てで計算すると実データと一致することを検証済み。
+INSERT INTO m_settlement_fee_rate
+    (payment_company, card_brand, calc_model, acquirer_fee_rate, our_fee_rate_base, our_fee_rate_tax) VALUES
+    ('JCB', '【ＪＣＢカード】', 'STRAIGHT', 0.0275, 0.0018, 0.0002),
+    ('JCB', '【ＡＭＥＸカード】', 'STRAIGHT', 0.0275, 0.0018, 0.0002),
+    ('JCB', '【ダイナースクラブ】', 'STRAIGHT', 0.0275, 0.0018, 0.0002),
+    ('JCB', '【ディスカバー】', 'STRAIGHT', 0.0275, 0.0018, 0.0002),
+    ('JCB', '【銀聯カード】', 'STRAIGHT', 0.0275, 0.0018, 0.0002),
+    ('JCB', '【スマートコード】', 'STRAIGHT', 0.025, 0.0041, 0.0004),
+    ('JCB', '【ＱＵＩＣＰａｙ】', 'STRAIGHT', 0.0275, 0.0018, 0.0002),
+    ('JCB', '【交通系電子マネー】', 'PURCHASE_COLLECT', 0.0227, 0.0041, 0.0004),
+    ('JCB', '【ｎａｎａｃｏ】', 'PURCHASE_COLLECT', 0.0227, 0.0041, 0.0004),
+    ('JCB', '【ＷＡＯＮ】', 'PURCHASE_COLLECT', 0.0227, 0.0041, 0.0004),
+    ('ネットスターズ', 'Alipay', 'STRAIGHT', 0.017, 0.0025, 0.0003),
+    ('ネットスターズ', 'PayPay', 'PURCHASE_COLLECT', 0.0265, 0.00032, 0.00003),
+    ('ネットスターズ', 'd払い', 'PURCHASE_COLLECT', 0.026, 0.0008, 0.0001),
+    ('ネットスターズ', 'WeChatPay', 'STRAIGHT', 0.017, 0.0025, 0.0003),
+    ('楽天ペイ', '楽天ペイ', 'PURCHASE_COLLECT', 0.028, 0.0015, 0.0001),
+    ('住信SBI', 'Visa/Master', 'SBI_RESIDUAL', NULL, 0.0032, NULL)
+ON CONFLICT (payment_company, card_brand) DO NOTHING;
+
 -- Stera 店舗情報
 CREATE TABLE IF NOT EXISTS m_stera_store (
     record_no              BIGSERIAL          NOT NULL,
@@ -577,6 +721,10 @@ ALTER TABLE m_netstar_sales_summary     OWNER TO hanacupit;
 ALTER TABLE m_rakuten_pay_transaction   OWNER TO hanacupit;
 ALTER TABLE m_terminal_monthly_fee      OWNER TO hanacupit;
 ALTER TABLE m_paygate_store_mapping     OWNER TO hanacupit;
+ALTER TABLE m_jftd_transfer_batch       OWNER TO hanacupit;
+ALTER TABLE m_jftd_transfer_detail      OWNER TO hanacupit;
+ALTER TABLE m_settlement_item_code      OWNER TO hanacupit;
+ALTER TABLE m_settlement_fee_rate       OWNER TO hanacupit;
 ALTER TABLE m_stera_store               OWNER TO hanacupit;
 ALTER TABLE m_stera_terminal            OWNER TO hanacupit;
 ALTER TABLE m_smcc_merchant_no          OWNER TO hanacupit;

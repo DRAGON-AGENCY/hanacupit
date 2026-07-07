@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" th:content="${csrfToken}" content="">
+<title>JFTD統合振込CSV作成・帳票出力 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
+<style>
+  :root {
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-form: #eef3fa;
+    --bg-white: #ffffff;
+    --bg-notice: #fbeed5;
+    --bg-notice-border: #f1d9a0;
+    --bg-ok: #edf7ed;
+    --bg-ng: #fdf0f0;
+    --border-color: #e8e4da;
+    --border-form: #cddef2;
+    --border-table: #e5e2d8;
+    --border-ok: #a5d6a7;
+    --border-ng: #f5c6cb;
+    --text-main: #2a2a2a;
+    --text-label: #5a5a5a;
+    --text-muted: #8a8a8a;
+    --text-notice: #8a5a1a;
+    --text-ok: #2e7d32;
+    --text-ng: #b71c1c;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #aecbeb;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-lg: 22px;
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100vh; }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page-title {
+    font-size: var(--fs-lg); font-weight: 700; color: var(--text-main);
+    padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+    margin-bottom: 14px; letter-spacing: 0.01em;
+  }
+
+  .form-box {
+    background-color: var(--bg-form);
+    border: 1px solid var(--border-form);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+  }
+
+  .step-title { font-size: var(--fs-base); font-weight: 700; margin-bottom: 10px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 8px 18px; border-radius: 6px; font-size: var(--fs-base);
+    cursor: pointer; font-family: inherit; transition: all 0.15s ease;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+  .btn-primary {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+  .btn-primary:hover:not(:disabled) { background-color: #d3e2f7; }
+
+  .btn-download {
+    background-color: var(--bg-white);
+    border-color: var(--border-form);
+    color: var(--text-main);
+  }
+  .btn-download:hover:not(:disabled) { background-color: #f5f8fc; }
+
+  .check-result {
+    display: none;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+
+  .check-result.ok { display: block; background-color: var(--bg-ok); border-color: var(--border-ok); }
+  .check-result.ng { display: block; background-color: var(--bg-ng); border-color: var(--border-ng); }
+
+  .check-result-title { font-size: var(--fs-base); font-weight: 700; margin-bottom: 4px; }
+  .check-result.ok .check-result-title { color: var(--text-ok); }
+  .check-result.ng .check-result-title { color: var(--text-ng); }
+  .check-result-summary { font-size: var(--fs-sm); color: var(--text-main); margin-bottom: 10px; }
+
+  table.summary-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); background-color: var(--bg-white); }
+  .summary-table th, .summary-table td {
+    padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border-table);
+  }
+  .summary-table th:first-child, .summary-table td:first-child,
+  .summary-table th:nth-child(2), .summary-table td:nth-child(2) { text-align: left; }
+  .summary-table th { background-color: var(--accent-blue-light); color: var(--accent-blue); font-weight: 600; }
+
+  .download-row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+
+  .notice-box {
+    background-color: var(--bg-notice);
+    border: 1px solid var(--bg-notice-border);
+    border-radius: 8px;
+    padding: 14px 20px 16px;
+    margin-bottom: 14px;
+  }
+
+  .notice-title {
+    display: flex; align-items: center; gap: 6px;
+    font-size: var(--fs-base); font-weight: 700;
+    color: var(--text-notice); margin-bottom: 10px; letter-spacing: 0.02em;
+  }
+
+  .notice-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--text-notice); border-radius: 50%;
+    font-size: 13px; font-weight: 700;
+  }
+
+  .notice-list { list-style: none; counter-reset: notice-counter; padding: 0; margin: 0; }
+
+  .notice-list li {
+    counter-increment: notice-counter;
+    position: relative; padding-left: 28px; margin-bottom: 6px;
+    font-size: var(--fs-sm); color: var(--text-notice); line-height: 1.7;
+  }
+
+  .notice-list li::before { content: counter(notice-counter) "."; position: absolute; left: 8px; font-weight: 500; }
+  .notice-list li:last-child { margin-bottom: 0; }
+
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--accent-blue-border);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  body::-webkit-scrollbar { width: 14px; }
+  body::-webkit-scrollbar-track { background: #ffffff; border-left: 1px solid var(--border-table); }
+  body::-webkit-scrollbar-thumb { background: #c9c4b4; border: 3px solid #ffffff; border-radius: 8px; }
+  body::-webkit-scrollbar-thumb:hover { background: #aea892; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="page-title">JFTD統合振込CSV作成・帳票出力</h1>
+
+    <div class="notice-box">
+      <div class="notice-title">
+        <span class="notice-icon">!</span>
+        <span>ご利用にあたっての注意</span>
+      </div>
+      <ol class="notice-list">
+        <li>本画面はJCB・スマレジ・ネットスターズ・楽天ペイ・住信SBIのうち、まだ振込CSVに含めていない（未処理の）インポート分をまとめて集計します。</li>
+        <li>「弊社手数料（本体・消費税）」は計算式が未確定のため<strong>0円のまま</strong>表示されます。表示される金額は決済事業者手数料控除後の暫定値であり、最終的な振込金額ではありません。</li>
+        <li>「確定」を実行すると、対象データは以後の集計対象から除外されます（後から取り消せません）。内容をよく確認してから実行してください。</li>
+      </ol>
+    </div>
+
+    <div class="form-box">
+      <div class="step-title">① 集計プレビュー</div>
+      <div class="form-actions" style="justify-content: flex-start;">
+        <button class="btn btn-primary" type="button" id="btn-preview">
+          <span id="preview-icon">&#128269;</span>
+          <span id="preview-label">集計プレビュー</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="preview-result" class="check-result">
+      <div class="check-result-title" id="preview-title"></div>
+      <div class="check-result-summary" id="preview-summary"></div>
+      <table class="summary-table" id="summary-table" style="display:none">
+        <thead>
+          <tr>
+            <th>決済会社</th><th>カードブランド</th><th>件数</th>
+            <th>支払金額（暫定）</th><th>弊社手数料本体</th><th>消費税</th>
+          </tr>
+        </thead>
+        <tbody id="summary-table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="form-box">
+      <div class="step-title">② 確定してCSV・帳票を作成</div>
+      <div class="form-actions" style="justify-content: flex-start;">
+        <button class="btn btn-primary" type="button" id="btn-confirm" disabled>
+          <span id="confirm-icon">&#9989;</span>
+          <span id="confirm-label">確定</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="confirm-result" class="check-result">
+      <div class="check-result-title" id="confirm-title"></div>
+      <div class="check-result-summary" id="confirm-summary"></div>
+      <div class="download-row" id="download-row" style="display:none">
+        <a class="btn btn-download" id="link-csv" href="#">統合振込CSV（ZIP）</a>
+        <a class="btn btn-download" id="link-sales-report" href="#">売上報告書（xlsx）</a>
+        <a class="btn btn-download" id="link-statement" href="#">支払明細書（xlsx）</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    var btnPreview = document.getElementById('btn-preview');
+    var previewResult = document.getElementById('preview-result');
+    var previewTitle = document.getElementById('preview-title');
+    var previewSummary = document.getElementById('preview-summary');
+    var summaryTable = document.getElementById('summary-table');
+    var summaryTableBody = document.getElementById('summary-table-body');
+
+    var btnConfirm = document.getElementById('btn-confirm');
+    var confirmResult = document.getElementById('confirm-result');
+    var confirmTitle = document.getElementById('confirm-title');
+    var confirmSummary = document.getElementById('confirm-summary');
+    var downloadRow = document.getElementById('download-row');
+
+    btnPreview.addEventListener('click', function () {
+      var icon = document.getElementById('preview-icon');
+      var label = document.getElementById('preview-label');
+      btnPreview.disabled = true;
+      icon.innerHTML = '<span class="spinner"></span>';
+      label.textContent = '集計中…';
+
+      fetch('/jftd_transfer/preview', {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('unauthenticated'));
+          }
+          return res.json();
+        })
+        .then(function (rows) { showPreviewResult(rows); })
+        .catch(function (err) {
+          if (err.message === 'unauthenticated') { return; }
+          showPreviewError('通信エラーが発生しました: ' + err.message);
+        })
+        .finally(function () {
+          icon.innerHTML = '&#128269;';
+          label.textContent = '集計プレビュー';
+          btnPreview.disabled = false;
+        });
+    });
+
+    function showPreviewResult(rows) {
+      previewResult.className = 'check-result ok';
+      previewTitle.textContent = '✓ 集計プレビュー完了';
+      if (!rows || rows.length === 0) {
+        previewSummary.textContent = '未処理のデータはありません。';
+        summaryTable.style.display = 'none';
+        btnConfirm.disabled = true;
+        return;
+      }
+      previewSummary.textContent = rows.length + '件のブランド区分が対象です。内容を確認のうえ「確定」を実行してください。';
+      summaryTableBody.innerHTML = '';
+      rows.forEach(function (row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + escapeHtml(row.paymentCompany) + '</td>'
+            + '<td>' + escapeHtml(row.cardBrand) + '</td>'
+            + '<td>' + row.count + '</td>'
+            + '<td>' + row.paymentAmount.toLocaleString() + '</td>'
+            + '<td>' + row.feeBaseAmount.toLocaleString() + '</td>'
+            + '<td>' + row.feeTaxAmount.toLocaleString() + '</td>';
+        summaryTableBody.appendChild(tr);
+      });
+      summaryTable.style.display = '';
+      btnConfirm.disabled = false;
+    }
+
+    function showPreviewError(message) {
+      previewResult.className = 'check-result ng';
+      previewTitle.textContent = '✗ 集計エラー';
+      previewSummary.textContent = message;
+      summaryTable.style.display = 'none';
+      btnConfirm.disabled = true;
+    }
+
+    btnConfirm.addEventListener('click', function () {
+      if (!window.confirm('確定すると対象データは今後の集計対象から除外されます。よろしいですか？')) {
+        return;
+      }
+      var icon = document.getElementById('confirm-icon');
+      var label = document.getElementById('confirm-label');
+      btnConfirm.disabled = true;
+      icon.innerHTML = '<span class="spinner"></span>';
+      label.textContent = '確定中…';
+
+      fetch('/jftd_transfer/confirm', {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('unauthenticated'));
+          }
+          return res.json();
+        })
+        .then(function (data) { showConfirmResult(data); })
+        .catch(function (err) {
+          if (err.message === 'unauthenticated') { return; }
+          showConfirmError('通信エラーが発生しました: ' + err.message);
+        });
+    });
+
+    function showConfirmResult(data) {
+      var icon = document.getElementById('confirm-icon');
+      var label = document.getElementById('confirm-label');
+      icon.innerHTML = '&#9989;';
+      label.textContent = '確定';
+
+      if (data.success) {
+        confirmResult.className = 'check-result ok';
+        confirmTitle.textContent = '✓ 確定完了';
+        confirmSummary.textContent = '統合振込バッチID: ' + data.transferBatchId + '。以下からダウンロードしてください。';
+        document.getElementById('link-csv').href = '/jftd_transfer/' + data.transferBatchId + '/csv';
+        document.getElementById('link-sales-report').href = '/jftd_transfer/' + data.transferBatchId + '/report/sales';
+        document.getElementById('link-statement').href = '/jftd_transfer/' + data.transferBatchId + '/report/statement';
+        downloadRow.style.display = '';
+        btnConfirm.disabled = true;
+        btnPreview.disabled = true;
+      } else {
+        showConfirmError(data.errorMessage || 'エラーが発生しました。');
+        btnConfirm.disabled = false;
+      }
+    }
+
+    function showConfirmError(message) {
+      var icon = document.getElementById('confirm-icon');
+      var label = document.getElementById('confirm-label');
+      icon.innerHTML = '&#9989;';
+      label.textContent = '確定';
+      confirmResult.className = 'check-result ng';
+      confirmTitle.textContent = '✗ 確定エラー';
+      confirmSummary.textContent = message;
+      downloadRow.style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

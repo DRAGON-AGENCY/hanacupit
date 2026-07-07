@@ -386,6 +386,28 @@ GRANT ALL PRIVILEGES ON DATABASE hanacupit TO hanacupit;
 
 上記以外（UTF-8 BOMなし・UTF-16 等）は**エラーとして処理を中断する**。
 
+### ヘッダー行の列名チェック
+
+CSV を読み込む全機能で、**ヘッダー行の列名は検証対象としない**（列数のみを検証
+対象とする）。列名の表記はファイルの作成元・作成時期によって変わり得るため、
+列名の完全一致を要求すると、構造（列の並び・列数）は正しいCSVが列名のわずかな
+表記ゆれだけで弾かれてしまうため。
+
+- 対象：取引コード紐付データ作成（`PaygateMappingCsvValidator`）、JFTD精算データ
+  作成のJCB（`JcbCsvFormatValidator`）・スマレジ（`SumarejoCsvFormatValidator`）、
+  および `jftd_settlement.html` のフロントエンドJS（`checkShiftJisCsv`）。
+  新しくCSV取込み機能・フォーマットバリデータを追加する場合も、ヘッダー列名の
+  完全一致チェックは行わないこと。
+- 各バリデータが持つ `EXPECTED_HEADERS`（期待される列名の配列）は、削除せず
+  **エラーメッセージの列名ラベルとして**（例：「売上件数」の数値変換エラー等）
+  引き続き使用する。配列自体をなくすとエラーメッセージが「列9」のような
+  分かりにくい表記になってしまうため。
+- 例外的に、`checkShiftJisCsv`（JCB・スマレジのフロントエンドチェック）は
+  `EXPECTED_HEADERS` との不一致件数を**ユーザーには表示せず内部的にのみ**
+  計算し、「UTF-8 BOMなしファイルの誤検出防止」（後述のフロントエンド実装規則
+  3.）にのみ使用する。この用途はヘッダー名の妥当性チェックではなく文字コード
+  判定の補助なので、削除しないこと。
+
 ### バックエンド実装規則
 
 - CSV を読み込む全インポータークラスは `AbstractFileImporter#detectCharset(MultipartFile)` を
@@ -431,6 +453,12 @@ GRANT ALL PRIVILEGES ON DATABASE hanacupit TO hanacupit;
 - 発生した**全エラー**を `ImportResponse.errors` に含めて画面に返す。エラー件数の
   上限（旧 `MAX_IMPORT_ERRORS`）は設けない。フロントエンドのエラー一覧テーブルも
   全件をそのまま表示する（`errorLimitReached` は常に `false` になる）。
+  `CsvFormatValidator.validate()` が返す `CsvValidationResult` 側にも旧
+  `MAX_ERRORS=50` による打ち切りが残っていたが、これも同じ方針で撤廃済み
+  （`CsvValidationResult.isErrorLimitReached()` は常に `false` を返す）。
+  エラー件数を再度制限したくなった場合でも、`ImportResult` と
+  `CsvValidationResult` の両方に手を入れないと片方だけ上限なし・もう片方だけ
+  上限ありという不整合が起きるため注意すること。
 - レスポンスの `success` は「エラーが1件も無かったか」を表す（`errors.isEmpty()`）。
   エラーが1件でもあれば `success=false` を返すが、`importedCount` には実際に
   登録できた件数が入る（0件とは限らない）。`errorMessage` に登録件数・エラー件数・
@@ -447,11 +475,71 @@ GRANT ALL PRIVILEGES ON DATABASE hanacupit TO hanacupit;
   マッピング解決・データ検証に失敗した場合は、その区分1配下の区分2（明細）も
   取引コードが未解決である旨のエラーとしてスキップする（区分1の失敗を後続の
   区分2まで伝播させる。他の区分1ブロックの処理には影響しない）。
-- `m_import_batch.trade_code` は、JFTD精算データ作成では**行ごとに解決するため
-  バッチ単位の値を持てない**ことがあり、`NULL` を許容する（`NOT NULL` 制約を
-  外している）。取引コード紐付データ作成側は従来どおりログインユーザーIDを設定する。
+- `m_import_batch` は **`trade_code` カラムを持たない**（廃止済み）。JFTD精算
+  データ作成は1ファイルに複数店舗の行が混在するためバッチ単位で取引コードを
+  一意に決められず、取引コード紐付データ作成側もログインユーザーIDを設定して
+  いただけで実運用上の利用価値が薄かったため、カラムごと削除した。取引コードは
+  各明細テーブル（`m_jcb_sales_detail`等）側に行ごとに保持されているので、
+  バッチ単位で参照したい場合はそちらを`batch_id`で突き合わせること。
+- 代わりに `m_import_batch.error_count` で正常／エラーを判別する。
+  `record_count`（成功件数）と対になるカラムで、`JftdSettlementService.
+  importFile()`／`PaygateMappingService.importFile()`が
+  `savedBatch.setErrorCount(result.getErrors().size())` を呼んで設定する。
+  `error_count == 0` なら正常終了、`> 0` なら部分登録エラーがあったバッチと
+  判別できる（バッチ自体は作成されるが一部の行だけ登録に失敗したケース。
+  詳細は次項「アップロード時の事前フォーマットチェックと部分登録の関係」を参照）。
 
-### ヘッダー行の扱い（取引コード紐付データ作成CSV）
+#### アップロード時の事前フォーマットチェックと部分登録の関係（`CsvValidationResult.isFatal()`）
+
+`PaygateMappingService.importFile()`／`JftdSettlementService.importFile()` は、
+実際の登録処理（`XxxFileImporter.importFile()`）を呼び出す**前**に
+`CsvFormatValidator.validate(file)` で事前チェックを行っている。この事前チェックの
+結果でファイル全体を拒否するかどうかの判定には、**`CsvValidationResult.isValid()`
+（`errors.isEmpty()`）を使ってはならず、必ず `isFatal()` を使うこと**。
+
+- `isValid()` はエラーが1件でもあれば `false` になるため、これでゲートすると
+  データ行1件の列数不足や取引コード重複だけでファイル全体が拒否され、
+  `XxxFileImporter.importFile()` が持つ「該当行だけスキップして残りを登録する」
+  部分登録処理に**到達できなくなる**（実際に発生した不具合。単体テスト仕様書の
+  部分登録系テスト項目で、期待される `importedCount` が0件になってしまっていた）。
+- `isFatal()` は、**部分登録では救済できない致命的エラー**（ファイル拡張子不正・
+  空ファイル・ヘッダー行の列数不正）でのみ `true` になる。各 `CsvFormatValidator`
+  実装（`PaygateMappingCsvValidator`・`JcbCsvFormatValidator`・
+  `SumarejoCsvFormatValidator`・`NetstarsCsvFormatValidator`・
+  `RakutenpayCsvFormatValidator`・`JushinSbiCsvFormatValidator`）は、これらの
+  致命的エラーを追加する箇所（いずれも早期 `return` する箇所）で必ず
+  `result.markFatal()` を呼ぶこと。
+- データ行単位のエラー（列数不足・数値/日付変換エラー・マッピング未存在・
+  取引コード重複等）は `markFatal()` を呼ばない。これらは `isFatal()==false` の
+  まま `Service` 側の登録処理へ進み、`XxxFileImporter` 側で改めて該当行だけを
+  スキップして処理を継続する（＝バリデータとインポーターで同種のチェックが
+  二重に行われるが、ファイル全体を止めるか止めないかの判断が異なるため、
+  この二重チェックは意図的な設計である）。
+- 新しく `CsvFormatValidator` を追加・変更する場合は、致命的エラーの追加箇所
+  すべてに `markFatal()` が付いているか必ず確認すること（付け忘れると
+  `isFatal()` が常に `false` になり、逆に本来ブロックすべきヘッダー不正等まで
+  そのまま登録処理に進んでしまう）。
+
+#### エラーメッセージへの識別情報の埋め込み
+
+行番号は `CsvValidationError.rowNumber`（画面のエラー一覧テーブルの「行番号」列）
+で表示されるため、エラーメッセージ本文には**その行がどのデータか識別できる
+キー**（取引コード・加盟店番号・端末識別番号・加盟店IDなど、決済種類ごとの
+識別キー）を埋め込むこと。「列数が不足しています（7列）」のような識別情報の無い
+メッセージは、複数店舗・複数行が1ファイルに混在するCSVでは「どの行のデータか」
+が分からず調査しづらいため避ける。
+
+- 書式例：`取引コード「37-04」: 列数が不正です。期待: 13列、実際: 7列`
+- 列数不足などで本来読み出したい列自体が存在しない場合は、実際に読める範囲の
+  列（例：JCBなら列数が2列以上あれば1列目の加盟店番号）を安全にフォールバック
+  として使う。存在しない列インデックスへのアクセスは行わない。
+- ファイル全体を拒否する致命的エラー（`isFatal()==true`）のサマリーメッセージ
+  （`ImportResponse.errorMessage`）にも、行番号が意味を持つ場合（ヘッダー行の
+  列数不正など）は「1行目: 」のように行番号を前置する
+  （`PaygateMappingService.buildFatalDetailMessage()` /
+  `JftdSettlementService.buildFatalDetailMessage()`）。
+
+### ヘッダー行の扱い・重複チェック（取引コード紐付データ作成CSV）
 
 「取引コード紐付データ作成」画面（`/paygate_mapping_create`）が取り込む PAYGATE
 会員コード紐付 CSV は、**1行目の内容によらず常にヘッダー行として扱いスキップする**。
@@ -461,19 +549,37 @@ GRANT ALL PRIVILEGES ON DATABASE hanacupit TO hanacupit;
   列名の完全一致を要求すると、構造（列の並び・列数）は正しいCSVが列名のわずかな
   表記ゆれだけで弾かれてしまうため。
 - 検証するのは **拡張子（.csv）・列数（13列固定）・各データ行の取引コード
-  （1列目）が空でないこと・CSV内で取引コードが重複していないこと** のみとする。
-  ヘッダー行の有無を自動判定する仕組みは持たない（＝ヘッダー行は必須。ヘッダー
-  なし＝1行目からデータ、という運用はサポートしない）。
-- 同一CSV内に同じ取引コードの行が複数存在する場合はエラーとする（1取引コード
-  につき1行を前提とする。複数端末分を1つの取引コードにまとめて登録する運用は
-  サポートしない）。
-- 対象クラス：`PaygateMappingCsvValidator`・`PaygateMappingFileImporter`、および
-  同ロジックを重複実装している `paygate_mapping_create.html` のフロントエンドJS。
-  3箇所は必ず同期して修正すること。
+  （1列目）が空でないこと**に加え、下記の重複チェックのみとする。ヘッダー行の
+  有無を自動判定する仕組みは持たない（＝ヘッダー行は必須。ヘッダーなし＝1行目
+  からデータ、という運用はサポートしない）。
+- **1取引コード（加盟店）に複数端末が存在する運用があるため、取引コード自体の
+  CSV内重複は許容する**（旧仕様では取引コードの重複をエラーとしていたが、顧客
+  提供の実データ（`会員コード紐付データ.xlsx`、4,128行）を検証した結果、3,219件
+  中500件の取引コードが複数行（最大22行）を持つ正常なケースであることが判明した
+  ため、方針を変更した）。
+- 代わりに、各決済会社の精算データ取込み（JFTD精算データ作成）で取引コードを
+  逆引きするキーとなる下記4項目は、**CSV内で重複していたらエラー**とし該当行を
+  登録せずスキップする（重複を許すと`PaygateMappingRepository.findFirstByXxx()`
+  がどちらか一方を不定に返し、精算データが誤った取引コードに紐付く恐れがある
+  ため）。
+  - 端末識別番号（`terminal_id`）
+  - 加盟店番号(住信SBI)（`sbi_merchant_id`）
+  - StarPay店舗コード(ネットスターズ)（`netstar_store_code`）
+  - GW店舗コード(Rpay)（`rpay_store_code`）
+- リーダーシリアル番号・加盟店番号(JCB)は重複チェックの**対象外**とする。
+  - リーダーシリアル番号は実データ上、無関係な取引コード間でも重複しており
+    識別キーとして信頼できないため（重複値302件のうち301件が別々の取引コード
+    をまたいで出現）。
+  - 加盟店番号(JCB)は1店舗が複数端末で同一のJCB契約（同一の加盟店番号）を
+    共有するケースが実データ上に正常に存在するため（重複＝異常ではない。
+    実データでは重複18件がすべて同一取引コード内での重複）。
+- 対象クラス：`PaygateMappingCsvValidator`・`PaygateMappingFileImporter`。
+  重複チェック対象の4項目・対象外の2項目は両クラスで必ず同期して修正すること。
 - 同じCSVの取込は **取引コード単位の洗い替え**（存在しなければ新規登録、存在すれば
   該当取引コードのレコードのみ削除して登録し直す）とし、CSVに含まれない取引コードの
   既存データは削除しない（`m_paygate_store_mapping` 全体を無条件に削除する実装には
-  しないこと）。
+  しないこと）。1取引コードに複数端末の行がある場合は、その取引コードの全端末分の
+  行がまとめて削除・再登録される。
 
 ### 取引コード（trade_code）の解決規則（JFTD精算データ作成）
 
@@ -505,6 +611,10 @@ GRANT ALL PRIVILEGES ON DATABASE hanacupit TO hanacupit;
   （エラー行の扱いの詳細は前項「インポート時のエラー行の扱い（部分登録）」を参照）。
 - 住信SBIは区分1（店舗ヘッダー）が1ファイル中に複数回登場する。区分1ごとに解決した
   取引コードを、後続の区分2（明細）が次の区分1に達するまで引き継ぐ（1パス処理）。
+  ただし「直前に区分1があった」という並び順だけを信用せず、区分2自身が持つ加盟店ID
+  （[2]列）が直前の区分1の加盟店ID（[5]列）と一致するかも突き合わせる。一致しない
+  区分2（ファイルの並び順が壊れている等）は誤った取引コードに紐付けないため
+  エラーとしてスキップする（`JushinSbiFileImporter`の`currentMerchantId`）。
 - 対象クラス：`JcbFileImporter`・`SumarejoFileImporter`・`NetstarFileImporter`・
   `RakutenpayFileImporter`・`JushinSbiFileImporter`。いずれも `PaygateMappingRepository`
   を注入し、`batch.getTradeCode()` を全行に使い回すのではなく、行ごとに

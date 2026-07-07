@@ -153,6 +153,8 @@
     display: flex; justify-content: space-between; align-items: flex-end; gap: 20px;
   }
 
+  .button-group { display: flex; align-items: center; gap: 10px; }
+
   .btn {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 8px 18px; border-radius: 6px; font-size: var(--fs-base);
@@ -194,6 +196,13 @@
     font-weight: 700; font-size: var(--fs-base); margin-bottom: 8px;
     display: flex; align-items: center; gap: 6px;
   }
+
+  .btn-clear-result {
+    background-color: var(--bg-white);
+    border-color: var(--border-input);
+    color: var(--text-main);
+  }
+  .btn-clear-result:hover:not(:disabled) { background-color: #faf8f2; }
 
   .check-result-summary {
     font-size: var(--fs-sm); margin-bottom: 10px;
@@ -267,7 +276,7 @@
     .container { padding: 20px 16px 24px; }
     .form-row-with-action { flex-direction: column; align-items: stretch; }
     .custom-select, .text-input { width: 100%; }
-    .btn-upload { align-self: flex-end; }
+    .button-group { align-self: flex-end; }
   }
 </style>
 </head>
@@ -303,9 +312,12 @@
           </div>
         </div>
 
-        <button class="btn btn-upload" type="button" id="btn-upload" disabled>
-          <span id="upload-icon">&#11014;</span><span id="upload-label">アップロード</span>
-        </button>
+        <div class="button-group">
+          <button class="btn btn-upload" type="button" id="btn-upload" disabled>
+            <span id="upload-icon">&#11014;</span><span id="upload-label">アップロード</span>
+          </button>
+          <button class="btn btn-clear-result" type="button" id="btn-clear-result">画面クリア</button>
+        </div>
       </div>
     </div>
 
@@ -397,10 +409,13 @@
     const errorWrapper    = document.getElementById('error-table-wrapper');
     const errorBody       = document.getElementById('error-table-body');
     const errorLimitNote  = document.getElementById('error-limit-note');
+    const btnClearResult  = document.getElementById('btn-clear-result');
     const csrfToken       = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
+    const DEFAULT_PAYMENT_TYPE = 'JCB';
+
     let selectedFile = null;
-    let currentPaymentType = 'JCB';
+    let currentPaymentType = DEFAULT_PAYMENT_TYPE;
 
     /* =============================================
        カスタムドロップダウン
@@ -456,6 +471,22 @@
       hideResult();
       btnUpload.disabled = true;
     }
+
+    /* 決済種類の選択を初期値（先頭のJCB）に戻す */
+    function resetPaymentTypeSelection() {
+      optionEls.forEach(o => o.classList.remove('selected'));
+      const defaultOption = selectEl.querySelector(
+        '.select-option[data-value="' + DEFAULT_PAYMENT_TYPE + '"]');
+      if (defaultOption) { defaultOption.classList.add('selected'); }
+      valueSpan.textContent = DEFAULT_PAYMENT_TYPE;
+      currentPaymentType = DEFAULT_PAYMENT_TYPE;
+      updateFileAccept();
+    }
+
+    btnClearResult.addEventListener('click', function () {
+      resetFileAndResult();
+      resetPaymentTypeSelection();
+    });
 
     function hideResult() {
       checkResult.className = 'check-result';
@@ -579,22 +610,22 @@
             return;
           }
 
-          // ヘッダー名チェック
-          const errors = [];
+          // ヘッダー名はチェックしない（列名の表記はファイルの作成元・作成時期に
+          // よって変わり得るため、列数のみを検証対象とする）。ただし、ヘッダー名との
+          // 不一致件数はUTF-8 BOMなしファイルの誤検出防止にのみ内部的に利用する。
+          let headerMismatchCount = 0;
           fmt.expectedHeaders.forEach(function(expected, i) {
-            const actual = headers[i] || '';
-            if (expected !== actual) {
-              errors.push({ rowNumber: 1, columnName: '列' + (i + 1),
-                message: 'ヘッダー名が不正です。期待: 「' + expected + '」、実際: 「' + actual + '」' });
+            if (expected !== (headers[i] || '')) {
+              headerMismatchCount++;
             }
           });
 
           // Shift-JISで多数不一致の場合、UTF-8 BOMなしかを確認
-          if (errors.length > 0 && charset === 'shift-jis') {
+          if (headerMismatchCount > 0 && charset === 'shift-jis') {
             const utf8Headers = parseCsvLine(
               new TextDecoder('utf-8').decode(buffer).split('\n')[0].replace(/\r$/, ''));
             const utf8Mismatches = fmt.expectedHeaders.filter((h, i) => (utf8Headers[i] || '') !== h);
-            if (utf8Mismatches.length < errors.length) {
+            if (utf8Mismatches.length < headerMismatchCount) {
               showNg('ファイルがUTF-8（BOMなし）形式で保存されています。', [
                 { rowNumber: '-', columnName: '文字コード',
                   message: 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。' }
@@ -603,11 +634,7 @@
             }
           }
 
-          if (errors.length > 0) {
-            showNg('ヘッダー行に ' + errors.length + ' 件の不一致があります。', errors);
-          } else {
-            showOk('ヘッダーチェック OK（' + fmt.columnCount + '列）。アップロードして全行を検証します。');
-          }
+          showOk('ヘッダーチェック OK（' + fmt.columnCount + '列）。アップロードして全行を検証します。');
         } catch (err) {
           showNg('ファイルの読み込みに失敗しました: ' + err.message, []);
         }
@@ -711,14 +738,21 @@
 
       fetch('/jftd_settlement/import', {
         method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken },
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
         body: formData
       })
-        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('unauthenticated'));
+          }
+          return res.json();
+        })
         .then(function(data) {
           showImportResult(data);
         })
         .catch(function(err) {
+          if (err.message === 'unauthenticated') { return; }
           showNg('通信エラーが発生しました: ' + err.message, []);
           btnUpload.disabled = false;
         })

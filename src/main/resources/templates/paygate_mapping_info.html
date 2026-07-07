@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>取引コード紐付情報照会 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
+<style>
+  :root {
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-search: #eef3fa;
+    --bg-white: #ffffff;
+    --bg-hover: #faf8f2;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-form: #cddef2;
+    --border-table: #e5e2d8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-lg: 22px;
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100vh; }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::-webkit-scrollbar { width: 14px; }
+  body::-webkit-scrollbar-track { background: var(--bg-page); border-left: 1px solid var(--border-table); }
+  body::-webkit-scrollbar-thumb { background: #c9c4b4; border: 3px solid var(--bg-page); border-radius: 8px; }
+  body::-webkit-scrollbar-thumb:hover { background: #aea892; }
+
+  .page-title {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  /* 検索エリア */
+  .search-box {
+    background-color: var(--bg-search);
+    border: 1px solid var(--border-form);
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 14px;
+  }
+
+  .search-label {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-family: var(--font-mono);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: var(--fs-base);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+  }
+
+  .btn:disabled { opacity: 0.45; cursor: default; }
+
+  .btn-search {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .btn-search:hover:not(:disabled) { background-color: #d5e4f6; }
+
+  .btn-clear {
+    background-color: var(--bg-white);
+    border-color: var(--border-input);
+    color: var(--text-main);
+  }
+
+  .btn-clear:hover:not(:disabled) { background-color: var(--bg-hover); }
+
+  /* 結果ヘッダー */
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .result-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-left: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .per-page-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-select {
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    font-family: var(--font-base);
+    font-size: var(--fs-xs);
+    color: var(--text-main);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .per-page-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* ページネーション */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .page-numbers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .page-btn:hover:not(:disabled):not(.is-active) {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .page-number.is-active {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .page-ellipsis {
+    min-width: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+  }
+
+  /* テーブル */
+  .data-table-wrapper {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .data-scroll {
+    overflow-x: auto;
+  }
+
+  .data-scroll::-webkit-scrollbar { width: 14px; height: 14px; }
+  .data-scroll::-webkit-scrollbar-track { background: var(--bg-page); border-left: 1px solid var(--border-table); }
+  .data-scroll::-webkit-scrollbar-thumb { background: #c9c4b4; border: 3px solid var(--bg-page); border-radius: 8px; }
+  .data-scroll::-webkit-scrollbar-thumb:hover { background: #aea892; }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    /* 列幅の合計 = 2580px */
+    min-width: 2580px;
+  }
+
+  /* 列幅定義（各列とも対応カラムの最大文字数〈DB定義上限〉を収容できる幅にしている） */
+  .data-table col.c-trade   { width: 140px; }  /* 10桁（最大文字数）収容 */
+  .data-table col.c-store   { width: 220px; }  /* 最大100文字は2行省略表示（design通り）。実用的な長さは折返しなしで収容 */
+  .data-table col.c-member  { width: 210px; }  /* 全角10文字（最大文字数）収容 */
+  .data-table col.c-term    { width: 150px; }  /* 13桁（最大文字数）収容 */
+  .data-table col.c-reader  { width: 240px; }  /* 20桁（最大文字数）収容 */
+  .data-table col.c-sbi     { width: 240px; }  /* 20桁（最大文字数）収容 */
+  .data-table col.c-star    { width: 240px; }  /* 20桁（最大文字数）収容 */
+  .data-table col.c-jcb     { width: 165px; }  /* 14桁（最大文字数）収容 */
+  .data-table col.c-rpay    { width: 240px; }  /* 20桁（最大文字数）収容 */
+  .data-table col.c-dnp     { width: 240px; }  /* 20桁（最大文字数）収容 */
+  .data-table col.c-status  { width: 210px; }  /* 全角10文字（最大文字数）収容 */
+  .data-table col.c-intent  { width: 210px; }  /* 全角10文字（最大文字数）収容 */
+  .data-table col.c-intdt   { width: 140px; }  /* 「利用意思更新日」見出し・日付収容 */
+
+  .data-table thead th {
+    background-color: #FFDCE4;
+    color: var(--text-label);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 2px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .data-table thead th:first-child { border-left: 3px solid var(--accent-blue); }
+  .data-table thead th:last-child { border-right: none; }
+
+  .data-table tbody td {
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .data-table tbody td:last-child { border-right: none; }
+  .data-table tbody tr { height: 62px; } /* 店名2行分に統一 */
+  .data-table tbody tr:last-child td { border-bottom: none; }
+
+  .data-table tbody td.jp {
+    font-family: var(--font-base);
+  }
+
+  /* 店名は最大2行で折り返す（display:-webkit-box は td 直接ではなく内側の div に適用） */
+  .data-table tbody td.store {
+    white-space: normal;
+  }
+
+  .data-table tbody td.store .store-inner {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .data-table tbody tr:hover td { background-color: var(--bg-hover); }
+
+  .data-table tbody td.empty-cell {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-base);
+    padding: 28px 16px;
+    white-space: normal;
+  }
+
+  .msg-error {
+    color: #8a1a1a;
+    background: #fdeaea;
+    border: 1px solid #e9b0b0;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: var(--fs-sm);
+    margin-bottom: 12px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--accent-blue-border);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1 class="page-title">取引コード紐付情報照会</h1>
+
+  <div class="search-box">
+    <label class="search-label" for="trade-code-input">取引コード</label>
+    <div class="search-row">
+      <input type="text" id="trade-code-input" class="search-input"
+          th:value="${tradeCode}" placeholder="例：01-001" maxlength="20" />
+      <button class="btn btn-search" type="button" id="btn-search">絞込み</button>
+      <button class="btn btn-clear" type="button" id="btn-clear">クリア</button>
+    </div>
+  </div>
+
+  <div id="msg-area"></div>
+
+  <div class="result-header">
+    <span class="result-summary" id="result-summary"></span>
+    <div class="per-page-control">
+      <label class="per-page-label" for="per-page-select">表示件数</label>
+      <select id="per-page-select" class="per-page-select">
+        <option value="10" selected>10件</option>
+        <option value="20">20件</option>
+        <option value="30">30件</option>
+        <option value="50">50件</option>
+        <option value="100">100件</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="data-table-wrapper">
+    <div class="data-scroll">
+      <table class="data-table">
+        <colgroup>
+          <col class="c-trade">
+          <col class="c-store">
+          <col class="c-member">
+          <col class="c-term">
+          <col class="c-reader">
+          <col class="c-sbi">
+          <col class="c-star">
+          <col class="c-jcb">
+          <col class="c-rpay">
+          <col class="c-dnp">
+          <col class="c-status">
+          <col class="c-intent">
+          <col class="c-intdt">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>取引コード</th>
+            <th>店名</th>
+            <th>会員種別</th>
+            <th>端末識別番号</th>
+            <th>リーダーSN</th>
+            <th>住信SBI加盟店番号</th>
+            <th>StarPay店舗コード</th>
+            <th>JCB加盟店番号</th>
+            <th>GW店舗コード（楽天Pay）</th>
+            <th>DNP管理番号</th>
+            <th>利用ステータス</th>
+            <th>利用意思</th>
+            <th>利用意思更新日</th>
+          </tr>
+        </thead>
+        <tbody id="data-tbody">
+          <tr>
+            <td class="empty-cell" colspan="13">
+              <span class="spinner"></span> 読み込み中…
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pagination" id="pagination">
+    <button class="page-btn" type="button" id="btn-prev" aria-label="前のページ">‹</button>
+    <div class="page-numbers" id="page-numbers"></div>
+    <button class="page-btn" type="button" id="btn-next" aria-label="次のページ">›</button>
+  </div>
+
+</div>
+
+<script th:inline="javascript">
+  var initialTradeCode = /*[[${tradeCode}]]*/ null;
+</script>
+<script>
+  (function () {
+    var allData = [];
+    var filteredData = [];
+    var currentPage = 1;
+    var perPage = 10;
+
+    var tbodyEl      = document.getElementById('data-tbody');
+    var summaryEl    = document.getElementById('result-summary');
+    var pageNumsEl   = document.getElementById('page-numbers');
+    var btnPrev      = document.getElementById('btn-prev');
+    var btnNext      = document.getElementById('btn-next');
+    var btnSearch    = document.getElementById('btn-search');
+    var btnClear     = document.getElementById('btn-clear');
+    var perPageSel   = document.getElementById('per-page-select');
+    var msgArea      = document.getElementById('msg-area');
+    var tradeInput   = document.getElementById('trade-code-input');
+
+    /* ページ数計算 */
+    function totalPages() {
+      return Math.max(1, Math.ceil(filteredData.length / perPage));
+    }
+
+    /* ページ番号ボタン列 (両端 + 現在周辺 + 省略) */
+    function buildPageItems(cur, total) {
+      var items = [];
+      if (total <= 7) {
+        for (var i = 1; i <= total; i++) { items.push(i); }
+        return items;
+      }
+      items.push(1);
+      var left  = Math.max(2, cur - 1);
+      var right = Math.min(total - 1, cur + 1);
+      if (left > 2)        { items.push('...'); }
+      for (var p = left; p <= right; p++) { items.push(p); }
+      if (right < total - 1) { items.push('...'); }
+      items.push(total);
+      return items;
+    }
+
+    /* 1行ぶんの <tr> 要素を生成 */
+    function buildRow(row) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="jp">'       + esc(row.tradeCode)             + '</td>' +
+        '<td class="jp store" title="' + esc(row.storeName) + '">'
+            + '<div class="store-inner">' + esc(row.storeName) + '</div></td>' +
+        '<td class="jp">' + esc(row.memberType)             + '</td>' +
+        '<td>'            + esc(row.terminalId)             + '</td>' +
+        '<td>'            + esc(row.readerSerialNo)         + '</td>' +
+        '<td>'            + esc(row.sbiMerchantId)          + '</td>' +
+        '<td>'            + esc(row.netstarStoreCode)       + '</td>' +
+        '<td>'            + esc(row.jcbMerchantNo)          + '</td>' +
+        '<td>'            + esc(row.rpayStoreCode)          + '</td>' +
+        '<td>'            + esc(row.dnpMgmtNo)              + '</td>' +
+        '<td class="jp">' + esc(row.terminalStatus)         + '</td>' +
+        '<td class="jp">' + esc(row.usageIntention)         + '</td>' +
+        '<td>'            + esc(row.usageIntentionUpdated)  + '</td>';
+      return tr;
+    }
+
+    /* テーブル・ページング・サマリーを再描画 */
+    function render() {
+      var total = filteredData.length;
+      var pages = totalPages();
+      if (currentPage > pages) { currentPage = pages; }
+
+      var start = (currentPage - 1) * perPage;
+      var end   = Math.min(start + perPage, total);
+
+      tbodyEl.innerHTML = '';
+      if (total === 0) {
+        var emptyTr = document.createElement('tr');
+        emptyTr.innerHTML = '<td class="empty-cell" colspan="13">該当するデータがありません。</td>';
+        tbodyEl.appendChild(emptyTr);
+        summaryEl.textContent = '0 件';
+      } else {
+        for (var i = start; i < end; i++) {
+          tbodyEl.appendChild(buildRow(filteredData[i]));
+        }
+        summaryEl.textContent = (start + 1) + '–' + end + ' / ' + total + ' 件';
+      }
+
+      /* ページ番号ボタン */
+      pageNumsEl.innerHTML = '';
+      buildPageItems(currentPage, pages).forEach(function (item) {
+        if (item === '...') {
+          var sp = document.createElement('span');
+          sp.className = 'page-ellipsis';
+          sp.textContent = '…';
+          pageNumsEl.appendChild(sp);
+          return;
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'page-btn page-number' + (item === currentPage ? ' is-active' : '');
+        btn.textContent = item;
+        btn.addEventListener('click', function () {
+          currentPage = item;
+          render();
+        });
+        pageNumsEl.appendChild(btn);
+      });
+
+      btnPrev.disabled = (currentPage === 1);
+      btnNext.disabled = (currentPage === pages);
+    }
+
+    /* 絞込み適用 */
+    function applyFilter() {
+      var query = tradeInput.value.trim();
+      filteredData = query
+        ? allData.filter(function (r) {
+            return (r.tradeCode || '').indexOf(query) !== -1;
+          })
+        : allData.slice();
+      currentPage = 1;
+      render();
+    }
+
+    /* 全件データをフェッチして初期表示 */
+    function loadAll(autoFilter) {
+      msgArea.innerHTML = '';
+      tbodyEl.innerHTML =
+        '<tr><td class="empty-cell" colspan="13"><span class="spinner"></span> 読み込み中…</td></tr>';
+      summaryEl.textContent = '';
+
+      fetch('/paygate_mapping_search', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('unauthenticated'));
+          }
+          if (!res.ok) { throw new Error('HTTP ' + res.status); }
+          return res.json();
+        })
+        .then(function (data) {
+          allData = data || [];
+          filteredData = allData.slice();
+          if (autoFilter) {
+            tradeInput.value = autoFilter;
+            applyFilter();
+          } else {
+            currentPage = 1;
+            render();
+          }
+        })
+        .catch(function (err) {
+          if (err && err.message === 'unauthenticated') { return; }
+          msgArea.innerHTML =
+            '<div class="msg-error">データの取得に失敗しました。再度お試しください。</div>';
+          tbodyEl.innerHTML =
+            '<tr><td class="empty-cell" colspan="13">読み込みエラー</td></tr>';
+          summaryEl.textContent = '';
+        });
+    }
+
+    /* イベント */
+    btnPrev.addEventListener('click', function () {
+      if (currentPage > 1) { currentPage--; render(); }
+    });
+
+    btnNext.addEventListener('click', function () {
+      if (currentPage < totalPages()) { currentPage++; render(); }
+    });
+
+    perPageSel.addEventListener('change', function () {
+      perPage = parseInt(perPageSel.value, 10);
+      currentPage = 1;
+      render();
+    });
+
+    btnSearch.addEventListener('click', applyFilter);
+
+    btnClear.addEventListener('click', function () {
+      tradeInput.value = '';
+      applyFilter();
+    });
+
+    tradeInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { btnSearch.click(); }
+    });
+
+    function esc(val) {
+      if (val == null) { return ''; }
+      return String(val)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    /* 初期ロード */
+    loadAll(initialTradeCode || '');
+  })();
+</script>
+</body>
+</html>
