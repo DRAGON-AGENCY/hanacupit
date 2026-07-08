@@ -188,6 +188,12 @@ public class JushinSbiFileImporter extends AbstractFileImporter {
     }
 
     @Override
+    public void deleteBatchData(int batchId) {
+        transactionRepository.deleteByBatchId(batchId);
+        headerRepository.deleteByBatchId(batchId);
+    }
+
+    @Override
     public String extractLookupKey(MultipartFile file) throws IOException {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {

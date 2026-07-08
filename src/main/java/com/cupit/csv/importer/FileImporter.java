@@ -32,4 +32,15 @@ public interface FileImporter {
     default String extractLookupKey(MultipartFile file) throws IOException {
         throw new UnsupportedOperationException("extractLookupKey は未実装です。");
     }
+
+    /**
+     * 指定したバッチIDに紐づく明細データを削除する。エラーを含んだまま確定されずに
+     * 残っている過去のインポートバッチを、訂正後のファイルで置き換える（洗い替える）
+     * ために使用する。
+     *
+     * @param batchId 削除対象のバッチID
+     */
+    default void deleteBatchData(int batchId) {
+        throw new UnsupportedOperationException("deleteBatchData は未実装です。");
+    }
 }

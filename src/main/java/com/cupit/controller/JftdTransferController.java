@@ -1,5 +1,8 @@
 package com.cupit.controller;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.springframework.http.ContentDisposition;
@@ -10,6 +13,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.cupit.dto.TransferConfirmResponse;
@@ -28,7 +32,11 @@ import com.cupit.service.settlement.TransferLineItem;
 import jakarta.servlet.http.HttpSession;
 
 /**
- * JFTD統合振込CSV作成・帳票出力画面のプレビュー・確定・ダウンロードを処理するコントローラ。
+ * JFTD統合振込CSV作成画面（プレビュー・確定・CSVダウンロード）と、
+ * 帳票出力画面（確定済みバッチからの売上報告書・支払明細書ダウンロード）の
+ * 両方が使用するダウンロードAPIを提供するコントローラ。「確定」操作自体は
+ * CSV作成画面（/jftd_transfer）からのみ呼び出される。帳票出力画面（/jftd_report）は
+ * 確定済みデータの参照・ダウンロード専用で、確定操作は行わない。
  */
 @Controller
 public class JftdTransferController {
@@ -98,23 +106,41 @@ public class JftdTransferController {
     }
 
     /**
-     * 確定済みの統合振込バッチの売上報告書(.xlsx)をダウンロードする。
+     * 確定済みの統合振込バッチの売上報告書(.xlsx)をダウンロードする。帳票出力画面の
+     * 履歴一覧で複数バッチを選択した場合、それらをまとめて1つの帳票に集計する。
+     * 指定されたバッチに明細が1件も無い場合（存在しない・削除済みのtransferBatchIdを
+     * 指定した場合等）は、0円のプレースホルダー帳票を黙って返さず404を返す。
      */
-    @GetMapping("/jftd_transfer/{transferBatchId}/report/sales")
-    public ResponseEntity<byte[]> downloadSalesReport(@PathVariable int transferBatchId) {
-        List<ReportRow> rows = reportDataService.getReportRows(transferBatchId);
+    @GetMapping("/jftd_transfer/report/sales")
+    public ResponseEntity<byte[]> downloadSalesReport(@RequestParam("ids") List<Integer> transferBatchIds) {
+        List<ReportRow> rows = reportDataService.getReportRows(transferBatchIds);
+        if (rows.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
         byte[] xlsxBytes = salesReportXlsxWriter.write(rows);
-        return fileResponse(xlsxBytes, XLSX_MEDIA_TYPE, "sales_report_" + transferBatchId + ".xlsx");
+        return fileResponse(xlsxBytes, XLSX_MEDIA_TYPE, "売上報告書_" + nowTimestamp() + ".xlsx");
     }
 
     /**
-     * 確定済みの統合振込バッチの支払明細書(.xlsx)をダウンロードする。
+     * 確定済みの統合振込バッチの支払明細書(.xlsx)をダウンロードする。帳票出力画面の
+     * 履歴一覧で複数バッチを選択した場合、それらをまとめて1つの帳票に集計する。
+     * 指定されたバッチに明細が1件も無い場合は404を返す（downloadSalesReport()と同様）。
      */
-    @GetMapping("/jftd_transfer/{transferBatchId}/report/statement")
-    public ResponseEntity<byte[]> downloadStatement(@PathVariable int transferBatchId) {
-        List<ReportRow> rows = reportDataService.getReportRows(transferBatchId);
+    @GetMapping("/jftd_transfer/report/statement")
+    public ResponseEntity<byte[]> downloadStatement(@RequestParam("ids") List<Integer> transferBatchIds) {
+        List<ReportRow> rows = reportDataService.getReportRows(transferBatchIds);
+        if (rows.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
         byte[] xlsxBytes = supportStatementXlsxWriter.write(rows);
-        return fileResponse(xlsxBytes, XLSX_MEDIA_TYPE, "support_statement_" + transferBatchId + ".xlsx");
+        return fileResponse(xlsxBytes, XLSX_MEDIA_TYPE, "支払明細書_" + nowTimestamp() + ".xlsx");
+    }
+
+    private static final DateTimeFormatter FILENAME_TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+    private String nowTimestamp() {
+        return LocalDateTime.now().format(FILENAME_TIMESTAMP_FORMAT);
     }
 
     private static final String XLSX_MEDIA_TYPE =
@@ -124,13 +150,16 @@ public class JftdTransferController {
         List<JftdTransferDetail> details = transferDetailRepository.findByTransferBatchId(transferBatchId);
         return details.stream()
                 .map(d -> new TransferLineItem(
-                        d.getTradeCode(), d.getItemCode(), d.getQuantity(), d.getAmount()))
+                        d.getTradeCode(), d.getItemCode(), d.getQuantity(), d.getAmount(),
+                        d.getGrossAmount(), d.getAcquirerFeeTaxFree(),
+                        d.getAcquirerFeeBase(), d.getAcquirerFeeTax()))
                 .toList();
     }
 
     private ResponseEntity<byte[]> fileResponse(byte[] body, String mediaType, String fileName) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentDisposition(ContentDisposition.attachment().filename(fileName).build());
+        headers.setContentDisposition(
+                ContentDisposition.attachment().filename(fileName, StandardCharsets.UTF_8).build());
         return ResponseEntity.ok()
                 .headers(headers)
                 .contentType(MediaType.parseMediaType(mediaType))

@@ -33,6 +33,18 @@ public class JftdTransferDetail {
     @Column(name = "amount", nullable = false)
     private int amount;
 
+    @Column(name = "gross_amount", nullable = false)
+    private int grossAmount;
+
+    @Column(name = "acquirer_fee_tax_free", nullable = false)
+    private int acquirerFeeTaxFree;
+
+    @Column(name = "acquirer_fee_base", nullable = false)
+    private int acquirerFeeBase;
+
+    @Column(name = "acquirer_fee_tax", nullable = false)
+    private int acquirerFeeTax;
+
     @Column(name = "update_employee")
     private String updateEmployee;
 
@@ -88,6 +100,38 @@ public class JftdTransferDetail {
 
     public void setAmount(int amount) {
         this.amount = amount;
+    }
+
+    public int getGrossAmount() {
+        return grossAmount;
+    }
+
+    public void setGrossAmount(int grossAmount) {
+        this.grossAmount = grossAmount;
+    }
+
+    public int getAcquirerFeeTaxFree() {
+        return acquirerFeeTaxFree;
+    }
+
+    public void setAcquirerFeeTaxFree(int acquirerFeeTaxFree) {
+        this.acquirerFeeTaxFree = acquirerFeeTaxFree;
+    }
+
+    public int getAcquirerFeeBase() {
+        return acquirerFeeBase;
+    }
+
+    public void setAcquirerFeeBase(int acquirerFeeBase) {
+        this.acquirerFeeBase = acquirerFeeBase;
+    }
+
+    public int getAcquirerFeeTax() {
+        return acquirerFeeTax;
+    }
+
+    public void setAcquirerFeeTax(int acquirerFeeTax) {
+        this.acquirerFeeTax = acquirerFeeTax;
     }
 
     public String getUpdateEmployee() {

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" th:content="${csrfToken}" content="">
-<title>JFTD統合振込CSV作成・帳票出力 | キャッシュレス管理システム</title>
+<title>JFTD・その他統合振込CSV作成 | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
@@ -22,19 +22,15 @@
     --bg-white: #ffffff;
     --bg-notice: #fbeed5;
     --bg-notice-border: #f1d9a0;
-    --bg-ok: #edf7ed;
-    --bg-ng: #fdf0f0;
     --border-color: #e8e4da;
+    --border-input: #d8d4c8;
     --border-form: #cddef2;
     --border-table: #e5e2d8;
-    --border-ok: #a5d6a7;
-    --border-ng: #f5c6cb;
     --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
     --text-label: #5a5a5a;
     --text-muted: #8a8a8a;
     --text-notice: #8a5a1a;
-    --text-ok: #2e7d32;
-    --text-ng: #b71c1c;
     --accent-blue: #3a6db5;
     --accent-blue-light: #e3edfb;
     --accent-blue-border: #aecbeb;
@@ -43,6 +39,7 @@
     --fs-xs: 14px;
     --fs-sm: 15px;
     --fs-base: 16px;
+    --fs-md: 18px;
     --fs-lg: 22px;
     --container-min: 1200px;
     --container-max: 1760px;
@@ -57,6 +54,7 @@
     color: var(--text-main);
     min-height: 100vh;
     overflow-x: auto;
+    overflow-y: auto;
     -webkit-font-smoothing: antialiased;
     font-size: var(--fs-base);
     font-feature-settings: "palt";
@@ -80,75 +78,99 @@
     margin-bottom: 14px; letter-spacing: 0.01em;
   }
 
-  .form-box {
+  .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+
+  .action-grid.single {
+    grid-template-columns: minmax(0, 420px);
+  }
+
+  .action-card {
     background-color: var(--bg-form);
     border: 1px solid var(--border-form);
     border-radius: 8px;
-    padding: 16px 20px;
+    padding: 18px 20px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .action-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-form);
   }
 
-  .step-title { font-size: var(--fs-base); font-weight: 700; margin-bottom: 10px; }
-
-  .btn {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 8px 18px; border-radius: 6px; font-size: var(--fs-base);
-    cursor: pointer; font-family: inherit; transition: all 0.15s ease;
-    border: 1px solid transparent; white-space: nowrap;
+  .action-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-sub);
   }
 
-  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .action-card-title {
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+    letter-spacing: 0.02em;
+  }
 
-  .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+  .action-desc {
+    font-size: var(--fs-sm);
+    color: var(--text-sub);
+    margin-bottom: 18px;
+  }
 
-  .btn-primary {
+  .action-card-bottom {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .action-card-bottom.right-end .btn-card { grid-column: 2; }
+  .action-card-bottom .btn-card { width: 100%; justify-content: center; }
+
+  .btn-card {
+    padding: 8px 18px;
     background-color: var(--accent-blue-light);
-    border-color: var(--accent-blue-border);
+    border: 1px solid var(--accent-blue-border);
+    border-radius: 6px;
+    font-size: var(--fs-base);
+    font-family: inherit;
     color: var(--accent-blue);
     font-weight: 500;
-  }
-  .btn-primary:hover:not(:disabled) { background-color: #d3e2f7; }
-
-  .btn-download {
-    background-color: var(--bg-white);
-    border-color: var(--border-form);
-    color: var(--text-main);
-  }
-  .btn-download:hover:not(:disabled) { background-color: #f5f8fc; }
-
-  .check-result {
-    display: none;
-    background-color: var(--bg-white);
-    border: 1px solid var(--border-table);
-    border-radius: 8px;
-    padding: 14px 18px;
-    margin-bottom: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
   }
 
-  .check-result.ok { display: block; background-color: var(--bg-ok); border-color: var(--border-ok); }
-  .check-result.ng { display: block; background-color: var(--bg-ng); border-color: var(--border-ng); }
-
-  .check-result-title { font-size: var(--fs-base); font-weight: 700; margin-bottom: 4px; }
-  .check-result.ok .check-result-title { color: var(--text-ok); }
-  .check-result.ng .check-result-title { color: var(--text-ng); }
-  .check-result-summary { font-size: var(--fs-sm); color: var(--text-main); margin-bottom: 10px; }
-
-  table.summary-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); background-color: var(--bg-white); }
-  .summary-table th, .summary-table td {
-    padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border-table);
+  .btn-card::before {
+    content: "\2708\FE0E";
+    font-size: 12px;
+    color: #6c8a5e;
   }
-  .summary-table th:first-child, .summary-table td:first-child,
-  .summary-table th:nth-child(2), .summary-table td:nth-child(2) { text-align: left; }
-  .summary-table th { background-color: var(--accent-blue-light); color: var(--accent-blue); font-weight: 600; }
 
-  .download-row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .btn-card:hover:not(:disabled) { background-color: #d3e2f7; }
+  .btn-card:disabled { opacity: 0.55; cursor: not-allowed; }
 
   .notice-box {
     background-color: var(--bg-notice);
     border: 1px solid var(--bg-notice-border);
     border-radius: 8px;
     padding: 14px 20px 16px;
-    margin-bottom: 14px;
   }
 
   .notice-title {
@@ -175,105 +197,86 @@
   .notice-list li::before { content: counter(notice-counter) "."; position: absolute; left: 8px; font-weight: 500; }
   .notice-list li:last-child { margin-bottom: 0; }
 
-  .spinner {
-    display: inline-block; width: 14px; height: 14px;
-    border: 2px solid var(--accent-blue-border);
-    border-top-color: var(--accent-blue);
-    border-radius: 50%; animation: spin 0.7s linear infinite;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
   body::-webkit-scrollbar { width: 14px; }
   body::-webkit-scrollbar-track { background: #ffffff; border-left: 1px solid var(--border-table); }
   body::-webkit-scrollbar-thumb { background: #c9c4b4; border: 3px solid #ffffff; border-radius: 8px; }
   body::-webkit-scrollbar-thumb:hover { background: #aea892; }
+
+  @media (max-width: 640px) {
+    .container { padding: 20px 16px 24px; }
+    .action-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
   <div class="container">
-    <h1 class="page-title">JFTD統合振込CSV作成・帳票出力</h1>
+    <h1 class="page-title">JFTD・その他統合振込CSV作成</h1>
+
+    <div class="action-grid">
+      <div class="action-card">
+        <div class="action-card-header">
+          <span class="action-card-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          </span>
+          <h2 class="action-card-title">JFTD CSV作成</h2>
+        </div>
+        <p class="action-desc">JCB・スマレジ・ネットスターズ・楽天ペイ・住信SBIの統合振込CSVファイルを生成します</p>
+        <div class="action-card-bottom right-end">
+          <button class="btn-card" type="button" id="btn-csv-jftd">CSV作成</button>
+        </div>
+      </div>
+
+      <div class="action-card">
+        <div class="action-card-header">
+          <span class="action-card-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          </span>
+          <h2 class="action-card-title">その他 CSV作成</h2>
+        </div>
+        <p class="action-desc">stera JCB・stera code・steraクレジット（stera terminal）の統合振込CSVファイルを生成します</p>
+        <div class="action-card-bottom right-end">
+          <button class="btn-card" type="button" id="btn-csv-other">CSV作成</button>
+        </div>
+      </div>
+    </div>
 
     <div class="notice-box">
       <div class="notice-title">
         <span class="notice-icon">!</span>
-        <span>ご利用にあたっての注意</span>
+        <span>ご注意</span>
       </div>
       <ol class="notice-list">
-        <li>本画面はJCB・スマレジ・ネットスターズ・楽天ペイ・住信SBIのうち、まだ振込CSVに含めていない（未処理の）インポート分をまとめて集計します。</li>
-        <li>「弊社手数料（本体・消費税）」は計算式が未確定のため<strong>0円のまま</strong>表示されます。表示される金額は決済事業者手数料控除後の暫定値であり、最終的な振込金額ではありません。</li>
-        <li>「確定」を実行すると、対象データは以後の集計対象から除外されます（後から取り消せません）。内容をよく確認してから実行してください。</li>
+        <li>「JFTD CSV作成」はJCB・スマレジ・ネットスターズ・楽天ペイ・住信SBIのうち、まだ振込CSVに含めていない（未処理の）インポート分をまとめて集計します。</li>
+        <li>「弊社手数料（本体・消費税）」は計算式が未確定のため<strong>0円のまま</strong>算出されます。表示される金額は決済事業者手数料控除後の暫定値であり、最終的な振込金額ではありません。</li>
+        <li>「CSV作成」ボタンを押した時点で対象データが確定され、以後の集計対象から除外されます（<strong>後から取り消せません</strong>）。実行前に内容をよく確認してください。</li>
+        <li>対象データが1件もない場合、CSVは生成されません。</li>
+        <li>売上報告書・支払明細書は、確定後に「帳票出力」画面から何度でもダウンロードできます。</li>
       </ol>
-    </div>
-
-    <div class="form-box">
-      <div class="step-title">① 集計プレビュー</div>
-      <div class="form-actions" style="justify-content: flex-start;">
-        <button class="btn btn-primary" type="button" id="btn-preview">
-          <span id="preview-icon">&#128269;</span>
-          <span id="preview-label">集計プレビュー</span>
-        </button>
-      </div>
-    </div>
-
-    <div id="preview-result" class="check-result">
-      <div class="check-result-title" id="preview-title"></div>
-      <div class="check-result-summary" id="preview-summary"></div>
-      <table class="summary-table" id="summary-table" style="display:none">
-        <thead>
-          <tr>
-            <th>決済会社</th><th>カードブランド</th><th>件数</th>
-            <th>支払金額（暫定）</th><th>弊社手数料本体</th><th>消費税</th>
-          </tr>
-        </thead>
-        <tbody id="summary-table-body"></tbody>
-      </table>
-    </div>
-
-    <div class="form-box">
-      <div class="step-title">② 確定してCSV・帳票を作成</div>
-      <div class="form-actions" style="justify-content: flex-start;">
-        <button class="btn btn-primary" type="button" id="btn-confirm" disabled>
-          <span id="confirm-icon">&#9989;</span>
-          <span id="confirm-label">確定</span>
-        </button>
-      </div>
-    </div>
-
-    <div id="confirm-result" class="check-result">
-      <div class="check-result-title" id="confirm-title"></div>
-      <div class="check-result-summary" id="confirm-summary"></div>
-      <div class="download-row" id="download-row" style="display:none">
-        <a class="btn btn-download" id="link-csv" href="#">統合振込CSV（ZIP）</a>
-        <a class="btn btn-download" id="link-sales-report" href="#">売上報告書（xlsx）</a>
-        <a class="btn btn-download" id="link-statement" href="#">支払明細書（xlsx）</a>
-      </div>
     </div>
   </div>
 
   <script>
     var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    var currentTransferBatchId = null;
 
-    var btnPreview = document.getElementById('btn-preview');
-    var previewResult = document.getElementById('preview-result');
-    var previewTitle = document.getElementById('preview-title');
-    var previewSummary = document.getElementById('preview-summary');
-    var summaryTable = document.getElementById('summary-table');
-    var summaryTableBody = document.getElementById('summary-table-body');
+    var btnCsv = document.getElementById('btn-csv-jftd');
 
-    var btnConfirm = document.getElementById('btn-confirm');
-    var confirmResult = document.getElementById('confirm-result');
-    var confirmTitle = document.getElementById('confirm-title');
-    var confirmSummary = document.getElementById('confirm-summary');
-    var downloadRow = document.getElementById('download-row');
-
-    btnPreview.addEventListener('click', function () {
-      var icon = document.getElementById('preview-icon');
-      var label = document.getElementById('preview-label');
-      btnPreview.disabled = true;
-      icon.innerHTML = '<span class="spinner"></span>';
-      label.textContent = '集計中…';
-
+    /* 確定（初回のみ）→ CSVダウンロードURLへ遷移してブラウザのダウンロードを発火させる。
+       2回目以降（同じ画面でもう一度「CSV作成」を押した場合）は確定済みの
+       transferBatchIdをそのまま使い、再確定はしない。confirm()は対象データが
+       0件でも空のバッチを黙って作成してしまうため、確定前に必ずpreviewで
+       対象データの有無を確認する（画面には表示しない、0件時にボタン操作を
+       止めるためだけの内部チェック）。
+       確定前（currentTransferBatchIdがnullの間）はボタンを無効化し、連打や
+       通信の遅延による二重クリックで/jftd_transfer/confirmが2回呼ばれることを防ぐ
+       （サーバー側でも排他ロックにより二重確定を防いでいるが、UI側でも
+       不要な二重リクエスト自体を出さないようにする）。 */
+    function ensureConfirmedThenDownloadCsv() {
+      if (currentTransferBatchId !== null) {
+        window.location.href = '/jftd_transfer/' + currentTransferBatchId + '/csv';
+        return;
+      }
+      btnCsv.disabled = true;
       fetch('/jftd_transfer/preview', {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
@@ -285,61 +288,26 @@
           }
           return res.json();
         })
-        .then(function (rows) { showPreviewResult(rows); })
-        .catch(function (err) {
-          if (err.message === 'unauthenticated') { return; }
-          showPreviewError('通信エラーが発生しました: ' + err.message);
+        .then(function (rows) {
+          if (!rows || rows.length === 0) {
+            alert('まだ振込CSVに含めていない未処理のデータがありません。');
+            btnCsv.disabled = false;
+            return;
+          }
+          if (!window.confirm('確定すると対象データは今後の集計対象から除外されます。よろしいですか？')) {
+            btnCsv.disabled = false;
+            return;
+          }
+          confirmAndDownloadCsv();
         })
-        .finally(function () {
-          icon.innerHTML = '&#128269;';
-          label.textContent = '集計プレビュー';
-          btnPreview.disabled = false;
+        .catch(function (err) {
+          btnCsv.disabled = false;
+          if (err.message === 'unauthenticated') { return; }
+          alert('通信エラーが発生しました: ' + err.message);
         });
-    });
-
-    function showPreviewResult(rows) {
-      previewResult.className = 'check-result ok';
-      previewTitle.textContent = '✓ 集計プレビュー完了';
-      if (!rows || rows.length === 0) {
-        previewSummary.textContent = '未処理のデータはありません。';
-        summaryTable.style.display = 'none';
-        btnConfirm.disabled = true;
-        return;
-      }
-      previewSummary.textContent = rows.length + '件のブランド区分が対象です。内容を確認のうえ「確定」を実行してください。';
-      summaryTableBody.innerHTML = '';
-      rows.forEach(function (row) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + escapeHtml(row.paymentCompany) + '</td>'
-            + '<td>' + escapeHtml(row.cardBrand) + '</td>'
-            + '<td>' + row.count + '</td>'
-            + '<td>' + row.paymentAmount.toLocaleString() + '</td>'
-            + '<td>' + row.feeBaseAmount.toLocaleString() + '</td>'
-            + '<td>' + row.feeTaxAmount.toLocaleString() + '</td>';
-        summaryTableBody.appendChild(tr);
-      });
-      summaryTable.style.display = '';
-      btnConfirm.disabled = false;
     }
 
-    function showPreviewError(message) {
-      previewResult.className = 'check-result ng';
-      previewTitle.textContent = '✗ 集計エラー';
-      previewSummary.textContent = message;
-      summaryTable.style.display = 'none';
-      btnConfirm.disabled = true;
-    }
-
-    btnConfirm.addEventListener('click', function () {
-      if (!window.confirm('確定すると対象データは今後の集計対象から除外されます。よろしいですか？')) {
-        return;
-      }
-      var icon = document.getElementById('confirm-icon');
-      var label = document.getElementById('confirm-label');
-      btnConfirm.disabled = true;
-      icon.innerHTML = '<span class="spinner"></span>';
-      label.textContent = '確定中…';
-
+    function confirmAndDownloadCsv() {
       fetch('/jftd_transfer/confirm', {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
@@ -351,51 +319,23 @@
           }
           return res.json();
         })
-        .then(function (data) { showConfirmResult(data); })
+        .then(function (data) {
+          if (data.success) {
+            currentTransferBatchId = data.transferBatchId;
+            window.location.href = '/jftd_transfer/' + currentTransferBatchId + '/csv';
+          } else {
+            btnCsv.disabled = false;
+            alert(data.errorMessage || 'エラーが発生しました。');
+          }
+        })
         .catch(function (err) {
+          btnCsv.disabled = false;
           if (err.message === 'unauthenticated') { return; }
-          showConfirmError('通信エラーが発生しました: ' + err.message);
+          alert('通信エラーが発生しました: ' + err.message);
         });
-    });
-
-    function showConfirmResult(data) {
-      var icon = document.getElementById('confirm-icon');
-      var label = document.getElementById('confirm-label');
-      icon.innerHTML = '&#9989;';
-      label.textContent = '確定';
-
-      if (data.success) {
-        confirmResult.className = 'check-result ok';
-        confirmTitle.textContent = '✓ 確定完了';
-        confirmSummary.textContent = '統合振込バッチID: ' + data.transferBatchId + '。以下からダウンロードしてください。';
-        document.getElementById('link-csv').href = '/jftd_transfer/' + data.transferBatchId + '/csv';
-        document.getElementById('link-sales-report').href = '/jftd_transfer/' + data.transferBatchId + '/report/sales';
-        document.getElementById('link-statement').href = '/jftd_transfer/' + data.transferBatchId + '/report/statement';
-        downloadRow.style.display = '';
-        btnConfirm.disabled = true;
-        btnPreview.disabled = true;
-      } else {
-        showConfirmError(data.errorMessage || 'エラーが発生しました。');
-        btnConfirm.disabled = false;
-      }
     }
 
-    function showConfirmError(message) {
-      var icon = document.getElementById('confirm-icon');
-      var label = document.getElementById('confirm-label');
-      icon.innerHTML = '&#9989;';
-      label.textContent = '確定';
-      confirmResult.className = 'check-result ng';
-      confirmTitle.textContent = '✗ 確定エラー';
-      confirmSummary.textContent = message;
-      downloadRow.style.display = 'none';
-    }
-
-    function escapeHtml(str) {
-      return String(str)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    btnCsv.addEventListener('click', ensureConfirmedThenDownloadCsv);
   </script>
 </body>
 </html>

@@ -8,6 +8,8 @@ import com.cupit.csv.validator.JcbCsvFormatValidator;
 import com.cupit.csv.validator.JushinSbiCsvFormatValidator;
 import com.cupit.csv.validator.NetstarsCsvFormatValidator;
 import com.cupit.csv.validator.RakutenpayCsvFormatValidator;
+import com.cupit.csv.validator.SteraCodeCsvFormatValidator;
+import com.cupit.csv.validator.SteraCreditCsvFormatValidator;
 import com.cupit.csv.validator.SumarejoCsvFormatValidator;
 
 /**
@@ -24,6 +26,11 @@ public final class CsvFormatValidatorFactory {
         VALIDATORS.put(PaymentType.NETSTARS, new NetstarsCsvFormatValidator());
         VALIDATORS.put(PaymentType.RAKUTENPAY, new RakutenpayCsvFormatValidator());
         VALIDATORS.put(PaymentType.JUSHIN_SBI, new JushinSbiCsvFormatValidator());
+        // stera terminal経由のJCBはPAYGATE Station側のJCBとファイル形式が同一のため、
+        // JcbCsvFormatValidatorをそのまま流用する（新規バリデータクラスは作らない）。
+        VALIDATORS.put(PaymentType.STERA_JCB, new JcbCsvFormatValidator());
+        VALIDATORS.put(PaymentType.STERA_CODE, new SteraCodeCsvFormatValidator());
+        VALIDATORS.put(PaymentType.STERA_CREDIT, new SteraCreditCsvFormatValidator());
     }
 
     private CsvFormatValidatorFactory() {

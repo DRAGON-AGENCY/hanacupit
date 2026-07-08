@@ -9,7 +9,10 @@ public enum PaymentType {
     SUMAREJO("スマレジ", "csv"),
     NETSTARS("ネットスターズ", "xlsx"),
     RAKUTENPAY("楽天ペイ", "xlsx"),
-    JUSHIN_SBI("住信SBI", "dat");
+    JUSHIN_SBI("住信SBI", "dat"),
+    STERA_JCB("stera JCB", "csv"),
+    STERA_CODE("stera code", "csv"),
+    STERA_CREDIT("steraクレジット", "csv");
 
     private final String displayName;
     private final String expectedExtension;

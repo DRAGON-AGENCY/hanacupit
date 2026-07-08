@@ -22,6 +22,8 @@ public interface VisaMasterTransactionRepository extends JpaRepository<VisaMaste
             + "GROUP BY d.tradeCode")
     List<VisaMasterAggregate> sumByTradeCode(@Param("batchIds") List<Integer> batchIds);
 
+    void deleteByBatchId(int batchId);
+
     interface VisaMasterAggregate {
 
         String getTradeCode();

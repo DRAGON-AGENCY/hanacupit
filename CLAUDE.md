@@ -489,6 +489,39 @@ CSV を読み込む全機能で、**ヘッダー行の列名は検証対象と�
   判別できる（バッチ自体は作成されるが一部の行だけ登録に失敗したケース。
   詳細は次項「アップロード時の事前フォーマットチェックと部分登録の関係」を参照）。
 
+#### エラー訂正後の再アップロードによる二重登録の防止（JFTD精算データ作成のみ）
+
+部分登録方式により、1回目のアップロードでエラーがあっても、エラー行以外は
+既にDBへ登録済みになる。この状態でINPUTを訂正し、全行入りの修正ファイルを
+そのまま再アップロードすると、1回目で既に成功していた行が2回目でも重複登録され、
+JFTD統合振込CSV作成の集計で二重カウントされる（実際に検討して見つかったリスク。
+JFTD精算データ作成の5社分インポーター（Jcb/Sumarejo/Netstar/Rakutenpay/JushinSbi）には、
+PAYGATE店舗コードマッピングのような「取引コード単位の洗い替え」の仕組みが元々無い）。
+
+- **警告条件を「同じ決済種別の未確定データが存在する」ことにはしない**。複数ファイルを
+  確定（CSV作成）前にまとめてアップロードする運用は正常系であり（`m_jftd_transfer_batch`
+  確定時に未確定分をすべてまとめて集計する設計のため）、この条件だと通常運用でも毎回
+  警告が出てしまう。
+- 正しい条件は「同じ`payment_type`で未確定（`transfer_batch_id IS NULL`）かつ
+  **`error_count > 0`** のバッチが既に存在する」場合のみ。これは「訂正しての再アップロード」
+  でしか通常発生しない状態のため、正常な複数回アップロードと区別できる。
+  `JftdSettlementService.findErroredUnprocessedBatch(paymentType)`で判定する。
+- 該当バッチが見つかり、かつ画面から`replace=true`が渡されていない場合は、何も登録せず
+  `ImportResponse.replaceConfirmationRequired(ReplaceConfirmation)`を返す
+  （`ReplaceConfirmation`は既存バッチのbatchId・fileName・recordCount・errorCountを持つ）。
+  画面側（`jftd_settlement.html`）は`window.confirm()`でこれをユーザーに提示し、
+  同意されたら`replace=true`を付けて再送信する。
+- `replace=true`の場合、`importer.deleteBatchData(existing.getBatchId())`で
+  既存バッチの明細行を削除してから`importBatchRepository.delete(existing)`でバッチ自体も
+  削除し、それから通常どおり新しいファイルをインポートする。
+- `FileImporter`インタフェースに`default void deleteBatchData(int batchId)`を追加済み
+  （未実装なら`extractLookupKey`と同様`UnsupportedOperationException`）。5つのインポーター
+  すべてでオーバーライドし、対応する明細テーブルの`deleteByBatchId(batchId)`
+  （Spring Data JPAの導出削除クエリ、各リポジトリに追加済み）を呼ぶ。JushinSbiのみ
+  `m_visa_master_store_header`・`m_visa_master_transaction`の2テーブルを削除する。
+  新しいインポーター（決済種別）を追加する場合も、同様に`deleteBatchData`の
+  オーバーライドと対応リポジトリへの`deleteByBatchId`追加を忘れないこと。
+
 #### アップロード時の事前フォーマットチェックと部分登録の関係（`CsvValidationResult.isFatal()`）
 
 `PaygateMappingService.importFile()`／`JftdSettlementService.importFile()` は、

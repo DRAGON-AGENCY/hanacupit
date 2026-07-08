@@ -15,6 +15,8 @@ public interface RakutenPayTransactionRepository extends JpaRepository<RakutenPa
             + "GROUP BY d.tradeCode")
     List<RakutenPayAggregate> sumByTradeCode(@Param("batchIds") List<Integer> batchIds);
 
+    void deleteByBatchId(int batchId);
+
     interface RakutenPayAggregate {
 
         String getTradeCode();

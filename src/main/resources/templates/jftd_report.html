@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>帳票出力 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
+<style>
+  :root {
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-white: #ffffff;
+    --bg-hover: #faf8f2;
+    --bg-notice: #fbeed5;
+    --bg-notice-border: #f1d9a0;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-table: #e5e2d8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+    --text-notice: #8a5a1a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+    --font-jp: "Inter", "Noto Sans JP", sans-serif;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 22px;
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100vh; }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::-webkit-scrollbar { width: 14px; }
+  body::-webkit-scrollbar-track { background: var(--bg-page); border-left: 1px solid var(--border-table); }
+  body::-webkit-scrollbar-thumb { background: #c9c4b4; border: 3px solid var(--bg-page); border-radius: 8px; }
+  body::-webkit-scrollbar-thumb:hover { background: #aea892; }
+
+  .page-title {
+    font-size: var(--fs-lg); font-weight: 700; color: var(--text-main);
+    padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px; letter-spacing: 0.01em;
+  }
+
+  .notice-box {
+    background-color: var(--bg-notice);
+    border: 1px solid var(--bg-notice-border);
+    border-radius: 8px;
+    padding: 12px 20px 14px;
+    margin-bottom: 14px;
+  }
+
+  .notice-title {
+    display: flex; align-items: center; gap: 6px;
+    font-size: var(--fs-base); font-weight: 700;
+    color: var(--text-notice); margin-bottom: 8px; letter-spacing: 0.02em;
+  }
+
+  .notice-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--text-notice); border-radius: 50%;
+    font-size: 13px; font-weight: 700;
+  }
+
+  .notice-list { list-style: none; counter-reset: notice-counter; padding: 0; margin: 0; }
+
+  .notice-list li {
+    counter-increment: notice-counter;
+    position: relative; padding-left: 28px; margin-bottom: 4px;
+    font-size: var(--fs-sm); color: var(--text-notice); line-height: 1.7;
+  }
+
+  .notice-list li::before { content: counter(notice-counter) "."; position: absolute; left: 8px; font-weight: 500; }
+  .notice-list li:last-child { margin-bottom: 0; }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .result-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-left: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-control { display: flex; align-items: center; gap: 8px; }
+
+  .per-page-label {
+    font-size: var(--fs-xs); font-weight: 600;
+    color: var(--text-label); letter-spacing: 0.02em;
+  }
+
+  .per-page-select {
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    font-family: var(--font-jp);
+    font-size: var(--fs-xs);
+    color: var(--text-main);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .per-page-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  .pagination {
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; margin-bottom: 14px;
+  }
+
+  .page-numbers { display: flex; align-items: center; gap: 6px; }
+
+  .page-btn {
+    min-width: 36px; height: 36px; padding: 0 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .page-btn:hover:not(:disabled):not(.is-active) {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .page-number.is-active {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .page-ellipsis {
+    min-width: 24px; text-align: center;
+    color: var(--text-muted); font-size: var(--fs-xs);
+  }
+
+  .page-nav { font-weight: 600; }
+
+  .data-table-wrapper {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .data-scroll {
+    overflow-y: auto;
+    overflow-x: auto;
+    max-height: 560px;
+  }
+
+  .data-scroll::-webkit-scrollbar { width: 14px; height: 14px; }
+  .data-scroll::-webkit-scrollbar-track { background: var(--bg-page); border-left: 1px solid var(--border-table); }
+  .data-scroll::-webkit-scrollbar-thumb { background: #c9c4b4; border: 3px solid var(--bg-page); border-radius: 8px; }
+  .data-scroll::-webkit-scrollbar-thumb:hover { background: #aea892; }
+
+  .data-table {
+    width: 100%;
+    min-width: 1500px;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .data-table col.c-select { width: 5%; }
+  .data-table col.c-created { width: 13%; }
+  .data-table col.c-employee { width: 9%; }
+  .data-table col.c-payment-type { width: 12%; }
+  .data-table col.c-file-names { width: 26%; }
+  .data-table col.c-imported-at { width: 13%; }
+  .data-table col.c-record-count { width: 11%; }
+  .data-table col.c-error-count { width: 11%; }
+
+  .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #FAEEDA;
+    color: var(--text-label);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .data-table thead th:last-child { border-right: none; }
+
+  .data-table tbody td {
+    padding: 11px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: var(--font-jp);
+    /* rowspanで確定バッチ単位に縦結合したセル（選択・確定日時・確定者）が
+       中央揃えだと、明細行数の多いバッチではセルの中央（スクロールしないと
+       見えない位置）に内容が表示されてしまうため、上揃えにする。 */
+    vertical-align: top;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .data-table tbody td:last-child { border-right: none; }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+
+  .data-table tbody td.created-at,
+  .data-table tbody td.count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table tbody td.payment-type,
+  .data-table tbody td.file-names {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .data-table tbody td.error-count {
+    color: #c64a4a;
+    font-weight: 700;
+  }
+
+  .selection-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--accent-blue-light);
+    border: 1px solid var(--accent-blue-border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    margin-bottom: 14px;
+  }
+
+  .selection-summary {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--accent-blue);
+  }
+
+  .selection-actions { display: flex; gap: 10px; }
+
+  .btn-card {
+    padding: 6px 16px;
+    background-color: var(--bg-white);
+    border: 1px solid var(--accent-blue-border);
+    border-radius: 6px;
+    font-size: var(--fs-sm);
+    font-family: inherit;
+    color: var(--accent-blue);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .btn-card:hover:not(:disabled) { background-color: #d3e2f7; }
+  .btn-card:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .data-table tbody td.select-cell,
+  .data-table thead th.select-cell {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .data-table tbody td.empty-cell {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-jp);
+    padding: 28px 16px;
+    white-space: normal;
+  }
+
+  @media (max-width: 640px) {
+    .container { padding: 20px 16px 24px; }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="page-title">帳票出力</h1>
+
+    <div class="notice-box">
+      <div class="notice-title">
+        <span class="notice-icon">!</span>
+        <span>ご注意</span>
+      </div>
+      <ol class="notice-list">
+        <li>本画面は「JFTD・その他統合振込CSV作成」画面で確定済みの統合振込バッチを一覧表示します。ここから確定操作は行えません。</li>
+        <li>売上報告書・支払明細書は、確定済みのバッチであれば何度でも再ダウンロードできます。</li>
+        <li>左端のチェックボックスでバッチを選択し（複数選択可）、上部のボタンからダウンロードしてください。複数選択した場合はまとめて1つの帳票として集計されます。</li>
+        <li>「弊社手数料（本体・消費税）」は計算式が未確定のため<strong>0円のまま</strong>算出されます。表示される金額は決済事業者手数料控除後の暫定値であり、最終的な振込金額ではありません。</li>
+        <li>「エラー件数」が1件以上の場合、取込元ファイルの一部行がエラーでスキップされたまま確定されています。</li>
+      </ol>
+    </div>
+
+    <div class="selection-bar" id="selection-bar">
+      <span class="selection-summary" id="selection-summary">0件選択中</span>
+      <div class="selection-actions">
+        <button class="btn-card" type="button" id="btn-toggle-all">全選択／全解除</button>
+        <select id="report-type-select" class="per-page-select">
+          <option value="jftd" selected>売上報告書、支払明細書</option>
+          <option value="cashless">キャッシュレス決済売上報告書</option>
+        </select>
+        <button class="btn-card" type="button" id="btn-download-selected" disabled>選択分をダウンロード</button>
+      </div>
+    </div>
+
+    <div class="result-header">
+      <span class="result-summary" id="result-summary"></span>
+      <div class="per-page-control">
+        <label class="per-page-label" for="per-page-select">表示件数</label>
+        <select id="per-page-select" class="per-page-select">
+          <option value="10" selected>10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="data-table-wrapper">
+      <div class="data-scroll">
+        <table class="data-table">
+          <colgroup>
+            <col class="c-select">
+            <col class="c-created">
+            <col class="c-employee">
+            <col class="c-payment-type">
+            <col class="c-file-names">
+            <col class="c-imported-at">
+            <col class="c-record-count">
+            <col class="c-error-count">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="select-cell"></th>
+              <th>確定日時</th>
+              <th>確定者</th>
+              <th>決済種別</th>
+              <th>ファイル名</th>
+              <th>取込日時</th>
+              <th>取込件数</th>
+              <th>エラー件数</th>
+            </tr>
+          </thead>
+          <tbody>
+            <th:block th:each="batch : ${transferBatches}">
+              <tr class="data-row" th:each="detail, detailStat : ${batch.importBatches}"
+                  th:attr="data-batch-id=${batch.transferBatchId}">
+                <td th:if="${detailStat.first}" th:rowspan="${batch.importBatches.size()}" class="select-cell">
+                  <input type="checkbox" class="batch-checkbox" th:value="${batch.transferBatchId}">
+                </td>
+                <td th:if="${detailStat.first}" th:rowspan="${batch.importBatches.size()}" class="created-at"
+                    th:text="${#temporals.format(batch.createdAt, 'yyyy/MM/dd HH:mm')}"></td>
+                <td th:if="${detailStat.first}" th:rowspan="${batch.importBatches.size()}"
+                    th:text="${batch.updateEmployee}"></td>
+                <td th:text="${detail.paymentType}"></td>
+                <td class="file-names" th:text="${detail.fileName}"></td>
+                <td class="created-at"
+                    th:text="${#temporals.format(detail.importedAt, 'yyyy/MM/dd HH:mm')}"></td>
+                <td class="count" th:text="${detail.recordCount} + '件'"></td>
+                <td th:class="${detail.errorCount > 0} ? 'count error-count' : 'count'"
+                    th:text="${detail.errorCount} + '件'"></td>
+              </tr>
+            </th:block>
+            <tr id="empty-row" class="empty-row" th:if="${#lists.isEmpty(transferBatches)}">
+              <td class="empty-cell" colspan="8">確定済みの統合振込バッチがありません。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="pagination" id="pagination">
+      <button class="page-btn page-nav" type="button" data-nav="prev" aria-label="前のページ">‹</button>
+      <div class="page-numbers" id="page-numbers"></div>
+      <button class="page-btn page-nav" type="button" data-nav="next" aria-label="次のページ">›</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var allRows = Array.prototype.slice.call(
+        document.querySelectorAll('.data-table tbody tr.data-row')
+      );
+      var emptyRow = document.getElementById('empty-row');
+      var perPageSelect = document.getElementById('per-page-select');
+      var pageNumbersEl = document.getElementById('page-numbers');
+      var summaryEl = document.getElementById('result-summary');
+      var pagination = document.getElementById('pagination');
+      var prevBtn = pagination.querySelector('[data-nav="prev"]');
+      var nextBtn = pagination.querySelector('[data-nav="next"]');
+
+      /* 確定バッチ（data-batch-id）単位でグループ化する。確定日時・確定者・
+         チェックボックスはrowspanで結合しているため、ページの途中で1つの確定バッチが
+         分断されないよう、ページネーションは行単位ではなくグループ単位で行う。 */
+      var groups = [];
+      var groupIndexByBatchId = {};
+      allRows.forEach(function (row) {
+        var batchId = row.getAttribute('data-batch-id');
+        if (!(batchId in groupIndexByBatchId)) {
+          groupIndexByBatchId[batchId] = groups.length;
+          groups.push([]);
+        }
+        groups[groupIndexByBatchId[batchId]].push(row);
+      });
+
+      var perPage = parseInt(perPageSelect.value, 10);
+      var currentPage = 1;
+
+      function getTotalPages() {
+        return Math.max(1, Math.ceil(groups.length / perPage));
+      }
+
+      function buildPageItems(current, total) {
+        var items = [];
+        if (total <= 7) {
+          for (var i = 1; i <= total; i++) {
+            items.push(i);
+          }
+          return items;
+        }
+        items.push(1);
+        var left = Math.max(2, current - 1);
+        var right = Math.min(total - 1, current + 1);
+        if (left > 2) { items.push('...'); }
+        for (var page = left; page <= right; page++) {
+          items.push(page);
+        }
+        if (right < total - 1) { items.push('...'); }
+        items.push(total);
+        return items;
+      }
+
+      function render() {
+        var totalItems = groups.length;
+        var totalPages = getTotalPages();
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+        var startIndex = (currentPage - 1) * perPage;
+        var endIndex = Math.min(startIndex + perPage, totalItems);
+
+        allRows.forEach(function (row) {
+          row.style.display = 'none';
+        });
+        for (var index = startIndex; index < endIndex; index++) {
+          groups[index].forEach(function (row) {
+            row.style.display = '';
+          });
+        }
+
+        if (emptyRow) {
+          emptyRow.style.display = (totalItems === 0) ? '' : 'none';
+        }
+
+        if (totalItems === 0) {
+          summaryEl.textContent = '0 件';
+        } else {
+          summaryEl.textContent =
+            (startIndex + 1) + '-' + endIndex + ' / ' + totalItems + ' 件';
+        }
+
+        pageNumbersEl.innerHTML = '';
+        buildPageItems(currentPage, totalPages).forEach(function (item) {
+          if (item === '...') {
+            var ellipsis = document.createElement('span');
+            ellipsis.className = 'page-ellipsis';
+            ellipsis.textContent = '…';
+            pageNumbersEl.appendChild(ellipsis);
+            return;
+          }
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className =
+            'page-btn page-number' + (item === currentPage ? ' is-active' : '');
+          button.textContent = item;
+          button.addEventListener('click', function () {
+            currentPage = item;
+            render();
+          });
+          pageNumbersEl.appendChild(button);
+        });
+
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage === totalPages;
+      }
+
+      prevBtn.addEventListener('click', function () {
+        if (currentPage > 1) {
+          currentPage--;
+          render();
+        }
+      });
+
+      nextBtn.addEventListener('click', function () {
+        if (currentPage < getTotalPages()) {
+          currentPage++;
+          render();
+        }
+      });
+
+      perPageSelect.addEventListener('change', function () {
+        perPage = parseInt(perPageSelect.value, 10);
+        currentPage = 1;
+        render();
+      });
+
+      render();
+    })();
+
+    /* 複数バッチ選択 → まとめて1つの帳票としてダウンロード */
+    (function () {
+      var checkboxes = Array.prototype.slice.call(
+        document.querySelectorAll('.batch-checkbox')
+      );
+      var toggleAllBtn = document.getElementById('btn-toggle-all');
+      var selectionSummary = document.getElementById('selection-summary');
+      var reportTypeSelect = document.getElementById('report-type-select');
+      var downloadBtn = document.getElementById('btn-download-selected');
+
+      function getSelectedIds() {
+        return checkboxes
+          .filter(function (checkbox) { return checkbox.checked; })
+          .map(function (checkbox) { return checkbox.value; });
+      }
+
+      function updateSelectionState() {
+        var selectedIds = getSelectedIds();
+        selectionSummary.textContent = selectedIds.length + '件選択中';
+        downloadBtn.disabled = selectedIds.length === 0;
+      }
+
+      checkboxes.forEach(function (checkbox) {
+        checkbox.addEventListener('change', updateSelectionState);
+      });
+
+      /* 全て選択済みなら全解除、そうでなければ全選択する */
+      toggleAllBtn.addEventListener('click', function () {
+        var shouldSelectAll = getSelectedIds().length < checkboxes.length;
+        checkboxes.forEach(function (checkbox) {
+          checkbox.checked = shouldSelectAll;
+        });
+        updateSelectionState();
+      });
+
+      function downloadSelected(path) {
+        var selectedIds = getSelectedIds();
+        if (selectedIds.length === 0) {
+          return;
+        }
+        window.location.href = path + '?ids=' + selectedIds.join(',');
+      }
+
+      /* 「売上報告書、支払明細書」は2ファイルを続けてダウンロードする。
+         location.hrefを間を空けずに2回書き換えると、1回目のダウンロードが
+         開始する前に2回目の遷移でキャンセルされるブラウザがあるため、
+         少し間隔を空けて発火させる。 */
+      downloadBtn.addEventListener('click', function () {
+        if (getSelectedIds().length === 0) {
+          return;
+        }
+        if (reportTypeSelect.value === 'cashless') {
+          downloadSelected('/jftd_transfer/report/sales');
+        } else {
+          downloadSelected('/jftd_transfer/report/sales');
+          setTimeout(function () {
+            downloadSelected('/jftd_transfer/report/statement');
+          }, 400);
+        }
+      });
+
+      updateSelectionState();
+    })();
+  </script>
+</body>
+</html>

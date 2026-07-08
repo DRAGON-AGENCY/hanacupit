@@ -509,6 +509,10 @@ CREATE TABLE IF NOT EXISTS m_jftd_transfer_detail (
     item_code           VARCHAR(10)     NOT NULL,
     quantity            INTEGER         NOT NULL DEFAULT 1,
     amount              INTEGER         NOT NULL,
+    gross_amount           INTEGER      NOT NULL DEFAULT 0,
+    acquirer_fee_tax_free   INTEGER      NOT NULL DEFAULT 0,
+    acquirer_fee_base       INTEGER      NOT NULL DEFAULT 0,
+    acquirer_fee_tax        INTEGER      NOT NULL DEFAULT 0,
     update_employee     VARCHAR(50),
     create_date         DATE            NOT NULL DEFAULT CURRENT_DATE,
     updated_date        DATE,
@@ -516,6 +520,12 @@ CREATE TABLE IF NOT EXISTS m_jftd_transfer_detail (
 );
 CREATE INDEX IF NOT EXISTS idx_transfer_detail_batch ON m_jftd_transfer_detail(transfer_batch_id);
 CREATE INDEX IF NOT EXISTS idx_transfer_detail_trade ON m_jftd_transfer_detail(trade_code);
+-- 帳票（売上報告書・支払明細書）で決済金額合計・事業者手数料の内訳を表示するために追加。
+-- 統合振込CSVには影響しない（amount列は従来どおり支払金額①のまま）。
+ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS gross_amount INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS acquirer_fee_tax_free INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS acquirer_fee_base INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS acquirer_fee_tax INTEGER NOT NULL DEFAULT 0;
 
 -- 項目コードマスタ（決済会社×カードブランド×金額種別→会計項目コード）
 CREATE TABLE IF NOT EXISTS m_settlement_item_code (
@@ -637,6 +647,46 @@ INSERT INTO m_settlement_fee_rate
     ('住信SBI', 'Visa/Master', 'SBI_RESIDUAL', NULL, 0.0032, NULL)
 ON CONFLICT (payment_company, card_brand) DO NOTHING;
 
+-- JFTD統合振込CSV作成・帳票出力の帳票（支払明細書）に印字する会社情報・振込先情報。
+-- 1行のみを想定した設定マスタ（company_info_id=1固定）。頻繁に変わらない情報のため
+-- 画面は用意せず、値の変更が必要な場合はSQLで直接更新する。
+CREATE TABLE IF NOT EXISTS m_jftd_report_company_info (
+    company_info_id          SERIAL          NOT NULL,
+    recipient_name            VARCHAR(100)    NOT NULL,
+    recipient_zip              VARCHAR(10),
+    recipient_address          VARCHAR(200),
+    recipient_invoice_no       VARCHAR(20),
+    sender_name                 VARCHAR(100)    NOT NULL,
+    sender_zip                   VARCHAR(10),
+    sender_address               VARCHAR(200),
+    sender_invoice_no            VARCHAR(20),
+    sender_tel                    VARCHAR(20),
+    sender_fax                    VARCHAR(20),
+    sender_contact                 VARCHAR(100),
+    bank_name                       VARCHAR(50),
+    bank_branch_name                VARCHAR(50),
+    bank_account_type               VARCHAR(10),
+    bank_account_number             VARCHAR(20),
+    bank_account_holder_kana        VARCHAR(150),
+    update_employee    VARCHAR(50),
+    create_date        DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date       DATE,
+    CONSTRAINT pk_m_jftd_report_company_info PRIMARY KEY (company_info_id)
+);
+INSERT INTO m_jftd_report_company_info (
+    company_info_id,
+    recipient_name, recipient_zip, recipient_address, recipient_invoice_no,
+    sender_name, sender_zip, sender_address, sender_invoice_no,
+    sender_tel, sender_fax, sender_contact,
+    bank_name, bank_branch_name, bank_account_type, bank_account_number, bank_account_holder_kana
+) VALUES (
+    1,
+    '一般社団法人ＪＦＴＤ', '140-8709', '東京都品川区北品川４丁目１１番９号　日本フラワー会館', 'T8010705001607',
+    '花キューピット株式会社', '107-0062', '東京都港区南青山2-24-15　青山タワービル4F', 'T4010701016224',
+    '03-5436-8736', '03-3470-8701', 'グループマーケティング戦略部　北村',
+    'みずほ銀行', '五反田支店', '普通', '2498314', 'ｲｯﾊﾟﾝｼｬﾀﾞﾝﾎｳｼﾞﾝｼﾞｪｲｴﾌﾃｨｰﾃﾞｰｳﾝﾖｳ'
+) ON CONFLICT (company_info_id) DO NOTHING;
+
 -- Stera 店舗情報
 CREATE TABLE IF NOT EXISTS m_stera_store (
     record_no              BIGSERIAL          NOT NULL,
@@ -710,6 +760,101 @@ CREATE TABLE IF NOT EXISTS m_smcc_merchant_no (
 );
 CREATE INDEX IF NOT EXISTS idx_smcc_trade ON m_smcc_merchant_no(trade_code);
 
+-- その他精算データ作成 (stera terminal) ------------------------------------
+-- stera terminal経由のJCB売上明細。ファイル形式はm_jcb_sales_detailと同一だが、
+-- 取引コードはPAYGATE店舗コードマッピングではなくm_stera_terminal.jcb_merchant_noから
+-- 解決する。m_import_batchは共用し、payment_type="stera JCB"で系統を分離する。
+CREATE TABLE IF NOT EXISTS m_stera_jcb_sales_detail (
+    stera_jcb_sales_id  SERIAL          NOT NULL,
+    trade_code          VARCHAR(10)     NOT NULL,
+    batch_id            INTEGER         NOT NULL,
+    store_name          VARCHAR(100),
+    store_number        VARCHAR(50),
+    card_company        VARCHAR(20),
+    payment_method      VARCHAR(30),
+    card_name           VARCHAR(50),
+    payment_type        VARCHAR(10),
+    sales_method        VARCHAR(5),
+    sales_date          VARCHAR(5),
+    sales_count         INTEGER         NOT NULL DEFAULT 0,
+    sales_amount        INTEGER         NOT NULL DEFAULT 0,
+    update_employee     VARCHAR(50),
+    create_date         DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date        DATE,
+    CONSTRAINT pk_m_stera_jcb_sales_detail PRIMARY KEY (stera_jcb_sales_id)
+);
+CREATE INDEX IF NOT EXISTS idx_stera_jcb_batch ON m_stera_jcb_sales_detail(batch_id);
+
+-- stera code精算明細CSV由来の個別取引明細。ブランド（楽天ペイ・PayPay等）ごとの
+-- 明細ブロック末尾にある小計行はこのテーブルには含まず、
+-- m_stera_code_settlement_summaryへ格納する（住信SBIの区分1/区分2と同じ設計）。
+-- 取引コードはm_stera_terminal.terminal_idから解決する。
+CREATE TABLE IF NOT EXISTS m_stera_code_settlement_detail (
+    stera_code_settlement_id  SERIAL          NOT NULL,
+    trade_code                VARCHAR(10)     NOT NULL,
+    batch_id                  INTEGER         NOT NULL,
+    brand                     VARCHAR(20)     NOT NULL,
+    terminal_id               VARCHAR(13)     NOT NULL,
+    slip_number               VARCHAR(5)      NOT NULL,
+    settlement_date           VARCHAR(8)      NOT NULL,
+    settlement_time           VARCHAR(6)      NOT NULL,
+    sales_return_flag         INTEGER         NOT NULL,
+    settlement_amount         INTEGER         NOT NULL DEFAULT 0,
+    sub_wallet_name           VARCHAR(11),
+    update_employee           VARCHAR(50),
+    create_date               DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date               DATE,
+    CONSTRAINT pk_m_stera_code_settlement_detail PRIMARY KEY (stera_code_settlement_id)
+);
+CREATE INDEX IF NOT EXISTS idx_stera_code_detail_batch ON m_stera_code_settlement_detail(batch_id);
+
+-- stera code精算明細CSV内、ブランドごとの明細ブロック末尾にある小計行（突合検証用）。
+CREATE TABLE IF NOT EXISTS m_stera_code_settlement_summary (
+    stera_code_summary_id  SERIAL          NOT NULL,
+    batch_id                INTEGER         NOT NULL,
+    brand                   VARCHAR(20)     NOT NULL,
+    transaction_count       INTEGER         NOT NULL DEFAULT 0,
+    settlement_amount       INTEGER         NOT NULL DEFAULT 0,
+    fee_amount              INTEGER         NOT NULL DEFAULT 0,
+    net_amount              INTEGER         NOT NULL DEFAULT 0,
+    update_employee         VARCHAR(50),
+    create_date             DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date             DATE,
+    CONSTRAINT pk_m_stera_code_settlement_summary PRIMARY KEY (stera_code_summary_id)
+);
+CREATE INDEX IF NOT EXISTS idx_stera_code_summary_batch ON m_stera_code_settlement_summary(batch_id);
+
+-- steraクレジット売上件別明細CSV由来の売上明細。取引コードはm_smcc_merchant_no.merchant_no
+-- （ファイル列：利用加盟店番号）から解決する。
+CREATE TABLE IF NOT EXISTS m_stera_credit_sales_detail (
+    stera_credit_sales_id       SERIAL         NOT NULL,
+    trade_code                  VARCHAR(10)    NOT NULL,
+    batch_id                    INTEGER        NOT NULL,
+    merchant_id                 VARCHAR(10)    NOT NULL,
+    sent_date                   VARCHAR(8)     NOT NULL,
+    transaction_type            VARCHAR(6)     NOT NULL,
+    transaction_type2           VARCHAR(10),
+    card_number_masked          VARCHAR(20),
+    transaction_date            VARCHAR(8)     NOT NULL,
+    amount_sign                 VARCHAR(1)     NOT NULL,
+    billing_amount              INTEGER        NOT NULL DEFAULT 0,
+    original_amount             INTEGER        NOT NULL DEFAULT 0,
+    approval_number             VARCHAR(7)     NOT NULL,
+    terminal_id                 VARCHAR(20)    NOT NULL,
+    change_data_flag            VARCHAR(10),
+    store_name                  VARCHAR(50)    NOT NULL,
+    card_brand                  VARCHAR(20)    NOT NULL,
+    terminal_sequence_no        VARCHAR(10),
+    summary_count                VARCHAR(7),
+    reader_writer_id              VARCHAR(20),
+    representative_merchant_id    VARCHAR(10)  NOT NULL,
+    update_employee               VARCHAR(50),
+    create_date                   DATE         NOT NULL DEFAULT CURRENT_DATE,
+    updated_date                   DATE,
+    CONSTRAINT pk_m_stera_credit_sales_detail PRIMARY KEY (stera_credit_sales_id)
+);
+CREATE INDEX IF NOT EXISTS idx_stera_credit_batch ON m_stera_credit_sales_detail(batch_id);
+
 -- テーブル所有者をアプリケーションユーザーに設定（postgresで実行した場合も正しく動作させる）
 ALTER TABLE m_employee                  OWNER TO hanacupit;
 ALTER TABLE m_member_info               OWNER TO hanacupit;
@@ -725,7 +870,12 @@ ALTER TABLE m_jftd_transfer_batch       OWNER TO hanacupit;
 ALTER TABLE m_jftd_transfer_detail      OWNER TO hanacupit;
 ALTER TABLE m_settlement_item_code      OWNER TO hanacupit;
 ALTER TABLE m_settlement_fee_rate       OWNER TO hanacupit;
+ALTER TABLE m_jftd_report_company_info  OWNER TO hanacupit;
 ALTER TABLE m_stera_store               OWNER TO hanacupit;
 ALTER TABLE m_stera_terminal            OWNER TO hanacupit;
 ALTER TABLE m_smcc_merchant_no          OWNER TO hanacupit;
+ALTER TABLE m_stera_jcb_sales_detail        OWNER TO hanacupit;
+ALTER TABLE m_stera_code_settlement_detail  OWNER TO hanacupit;
+ALTER TABLE m_stera_code_settlement_summary OWNER TO hanacupit;
+ALTER TABLE m_stera_credit_sales_detail     OWNER TO hanacupit;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO hanacupit;

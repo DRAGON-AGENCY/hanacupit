@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -63,6 +64,8 @@ public class JftdSettlementService {
      * @param file        アップロードファイル
      * @param paymentType 決済種類の表示名
      * @param memberNo    ログインユーザーID
+     * @param replace     同じ決済種別でエラーを含んだまま未確定のバッチが既に存在する場合に、
+     *                    それを削除して置き換えることに同意しているかどうか
      * @return インポート結果
      * @throws IOException ファイル読み込みエラー
      */
@@ -70,7 +73,8 @@ public class JftdSettlementService {
     public ImportResponse importFile(
             MultipartFile file,
             String paymentType,
-            String memberNo) throws IOException {
+            String memberNo,
+            boolean replace) throws IOException {
         if (file == null || file.isEmpty()) {
             return new ImportResponse(false, 0, null, "ファイルが選択されていません。");
         }
@@ -85,6 +89,20 @@ public class JftdSettlementService {
         }
 
         FileImporter importer = fileImporterFactory.getImporter(type);
+
+        Optional<ImportBatch> existingErroredBatch = findErroredUnprocessedBatch(paymentType);
+        if (existingErroredBatch.isPresent()) {
+            ImportBatch existing = existingErroredBatch.get();
+            if (!replace) {
+                return ImportResponse.replaceConfirmationRequired(new ImportResponse.ReplaceConfirmation(
+                        existing.getBatchId(), existing.getFileName(),
+                        existing.getRecordCount() != null ? existing.getRecordCount() : 0,
+                        existing.getErrorCount() != null ? existing.getErrorCount() : 0));
+            }
+            importer.deleteBatchData(existing.getBatchId());
+            importBatchRepository.delete(existing);
+        }
+
         String key = importer.extractLookupKey(file);
         if (key == null || key.isBlank()) {
             throw new IllegalArgumentException(
@@ -106,6 +124,19 @@ public class JftdSettlementService {
         importBatchRepository.save(savedBatch);
 
         return buildImportResponse(result, savedBatch.getBatchId());
+    }
+
+    /**
+     * 指定した決済種別で、エラーを含んだまま未確定（transfer_batch_id IS NULL）の
+     * インポートバッチが存在すれば返す。通常運用で同じ決済種別のファイルを複数回・
+     * 確定前にアップロードすること自体は正常系（未確定分はまとめて確定される）だが、
+     * エラーを含んだまま残っているバッチが存在するのは「訂正しての再アップロード」の
+     * 可能性が高いため、この場合だけユーザーに置き換えの確認を求める。
+     */
+    private Optional<ImportBatch> findErroredUnprocessedBatch(String paymentType) {
+        return importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(paymentType).stream()
+                .filter(b -> b.getErrorCount() != null && b.getErrorCount() > 0)
+                .findFirst();
     }
 
     private String buildFatalDetailMessage(CsvValidationResult validationResult) {

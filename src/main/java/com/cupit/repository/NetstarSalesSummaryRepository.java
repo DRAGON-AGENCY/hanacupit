@@ -10,4 +10,6 @@ public interface NetstarSalesSummaryRepository extends JpaRepository<NetstarSale
 
     List<NetstarSalesSummary> findByBatchIdIn(List<Integer> batchIds);
 
+    void deleteByBatchId(int batchId);
+
 }

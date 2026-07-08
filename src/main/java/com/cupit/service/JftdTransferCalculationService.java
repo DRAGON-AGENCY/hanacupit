@@ -93,7 +93,10 @@ public class JftdTransferCalculationService {
     }
 
     /**
-     * 5社すべての未処理インポート分をまとめて集計する。
+     * 5社すべての未処理インポート分をまとめて集計する。プレビュー表示用。
+     * どのインポートバッチが対象になるかは呼び出し時点の状態をそのまま検索する
+     * （ロックを取らないため、確定処理では使わないこと。確定処理には
+     * {@link #calculateAllLineItems(Map)} を使う）。
      */
     public List<TransferLineItem> calculateAllLineItems() {
         List<TransferLineItem> all = new ArrayList<>();
@@ -102,6 +105,30 @@ public class JftdTransferCalculationService {
         all.addAll(calculateNetstarLineItems());
         all.addAll(calculateRakutenPayLineItems());
         all.addAll(calculateVisaMasterLineItems());
+        return all;
+    }
+
+    /**
+     * 5社すべてを、呼び出し側が指定したバッチIDの集合に限定して集計する。
+     * JFTD統合振込CSV作成の確定処理専用。確定処理はまず対象バッチを排他ロックで
+     * 確保してからこのメソッドを呼び出すことで、集計対象と実際にマークするバッチが
+     * 一致すること（ロック後に他の確定処理が割り込めないこと）を保証する。
+     *
+     * @param batchIdsByPaymentType 決済種別（"JCB"・"スマレジ"・"ネットスターズ"・
+     *                              "楽天ペイ"・"住信SBI"）をキーとした対象バッチIDのマップ
+     */
+    public List<TransferLineItem> calculateAllLineItems(Map<String, List<Integer>> batchIdsByPaymentType) {
+        List<TransferLineItem> all = new ArrayList<>();
+        all.addAll(calculateJcbLineItems(
+                batchIdsByPaymentType.getOrDefault(PAYMENT_TYPE_JCB, List.of())));
+        all.addAll(calculateSumarejoLineItems(
+                batchIdsByPaymentType.getOrDefault(PAYMENT_TYPE_SUMAREJO, List.of())));
+        all.addAll(calculateNetstarLineItems(
+                batchIdsByPaymentType.getOrDefault(PAYMENT_TYPE_NETSTAR, List.of())));
+        all.addAll(calculateRakutenPayLineItems(
+                batchIdsByPaymentType.getOrDefault(PAYMENT_TYPE_RAKUTENPAY, List.of())));
+        all.addAll(calculateVisaMasterLineItems(
+                batchIdsByPaymentType.getOrDefault(PAYMENT_TYPE_VISA_MASTER, List.of())));
         return all;
     }
 
@@ -123,7 +150,10 @@ public class JftdTransferCalculationService {
             "【交通系電子マネー】", "【ｎａｎａｃｏ】", "【ＷＡＯＮ】");
 
     public List<TransferLineItem> calculateJcbLineItems() {
-        List<Integer> batchIds = unprocessedBatchIds(PAYMENT_TYPE_JCB);
+        return calculateJcbLineItems(unprocessedBatchIds(PAYMENT_TYPE_JCB));
+    }
+
+    public List<TransferLineItem> calculateJcbLineItems(List<Integer> batchIds) {
         if (batchIds.isEmpty()) {
             return List.of();
         }
@@ -142,7 +172,9 @@ public class JftdTransferCalculationService {
             int totalSalesAmount = aggregate.getTotalSalesAmount().intValue();
             FeeCalculationResult result = calculate(totalSalesAmount, rate);
             lineItems.add(new TransferLineItem(
-                    aggregate.getTradeCode(), itemCode.getItemCode(), 1, result.getPayableAmount1()));
+                    aggregate.getTradeCode(), itemCode.getItemCode(), 1, result.getPayableAmount1(),
+                    totalSalesAmount, result.getAcquirerFeeTaxFree(),
+                    result.getAcquirerFeeBase(), result.getAcquirerFeeTax()));
         }
         return lineItems;
     }
@@ -156,7 +188,10 @@ public class JftdTransferCalculationService {
      * 本体・調整とも計上しない。
      */
     public List<TransferLineItem> calculateSumarejoLineItems() {
-        List<Integer> batchIds = unprocessedBatchIds(PAYMENT_TYPE_SUMAREJO);
+        return calculateSumarejoLineItems(unprocessedBatchIds(PAYMENT_TYPE_SUMAREJO));
+    }
+
+    public List<TransferLineItem> calculateSumarejoLineItems(List<Integer> batchIds) {
         if (batchIds.isEmpty()) {
             return List.of();
         }
@@ -184,13 +219,26 @@ public class JftdTransferCalculationService {
 
         List<TransferLineItem> lineItems = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : baseAmountByTradeCode.entrySet()) {
-            lineItems.add(new TransferLineItem(entry.getKey(), baseItemCode.getItemCode(), 1, entry.getValue()));
+            lineItems.add(sumarejoLineItem(entry.getKey(), baseItemCode.getItemCode(), entry.getValue()));
         }
         for (Map.Entry<String, Integer> entry : premiumAmountByTradeCode.entrySet()) {
-            lineItems.add(new TransferLineItem(
-                    entry.getKey(), adjustmentItemCode.getItemCode(), 1, entry.getValue()));
+            lineItems.add(sumarejoLineItem(entry.getKey(), adjustmentItemCode.getItemCode(), entry.getValue()));
         }
         return lineItems;
+    }
+
+    /**
+     * スマレジ(端末月額利用料)は「売上」ではなく端末レンタルの定額料金（決済事業者への
+     * 手数料に相当するもの）のため、帳票（支払明細書）上は決済金額合計(A)を0円とし、
+     * 月額料金そのものを事業者手数料（課税対象：本体・消費税）として計上する
+     * （サンプル帳票の実データで確認済み。事業者手数料差引後決済金額(A)-(B)は
+     * 0-本体-消費税で負数になる）。amount（統合振込CSVで使う支払金額①）自体は
+     * 従来どおり月額料金の金額をそのまま使う（符号は変更しない）。
+     */
+    private TransferLineItem sumarejoLineItem(String tradeCode, String itemCode, int monthlyFeeAmount) {
+        int tax = settlementFeeCalculator.calculateTax(monthlyFeeAmount);
+        return new TransferLineItem(
+                tradeCode, itemCode, 1, monthlyFeeAmount, 0, 0, monthlyFeeAmount, tax);
     }
 
     /**
@@ -201,7 +249,10 @@ public class JftdTransferCalculationService {
      * （11_NETSTARS.xlsxのピボット列見出し「合計 / Alipay差引金額」で確認済み）。
      */
     public List<TransferLineItem> calculateNetstarLineItems() {
-        List<Integer> batchIds = unprocessedBatchIds(PAYMENT_TYPE_NETSTAR);
+        return calculateNetstarLineItems(unprocessedBatchIds(PAYMENT_TYPE_NETSTAR));
+    }
+
+    public List<TransferLineItem> calculateNetstarLineItems(List<Integer> batchIds) {
         if (batchIds.isEmpty()) {
             return List.of();
         }
@@ -226,7 +277,8 @@ public class JftdTransferCalculationService {
         SettlementFeeRate rate = findFeeRate(PAYMENT_TYPE_NETSTAR, cardBrand);
         SettlementItemCode itemCode = findItemCode(PAYMENT_TYPE_NETSTAR, cardBrand);
         FeeCalculationResult result = calculate(netAmount, rate);
-        lineItems.add(new TransferLineItem(tradeCode, itemCode.getItemCode(), 1, result.getPayableAmount1()));
+        lineItems.add(new TransferLineItem(tradeCode, itemCode.getItemCode(), 1, result.getPayableAmount1(),
+                netAmount, result.getAcquirerFeeTaxFree(), result.getAcquirerFeeBase(), result.getAcquirerFeeTax()));
     }
 
     /**
@@ -234,7 +286,10 @@ public class JftdTransferCalculationService {
      * PURCHASE_COLLECTモデルで計算する。
      */
     public List<TransferLineItem> calculateRakutenPayLineItems() {
-        List<Integer> batchIds = unprocessedBatchIds(PAYMENT_TYPE_RAKUTENPAY);
+        return calculateRakutenPayLineItems(unprocessedBatchIds(PAYMENT_TYPE_RAKUTENPAY));
+    }
+
+    public List<TransferLineItem> calculateRakutenPayLineItems(List<Integer> batchIds) {
         if (batchIds.isEmpty()) {
             return List.of();
         }
@@ -245,9 +300,12 @@ public class JftdTransferCalculationService {
 
         List<TransferLineItem> lineItems = new ArrayList<>();
         for (RakutenPayAggregate aggregate : aggregates) {
-            FeeCalculationResult result = calculate(aggregate.getTotalAmount().intValue(), rate);
+            int totalAmount = aggregate.getTotalAmount().intValue();
+            FeeCalculationResult result = calculate(totalAmount, rate);
             lineItems.add(new TransferLineItem(
-                    aggregate.getTradeCode(), itemCode.getItemCode(), 1, result.getPayableAmount1()));
+                    aggregate.getTradeCode(), itemCode.getItemCode(), 1, result.getPayableAmount1(),
+                    totalAmount, result.getAcquirerFeeTaxFree(),
+                    result.getAcquirerFeeBase(), result.getAcquirerFeeTax()));
         }
         return lineItems;
     }
@@ -263,7 +321,10 @@ public class JftdTransferCalculationService {
      * 項目コードはbrand_typeを問わず1系統のみのため）。
      */
     public List<TransferLineItem> calculateVisaMasterLineItems() {
-        List<Integer> batchIds = unprocessedBatchIds(PAYMENT_TYPE_VISA_MASTER);
+        return calculateVisaMasterLineItems(unprocessedBatchIds(PAYMENT_TYPE_VISA_MASTER));
+    }
+
+    public List<TransferLineItem> calculateVisaMasterLineItems(List<Integer> batchIds) {
         if (batchIds.isEmpty()) {
             return List.of();
         }
@@ -273,9 +334,11 @@ public class JftdTransferCalculationService {
 
         List<TransferLineItem> lineItems = new ArrayList<>();
         for (VisaMasterAggregate aggregate : aggregates) {
-            int payableAmount1 = aggregate.getTotalSalesAmount().intValue()
-                    - aggregate.getTotalFeeAmount1().intValue();
-            lineItems.add(new TransferLineItem(aggregate.getTradeCode(), itemCode.getItemCode(), 1, payableAmount1));
+            int grossAmount = aggregate.getTotalSalesAmount().intValue();
+            int acquirerFeeTaxFree = aggregate.getTotalFeeAmount1().intValue();
+            int payableAmount1 = grossAmount - acquirerFeeTaxFree;
+            lineItems.add(new TransferLineItem(aggregate.getTradeCode(), itemCode.getItemCode(), 1, payableAmount1,
+                    grossAmount, acquirerFeeTaxFree, 0, 0));
         }
         return lineItems;
     }

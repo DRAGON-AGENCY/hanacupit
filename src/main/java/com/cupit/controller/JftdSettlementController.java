@@ -68,6 +68,8 @@ public class JftdSettlementController {
      *
      * @param file        アップロードファイル
      * @param paymentType 決済種類の表示名
+     * @param replace     同じ決済種別でエラーを含んだまま未確定のバッチが既に存在する場合に、
+     *                    それを削除して置き換えることに同意しているかどうか
      * @param session     HTTPセッション（ログインユーザー取得用）
      * @return インポート結果 JSON
      */
@@ -78,13 +80,14 @@ public class JftdSettlementController {
     public ResponseEntity<ImportResponse> importFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("paymentType") String paymentType,
+            @RequestParam(value = "replace", defaultValue = "false") boolean replace,
             HttpSession session) {
         try {
             Object loginUserAttr = session.getAttribute(
                     AuthenticationInterceptor.SESSION_ATTRIBUTE_LOGIN_USER);
             String memberNo = (loginUserAttr != null) ? loginUserAttr.toString() : "UNKNOWN";
             ImportResponse response = jftdSettlementService.importFile(
-                    file, paymentType, memberNo);
+                    file, paymentType, memberNo, replace);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()

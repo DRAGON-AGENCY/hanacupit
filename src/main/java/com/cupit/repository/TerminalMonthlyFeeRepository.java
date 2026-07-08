@@ -22,6 +22,8 @@ public interface TerminalMonthlyFeeRepository extends JpaRepository<TerminalMont
             + "GROUP BY d.tradeCode, d.unitPrice")
     List<TerminalFeeAggregate> sumByTradeCodeAndUnitPrice(@Param("batchIds") List<Integer> batchIds);
 
+    void deleteByBatchId(int batchId);
+
     interface TerminalFeeAggregate {
 
         String getTradeCode();

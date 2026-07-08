@@ -143,6 +143,11 @@ public class SumarejoFileImporter extends AbstractFileImporter {
     }
 
     @Override
+    public void deleteBatchData(int batchId) {
+        terminalMonthlyFeeRepository.deleteByBatchId(batchId);
+    }
+
+    @Override
     public String extractLookupKey(MultipartFile file) throws IOException {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), detectCharset(file)))) {

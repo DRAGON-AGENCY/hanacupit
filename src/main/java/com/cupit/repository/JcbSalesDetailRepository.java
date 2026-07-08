@@ -16,6 +16,8 @@ public interface JcbSalesDetailRepository extends JpaRepository<JcbSalesDetail, 
             + "GROUP BY d.tradeCode, d.cardName")
     List<JcbBrandAggregate> sumByTradeCodeAndCardName(@Param("batchIds") List<Integer> batchIds);
 
+    void deleteByBatchId(int batchId);
+
     interface JcbBrandAggregate {
 
         String getTradeCode();

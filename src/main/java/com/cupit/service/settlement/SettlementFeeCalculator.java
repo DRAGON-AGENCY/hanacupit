@@ -23,9 +23,11 @@ public class SettlementFeeCalculator {
     public FeeCalculationResult calculateStraight(int salesAmount, SettlementFeeRate rate) {
         // TODO: 手数料②（本体: rate.getOurFeeRateBase()、消費税: rate.getOurFeeRateTax()）の
         // 正しい計算式が判明したら、支払金額②の算出をここに追加する。
-        int acquirerFee = truncate(salesAmount, rate.getAcquirerFeeRate());
-        int payableAmount1 = salesAmount - acquirerFee;
-        return new FeeCalculationResult(acquirerFee, payableAmount1);
+        // STRAIGHTモデルの事業者手数料は、帳票（支払明細書）上は全額を非課税として扱う
+        // （例: 住信SBI/Visa/Master Cardの実データで確認済み）。
+        int acquirerFeeTaxFree = truncate(salesAmount, rate.getAcquirerFeeRate());
+        int payableAmount1 = salesAmount - acquirerFeeTaxFree;
+        return new FeeCalculationResult(acquirerFeeTaxFree, 0, 0, payableAmount1);
     }
 
     /**
@@ -39,11 +41,22 @@ public class SettlementFeeCalculator {
     public FeeCalculationResult calculatePurchaseCollect(int salesAmount, SettlementFeeRate rate) {
         // TODO: 収代手数料（本体: rate.getOurFeeRateBase()、消費税: rate.getOurFeeRateTax()）の
         // 正しい計算式が判明したら、支払金額の算出をここに追加する。
+        // PURCHASE_COLLECTモデルの事業者手数料は、帳票（支払明細書）上は全額を課税対象
+        // （本体・消費税）として扱う（例: ネットスターズPayPay/d払い・楽天ペイの実データで確認済み）。
         int acquirerFeeBase = halfUp(salesAmount, rate.getAcquirerFeeRate());
         int acquirerFeeTax = truncate(acquirerFeeBase, TAX_RATE);
         int acquirerFee = acquirerFeeBase + acquirerFeeTax;
         int payableAmount1 = salesAmount - acquirerFee;
-        return new FeeCalculationResult(acquirerFee, payableAmount1);
+        return new FeeCalculationResult(0, acquirerFeeBase, acquirerFeeTax, payableAmount1);
+    }
+
+    /**
+     * 帳票用に、金額に対する消費税額（切り捨て）を計算する。スマレジ（端末月額）の
+     * 事業者手数料内訳（本体・消費税）の算出に使う。手数料率マスタを経由しないため
+     * calculateStraight/calculatePurchaseCollectとは別メソッドとしている。
+     */
+    public int calculateTax(int baseAmount) {
+        return truncate(baseAmount, TAX_RATE);
     }
 
     private int truncate(int amount, BigDecimal rate) {

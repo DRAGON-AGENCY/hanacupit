@@ -2,7 +2,9 @@ package com.cupit.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,12 +46,28 @@ public class JftdTransferConfirmService {
     /**
      * クライアントの計算結果は信用せず、確定時点でサーバー側が再計算した値を保存する。
      *
+     * まず対象5社分の未処理インポートバッチを{@code SELECT ... FOR UPDATE}で排他ロックし、
+     * ロックできたバッチだけを集計・マークの対象とする。これにより、確定操作が
+     * 同時に2回実行されても（ボタン連打・二重クリック等）、後発のトランザクションは
+     * 先発のロック解放（コミット）を待ってから未処理データを再評価するため、
+     * 同じデータが2つの確定バッチに二重計上されることを防ぐ。
+     *
      * @return 確定した統合振込バッチのID
      */
     @Transactional
     public int confirm(String updateEmployee) {
-        List<TransferLineItem> lineItems = calculationService.calculateAllLineItems();
         LocalDate today = LocalDate.now();
+
+        Map<String, List<ImportBatch>> lockedBatchesByPaymentType = new LinkedHashMap<>();
+        Map<String, List<Integer>> lockedBatchIdsByPaymentType = new LinkedHashMap<>();
+        for (String paymentType : TARGET_PAYMENT_TYPES) {
+            List<ImportBatch> locked = importBatchRepository.lockUnprocessedByPaymentType(paymentType);
+            lockedBatchesByPaymentType.put(paymentType, locked);
+            lockedBatchIdsByPaymentType.put(paymentType, locked.stream().map(ImportBatch::getBatchId).toList());
+        }
+
+        List<TransferLineItem> lineItems =
+                calculationService.calculateAllLineItems(lockedBatchIdsByPaymentType);
 
         JftdTransferBatch batch = new JftdTransferBatch();
         batch.setCreatedAt(LocalDateTime.now());
@@ -64,14 +82,16 @@ public class JftdTransferConfirmService {
             detail.setItemCode(item.getItemCode());
             detail.setQuantity(item.getQuantity());
             detail.setAmount(item.getAmount());
+            detail.setGrossAmount(item.getGrossAmount());
+            detail.setAcquirerFeeTaxFree(item.getAcquirerFeeTaxFree());
+            detail.setAcquirerFeeBase(item.getAcquirerFeeBase());
+            detail.setAcquirerFeeTax(item.getAcquirerFeeTax());
             detail.setUpdateEmployee(updateEmployee);
             detail.setCreateDate(today);
             transferDetailRepository.save(detail);
         }
 
-        for (String paymentType : TARGET_PAYMENT_TYPES) {
-            List<ImportBatch> targetBatches =
-                    importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(paymentType);
+        for (List<ImportBatch> targetBatches : lockedBatchesByPaymentType.values()) {
             for (ImportBatch importBatch : targetBatches) {
                 importBatch.setTransferBatchId(transferBatchId);
                 importBatch.setUpdateEmployee(updateEmployee);

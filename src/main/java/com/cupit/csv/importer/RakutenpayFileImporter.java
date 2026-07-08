@@ -116,6 +116,11 @@ public class RakutenpayFileImporter extends AbstractFileImporter {
     }
 
     @Override
+    public void deleteBatchData(int batchId) {
+        rakutenPayTransactionRepository.deleteByBatchId(batchId);
+    }
+
+    @Override
     public String extractLookupKey(MultipartFile file) throws IOException {
         try (InputStream is = file.getInputStream();
              Workbook wb = new XSSFWorkbook(is)) {

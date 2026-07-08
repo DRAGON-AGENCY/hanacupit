@@ -11,6 +11,7 @@ import com.cupit.interceptor.AuthenticationInterceptor;
 import com.cupit.model.Employee;
 import com.cupit.model.MemberInfo;
 import com.cupit.service.EmployeeService;
+import com.cupit.service.JftdReportDataService;
 import com.cupit.service.MemberInfoService;
 
 @Controller
@@ -19,6 +20,7 @@ public class MenuController {
     private static final String DEFAULT_TRADE_CODE = "01-001";
     private static final String ATTRIBUTE_NAME_INFO = "info";
     private static final String ATTRIBUTE_NAME_EMPLOYEES = "employees";
+    private static final String ATTRIBUTE_NAME_TRANSFER_BATCHES = "transferBatches";
     private static final String ATTRIBUTE_NAME_AUTHORITY_CODE = "authorityCode";
     private static final String ATTRIBUTE_NAME_EMPLOYEE = "employee";
     private static final String ATTRIBUTE_NAME_MODE = "mode";
@@ -41,19 +43,22 @@ public class MenuController {
     private static final String VIEW_NAME_APPLICATION_FORM = "application_form";
     private static final String VIEW_NAME_JFTD_SETTLEMENT = "jftd_settlement";
     private static final String VIEW_NAME_JFTD_TRANSFER = "jftd_transfer";
+    private static final String VIEW_NAME_JFTD_REPORT = "jftd_report";
     private static final String VIEW_NAME_OTHER_SETTLEMENT = "other_settlement";
-    private static final String VIEW_NAME_OTHER_JFTD = "other_jftd";
     private static final String VIEW_NAME_EMPLOYEE_LIST = "employee_list";
     private static final String VIEW_NAME_EMPLOYEE_EDIT = "employee_edit";
 
     private final MemberInfoService memberInfoService;
     private final EmployeeService employeeService;
+    private final JftdReportDataService jftdReportDataService;
 
     public MenuController(
             MemberInfoService memberInfoService,
-            EmployeeService employeeService) {
+            EmployeeService employeeService,
+            JftdReportDataService jftdReportDataService) {
         this.memberInfoService = memberInfoService;
         this.employeeService = employeeService;
+        this.jftdReportDataService = jftdReportDataService;
     }
 
     @GetMapping({"/", "/login"})
@@ -140,14 +145,21 @@ public class MenuController {
         return VIEW_NAME_JFTD_TRANSFER;
     }
 
+    /**
+     * 帳票出力画面。「確定」操作は持たず、CSV作成画面（/jftd_transfer）で
+     * 確定済みの統合振込バッチを一覧から選んで、売上報告書・支払明細書を
+     * 何度でも再ダウンロードできる参照専用画面。
+     */
+    @GetMapping("/jftd_report")
+    public String jftdReport(Model model) {
+        model.addAttribute(
+                ATTRIBUTE_NAME_TRANSFER_BATCHES, jftdReportDataService.listConfirmedBatches());
+        return VIEW_NAME_JFTD_REPORT;
+    }
+
     @GetMapping("/other_settlement")
     public String otherSettlement() {
         return VIEW_NAME_OTHER_SETTLEMENT;
-    }
-
-    @GetMapping("/other_jftd")
-    public String otherJftd() {
-        return VIEW_NAME_OTHER_JFTD;
     }
 
     @GetMapping("/employee_list")

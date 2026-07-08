@@ -725,7 +725,15 @@
     ============================================= */
     btnUpload.addEventListener('click', function() {
       if (!selectedFile) return;
+      submitImport(false);
+    });
 
+    /* replace=false で送信し、同じ決済種別でエラーを含んだまま未確定のバッチが
+       既に存在する場合（画面には表示しない部分登録エラーが残っているケース）は、
+       置き換えてよいかをユーザーに確認したうえで replace=true で再送信する。
+       置き換えを拒否した場合は何も登録せず、アップロード前の状態に戻す
+       （古いエラー入りバッチ・今回のファイルとも登録されない）。 */
+    function submitImport(replace) {
       const uploadIcon  = document.getElementById('upload-icon');
       const uploadLabel = document.getElementById('upload-label');
       btnUpload.disabled = true;
@@ -735,6 +743,7 @@
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('paymentType', currentPaymentType);
+      formData.append('replace', replace ? 'true' : 'false');
 
       fetch('/jftd_settlement/import', {
         method: 'POST',
@@ -749,18 +758,34 @@
           return res.json();
         })
         .then(function(data) {
+          if (data.replaceConfirmation) {
+            var c = data.replaceConfirmation;
+            var message = '同じ決済種別で、エラーを含んだまま未確定のデータが既に存在します。\n'
+              + 'ファイル名: ' + c.existingFileName + '\n'
+              + '登録件数: ' + c.existingRecordCount + ' 件 / エラー件数: ' + c.existingErrorCount + ' 件\n\n'
+              + 'これを削除して、今回のファイルで置き換えますか？';
+            var shouldReplace = window.confirm(message);
+            if (shouldReplace) {
+              submitImport(true); // 続けて登録するため、ここではボタン状態を戻さない
+              return;
+            }
+            uploadIcon.innerHTML = '&#11014;';
+            uploadLabel.textContent = 'アップロード';
+            btnUpload.disabled = false;
+            return;
+          }
+          uploadIcon.innerHTML = '&#11014;';
+          uploadLabel.textContent = 'アップロード';
           showImportResult(data);
         })
         .catch(function(err) {
+          uploadIcon.innerHTML = '&#11014;';
+          uploadLabel.textContent = 'アップロード';
           if (err.message === 'unauthenticated') { return; }
           showNg('通信エラーが発生しました: ' + err.message, []);
           btnUpload.disabled = false;
-        })
-        .finally(function() {
-          uploadIcon.innerHTML = '&#11014;';
-          uploadLabel.textContent = 'アップロード';
         });
-    });
+    }
 
     function showImportResult(data) {
       if (data.success) {

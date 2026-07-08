@@ -2,6 +2,7 @@ package com.cupit.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,8 +53,8 @@ class JftdTransferConfirmServiceTest {
         service = new JftdTransferConfirmService(
                 calculationService, transferBatchRepository, transferDetailRepository, importBatchRepository);
 
-        when(calculationService.calculateAllLineItems()).thenReturn(List.of(
-                new TransferLineItem("01-001", "3300024", 1, 14150)));
+        when(calculationService.calculateAllLineItems(anyMap())).thenReturn(List.of(
+                new TransferLineItem("01-001", "3300024", 1, 14150, 14150, 0, 0, 0)));
 
         when(transferBatchRepository.save(any(JftdTransferBatch.class))).thenAnswer(invocation -> {
             JftdTransferBatch batch = invocation.getArgument(0);
@@ -62,7 +63,7 @@ class JftdTransferConfirmServiceTest {
         });
 
         for (String paymentType : List.of("JCB", "スマレジ", "ネットスターズ", "楽天ペイ", "住信SBI")) {
-            when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(paymentType))
+            when(importBatchRepository.lockUnprocessedByPaymentType(paymentType))
                     .thenReturn(List.of());
         }
     }
@@ -80,6 +81,10 @@ class JftdTransferConfirmServiceTest {
         assertThat(savedDetail.getTradeCode()).isEqualTo("01-001");
         assertThat(savedDetail.getItemCode()).isEqualTo("3300024");
         assertThat(savedDetail.getAmount()).isEqualTo(14150);
+        assertThat(savedDetail.getGrossAmount()).isEqualTo(14150);
+        assertThat(savedDetail.getAcquirerFeeTaxFree()).isEqualTo(0);
+        assertThat(savedDetail.getAcquirerFeeBase()).isEqualTo(0);
+        assertThat(savedDetail.getAcquirerFeeTax()).isEqualTo(0);
         assertThat(savedDetail.getUpdateEmployee()).isEqualTo(LOGIN_USER);
     }
 
@@ -87,7 +92,7 @@ class JftdTransferConfirmServiceTest {
     void confirmMarksUnprocessedImportBatchesAsTransferred() {
         ImportBatch jcbBatch = new ImportBatch();
         jcbBatch.setBatchId(1);
-        when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull("JCB"))
+        when(importBatchRepository.lockUnprocessedByPaymentType("JCB"))
                 .thenReturn(List.of(jcbBatch));
 
         service.confirm(LOGIN_USER);

@@ -113,6 +113,11 @@ public class JcbFileImporter extends AbstractFileImporter {
     }
 
     @Override
+    public void deleteBatchData(int batchId) {
+        jcbSalesDetailRepository.deleteByBatchId(batchId);
+    }
+
+    @Override
     public String extractLookupKey(MultipartFile file) throws IOException {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), detectCharset(file)))) {
