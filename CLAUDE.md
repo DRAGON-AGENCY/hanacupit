@@ -428,9 +428,19 @@ CSV を読み込む全機能で、**ヘッダー行の列名は検証対象と�
 2. 先頭バイトで判定する：
    - `0xEF 0xBB 0xBF` → UTF-8 BOM として `TextDecoder('utf-8')` でデコードする。
    - `0xFF 0xFE` / `0xFE 0xFF` → 非対応エラーを即表示する。
-   - それ以外 → `TextDecoder('shift-jis')` でデコードする。
-3. Shift-JIS デコード後にヘッダー不一致が多い場合は UTF-8 でも試行し、
-   UTF-8 無 BOM と判定できればその旨のエラーを表示する。
+   - それ以外 → まず `isUtf8WithoutBom(bytes)` で **UTF-8（BOMなし）判定**を行い、
+     該当すれば「UTF-8（BOMなし）」エラーを表示する。該当しなければ
+     `TextDecoder('shift-jis')` でデコードする。
+3. `isUtf8WithoutBom` は「非ASCIIバイトを含み、かつ全体が
+   `new TextDecoder('utf-8', { fatal: true })` で例外なくデコードできる（＝厳密
+   UTF-8として妥当）」ときに真を返す**決定的判定**とする。Shift-JIS(MS932) の
+   日本語バイト列はほぼ厳密UTF-8にならないため、これで BOMなし UTF-8 を確実に
+   判別できる。**ヘッダー名・列数・選択中の決済種類（期待ヘッダー）に依存しない**
+   ことが重要。旧方式（Shift-JIS デコード後のヘッダー不一致件数を UTF-8 デコード
+   時と相対比較する方法）は、ファイルの種類と選択した決済種類が食い違うと
+   両者の不一致件数が並んで検出できず BOMなしを取りこぼす不具合があったため、
+   決定的判定へ置き換えた。旧方式のヘッダー不一致比較はフォールバックとして
+   残してあるが、判定の主役は `isUtf8WithoutBom` とする。
 
 ### エラー時のユーザー案内
 
@@ -489,38 +499,86 @@ CSV を読み込む全機能で、**ヘッダー行の列名は検証対象と�
   判別できる（バッチ自体は作成されるが一部の行だけ登録に失敗したケース。
   詳細は次項「アップロード時の事前フォーマットチェックと部分登録の関係」を参照）。
 
-#### エラー訂正後の再アップロードによる二重登録の防止（JFTD精算データ作成のみ）
+#### エラー訂正・同一ファイル再アップロードによる二重登録の防止（その他精算データ作成・JFTD精算データ作成）
 
 部分登録方式により、1回目のアップロードでエラーがあっても、エラー行以外は
 既にDBへ登録済みになる。この状態でINPUTを訂正し、全行入りの修正ファイルを
 そのまま再アップロードすると、1回目で既に成功していた行が2回目でも重複登録され、
 JFTD統合振込CSV作成の集計で二重カウントされる（実際に検討して見つかったリスク。
-JFTD精算データ作成の5社分インポーター（Jcb/Sumarejo/Netstar/Rakutenpay/JushinSbi）には、
+その他精算データ作成（stera code/stera JCB/steraクレジット）・JFTD精算データ作成の
+5社分インポーター（Jcb/Sumarejo/Netstar/Rakutenpay/JushinSbi）の計8決済種類には、
 PAYGATE店舗コードマッピングのような「取引コード単位の洗い替え」の仕組みが元々無い）。
+加えて、**エラーが無く正常終了した同一ファイルをそのまま2回アップロードしても
+検知できず、そのまま2重に登録されてしまう**不具合が別途見つかったため、この
+ケースも合わせて検知する（後述）。
 
 - **警告条件を「同じ決済種別の未確定データが存在する」ことにはしない**。複数ファイルを
   確定（CSV作成）前にまとめてアップロードする運用は正常系であり（`m_jftd_transfer_batch`
   確定時に未確定分をすべてまとめて集計する設計のため）、この条件だと通常運用でも毎回
   警告が出てしまう。
-- 正しい条件は「同じ`payment_type`で未確定（`transfer_batch_id IS NULL`）かつ
-  **`error_count > 0`** のバッチが既に存在する」場合のみ。これは「訂正しての再アップロード」
-  でしか通常発生しない状態のため、正常な複数回アップロードと区別できる。
-  `JftdSettlementService.findErroredUnprocessedBatch(paymentType)`で判定する。
+- 正しい条件は「同じ`payment_type`で未確定（`transfer_batch_id IS NULL`）かつ、
+  次のいずれかに該当するバッチが既に存在する」場合のみ。
+  - **`error_count > 0`**（訂正しての再アップロードを想定。「訂正しての再アップロード」
+    でしか通常発生しない状態のため、正常な複数回アップロードと区別できる）
+  - **アップロードされたファイルと内容（SHA-256ハッシュ、`m_import_batch.file_hash`）が
+    完全一致する**（`error_count`に関わらず判定。同一ファイルの誤った再アップロードを
+    想定）
+  - `OtherSettlementService.findReplaceableUnprocessedBatch(paymentType, fileHash)`／
+    `JftdSettlementService.findReplaceableUnprocessedBatch(paymentType, fileHash)`で判定する
+    （旧`findErroredUnprocessedBatch`を拡張・改名）。
 - 該当バッチが見つかり、かつ画面から`replace=true`が渡されていない場合は、何も登録せず
   `ImportResponse.replaceConfirmationRequired(ReplaceConfirmation)`を返す
-  （`ReplaceConfirmation`は既存バッチのbatchId・fileName・recordCount・errorCountを持つ）。
-  画面側（`jftd_settlement.html`）は`window.confirm()`でこれをユーザーに提示し、
+  （`ReplaceConfirmation`は既存バッチのbatchId・fileName・recordCount・errorCountに加え、
+  `lookupKeys`（既存バッチの`m_import_batch.lookup_keys`をカンマ区切りで分割した一覧）を持つ）。
+  画面側（`other_settlement.html`／`jftd_settlement.html`）は`window.confirm()`でこれを
+  ユーザーに提示し（識別キー一覧も表示し、どの取引の重複かを判断できるようにする）、
   同意されたら`replace=true`を付けて再送信する。
 - `replace=true`の場合、`importer.deleteBatchData(existing.getBatchId())`で
   既存バッチの明細行を削除してから`importBatchRepository.delete(existing)`でバッチ自体も
-  削除し、それから通常どおり新しいファイルをインポートする。
+  削除し、それから通常どおり新しいファイルをインポートする（この「削除して置き換え」動作は
+  上記2条件のどちらで検知した場合も共通）。
 - `FileImporter`インタフェースに`default void deleteBatchData(int batchId)`を追加済み
-  （未実装なら`extractLookupKey`と同様`UnsupportedOperationException`）。5つのインポーター
+  （未実装なら`extractLookupKey`と同様`UnsupportedOperationException`）。8つのインポーター
   すべてでオーバーライドし、対応する明細テーブルの`deleteByBatchId(batchId)`
   （Spring Data JPAの導出削除クエリ、各リポジトリに追加済み）を呼ぶ。JushinSbiのみ
   `m_visa_master_store_header`・`m_visa_master_transaction`の2テーブルを削除する。
   新しいインポーター（決済種別）を追加する場合も、同様に`deleteBatchData`の
   オーバーライドと対応リポジトリへの`deleteByBatchId`追加を忘れないこと。
+- `m_import_batch`には`file_hash`（VARCHAR(64)、ファイル全体のSHA-256）・
+  `lookup_keys`（TEXT、識別キーのカンマ区切り）を追加済み（schema.sql・
+  `07_テーブル作成sql\create_jftd_transfer_master_tables.sql`・
+  `ImportBatch.java`の3点セット同期済み。ローカルDBにも`ALTER TABLE`適用済み）。
+  `lookup_keys`は`FileImporter.extractAllLookupKeys(file)`（各インポーターが
+  `extractLookupKey`と同じ列から全データ行の値を重複除去して収集する。
+  8インポーター全てに実装済み）の戻り値を`String.join(",", ...)`で保存する。
+- 新しい決済種類（インポーター）を追加する場合は、`extractLookupKey`だけでなく
+  `extractAllLookupKeys`も必ず実装すること（デフォルト実装は
+  `UnsupportedOperationException`をスローする）。忘れると、その決済種類だけ
+  重複ファイル再アップロード時に確認ダイアログの識別キー一覧が空になる
+  （ハッシュ一致自体は`file_hash`列で判定するため検知そのものは効くが、
+  利用者への識別情報提示ができなくなる）。
+
+#### 本機能の対象外の画面・今後CSV取込を実装する場合の注意
+
+上記の重複登録防止は、**バッチ単位で行を積み増す方式**（`m_import_batch`の
+`batch_id`ごとに明細行が追加され、既存データを消さない方式）を採る画面でのみ
+必要になる。以下の4画面は方式が異なる、またはCSV取込自体が未実装のため、
+現時点では対象外である。
+
+- **取引コード紐付データ作成**（`/paygate_mapping_create`、`PaygateMappingFileImporter`）
+  は対象外。理由：ファイル取込のたびに`paygateMappingRepository.deleteByTradeCodeIn(tradeCodes)`
+  で該当取引コードの既存行を削除してから登録し直す「**取引コード単位の洗い替え**」方式
+  （前述「ヘッダー行の扱い・重複チェック」参照）のため、同じファイルを何度アップロード
+  しても最終的なデータは変わらず、蓄積型の重複は原理的に起こらない。
+- **加盟会員店マスターデータ登録・更新**（`member_master.html`）・
+  **各決済会社所定申込フォーム作成**（`application_form.html`）・
+  **店舗・端末・加盟店番号データ作成**（`shop_data_create.html`）は現時点で
+  静的モックアップであり、CSV取込機能自体が未実装。将来これらにCSV取込を実装する
+  際は、**先に「バッチ積み増し方式」か「キー単位の洗い替え方式」かを決めること**。
+  積み増し方式を採る場合は、本節の重複登録防止（`file_hash`・`lookup_keys`・
+  `findReplaceableUnprocessedBatch`・確認ダイアログ）を最初から組み込むこと。
+  洗い替え方式（取引コード紐付データ作成と同様、対象となる一意キー単位で
+  削除してから登録し直す）を採る場合は不要。
 
 #### アップロード時の事前フォーマットチェックと部分登録の関係（`CsvValidationResult.isFatal()`）
 

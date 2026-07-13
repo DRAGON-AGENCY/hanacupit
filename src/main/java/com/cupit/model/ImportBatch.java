@@ -37,6 +37,12 @@ public class ImportBatch {
     @Column(name = "transfer_batch_id")
     private Integer transferBatchId;
 
+    @Column(name = "file_hash")
+    private String fileHash;
+
+    @Column(name = "lookup_keys")
+    private String lookupKeys;
+
     @Column(name = "update_employee")
     private String updateEmployee;
 
@@ -100,6 +106,22 @@ public class ImportBatch {
 
     public void setTransferBatchId(Integer transferBatchId) {
         this.transferBatchId = transferBatchId;
+    }
+
+    public String getFileHash() {
+        return fileHash;
+    }
+
+    public void setFileHash(String fileHash) {
+        this.fileHash = fileHash;
+    }
+
+    public String getLookupKeys() {
+        return lookupKeys;
+    }
+
+    public void setLookupKeys(String lookupKeys) {
+        this.lookupKeys = lookupKeys;
     }
 
     public String getUpdateEmployee() {

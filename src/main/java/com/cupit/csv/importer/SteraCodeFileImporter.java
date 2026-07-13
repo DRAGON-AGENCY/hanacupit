@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -81,8 +83,15 @@ public class SteraCodeFileImporter extends AbstractFileImporter {
                 String slipNumber = trim(fields.get(2));
                 String settlementTime = trim(fields.get(4));
 
+                // 小計行は「伝票番号=99999」「決済時間=000000」に加え、端末識別番号列に
+                // 代表加盟店番号（数字以外を含む形式）を保持する点で明細行と区別する。
+                // 伝票番号99999・決済時間000000が偶然一致する実明細（端末識別番号は数字
+                // のみ）を小計行と誤分類しないよう、端末識別番号が数字のみでないことも
+                // 条件に含める。実サンプルでも小計行は非数字の端末識別番号のみ、明細行は
+                // 数字のみの端末識別番号のみで両者は完全に分離できる。
                 boolean isSummaryRow = SUMMARY_ROW_SLIP_NUMBER.equals(slipNumber)
-                        && SUMMARY_ROW_SETTLEMENT_TIME.equals(settlementTime);
+                        && SUMMARY_ROW_SETTLEMENT_TIME.equals(settlementTime)
+                        && !isNumeric(terminalId);
 
                 if (isSummaryRow) {
                     addSummaryRow(summaryRecords, errors, rowNum, batch, today, brand, fields);
@@ -186,6 +195,23 @@ public class SteraCodeFileImporter extends AbstractFileImporter {
         return Optional.empty();
     }
 
+    /**
+     * 端末識別番号が数字のみで構成されるか判定する。stera codeの小計行は端末識別番号列に
+     * 代表加盟店番号（数字以外を含む形式、実データでは「S」で始まる）を保持するため、
+     * 数字のみの端末識別番号を持つ明細行と区別するために使用する。
+     */
+    private boolean isNumeric(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     public void deleteBatchData(int batchId) {
         settlementDetailRepository.deleteByBatchId(batchId);
@@ -212,5 +238,30 @@ public class SteraCodeFileImporter extends AbstractFileImporter {
             }
             return terminalId;
         }
+    }
+
+    @Override
+    public List<String> extractAllLookupKeys(MultipartFile file) throws IOException {
+        Set<String> keys = new LinkedHashSet<>();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), detectCharset(file)))) {
+            reader.readLine(); // ヘッダー行スキップ
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = stripCr(line);
+                if (line.isBlank()) {
+                    continue;
+                }
+                List<String> fields = parseLine(line);
+                if (fields.size() < 2) {
+                    continue;
+                }
+                String terminalId = trim(fields.get(1));
+                if (!terminalId.isEmpty()) {
+                    keys.add(terminalId);
+                }
+            }
+        }
+        return new ArrayList<>(keys);
     }
 }

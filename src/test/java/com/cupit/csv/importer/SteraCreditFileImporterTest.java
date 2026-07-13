@@ -158,6 +158,13 @@ class SteraCreditFileImporterTest {
     }
 
     @Test
+    void extractAllLookupKeysReturnsDistinctMerchantIdsInOrder() throws Exception {
+        List<String> keys = importer.extractAllLookupKeys(CsvFiles.fromClasspath("stera_credit_valid.csv"));
+
+        assertThat(keys).containsExactly("12348894", "12348936");
+    }
+
+    @Test
     void deleteBatchDataDelegatesToRepository() {
         importer.deleteBatchData(3);
 

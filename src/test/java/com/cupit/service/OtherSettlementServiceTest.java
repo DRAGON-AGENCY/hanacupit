@@ -96,6 +96,7 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(STERA_CODE))
                 .thenReturn(List.of());
         when(importer.extractLookupKey(any())).thenReturn("7113462036751");
+        when(importer.extractAllLookupKeys(any())).thenReturn(List.of("7113462036751"));
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(2, 2, List.of()));
 
@@ -115,6 +116,7 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(STERA_CODE))
                 .thenReturn(List.of());
         when(importer.extractLookupKey(any())).thenReturn("7113462036751");
+        when(importer.extractAllLookupKeys(any())).thenReturn(List.of("7113462036751"));
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(1, 2,
                 List.of(new CsvValidationError(3, "決済金額", "数値変換エラー"))));
@@ -148,6 +150,7 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(STERA_CODE))
                 .thenReturn(List.of(existing));
         when(importer.extractLookupKey(any())).thenReturn("7113462036751");
+        when(importer.extractAllLookupKeys(any())).thenReturn(List.of("7113462036751"));
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(2, 2, List.of()));
 
@@ -165,6 +168,7 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(STERA_CODE))
                 .thenReturn(List.of(batch(40, 0, null)));
         when(importer.extractLookupKey(any())).thenReturn("7113462036751");
+        when(importer.extractAllLookupKeys(any())).thenReturn(List.of("7113462036751"));
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(2, 2, List.of()));
 
@@ -172,6 +176,34 @@ class OtherSettlementServiceTest {
 
         assertThat(response.getReplaceConfirmation()).isNull();
         assertThat(response.isSuccess()).isTrue();
+    }
+
+    @Test
+    void importFileRequiresReplaceConfirmationWhenSameFileHashExistsWithoutErrors() throws Exception {
+        ImportBatch existing = batch(60, 0, null);
+        existing.setFileHash(sha256Hex(validSteraCodeFile().getBytes()));
+        existing.setLookupKeys("7113462036751,7113462036121");
+        when(fileImporterFactory.getImporter(PaymentType.STERA_CODE)).thenReturn(importer);
+        when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(STERA_CODE))
+                .thenReturn(List.of(existing));
+
+        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, "user001", false);
+
+        assertThat(response.getReplaceConfirmation()).isNotNull();
+        assertThat(response.getReplaceConfirmation().getExistingBatchId()).isEqualTo(60);
+        assertThat(response.getReplaceConfirmation().getLookupKeys())
+                .containsExactly("7113462036751", "7113462036121");
+        verify(importer, never()).importFile(any(), any());
+    }
+
+    private String sha256Hex(byte[] content) throws Exception {
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(content);
+        StringBuilder sb = new StringBuilder(hash.length * 2);
+        for (byte b : hash) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     @Test

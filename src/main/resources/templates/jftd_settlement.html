@@ -500,9 +500,9 @@
       btnUpload.disabled = false;
     }
 
-    function showNg(message, errors) {
+    function showNg(message, errors, title) {
       checkResult.className = 'check-result ng';
-      resultTitle.textContent = '✗ フォーマットチェック NG';
+      resultTitle.textContent = title || '✗ フォーマットチェック NG';
       resultSummary.textContent = message;
       if (errors && errors.length > 0) {
         errorBody.innerHTML = '';
@@ -579,6 +579,15 @@
                 message: 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
             ]);
             return;
+          } else if (isUtf8WithoutBom(bytes)) {
+            // BOMは無いが非ASCIIを含み、かつ全体が厳密UTF-8として妥当＝UTF-8（BOMなし）。
+            // Shift-JIS(MS932)の日本語バイト列はほぼ厳密UTF-8にならないため確実に判別でき、
+            // 選択された決済種類（期待ヘッダー）に依存せずBOMなしを検出できる。
+            showNg('ファイルがUTF-8（BOMなし）形式で保存されています。', [
+              { rowNumber: '-', columnName: '文字コード',
+                message: 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。' }
+            ]);
+            return;
           } else {
             charset = 'shift-jis';
           }
@@ -643,13 +652,29 @@
     }
 
     function checkUtf8Dat(file, fmt) {
-      // 先頭100行のみチェック
+      // 先頭8KB（最大100行）のみ事前チェックする。住信SBIの.datは仕様上UTF-8のため
+      // UTF-8でデコードするが、UTF-16は明確なエラーとして弾く（byte単位で判定するため
+      // readAsTextではなくreadAsArrayBufferで読む）。
       const PREVIEW_BYTES = 8192;
       const blob = file.slice(0, PREVIEW_BYTES);
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
-          const text = e.target.result;
+          const buffer = e.target.result;
+          const bytes = new Uint8Array(buffer);
+
+          // UTF-16（BOM付き）は非対応。.datはUTF-8のため明確に弾く。
+          if (bytes.length >= 2
+              && ((bytes[0] === 0xFF && bytes[1] === 0xFE) || (bytes[0] === 0xFE && bytes[1] === 0xFF))) {
+            showNg('ファイルの文字コードがサポートされていません（UTF-16）。', [
+              { rowNumber: '-', columnName: '文字コード',
+                message: '住信SBIの.datファイルはUTF-8です。UTF-8で保存し直してください。' }
+            ]);
+            return;
+          }
+
+          // UTF-8としてデコードし、先頭のBOM文字（U+FEFF）を除去してから行分割する。
+          const text = new TextDecoder('utf-8').decode(buffer).replace(/^﻿/, '');
           const lines = text.split('\n').slice(0, 100);
           const errors = [];
           let type1Count = 0;
@@ -678,6 +703,16 @@
             }
           });
 
+          // 有効なレコード（区分1/区分2）が先頭に1件も無い場合はNGにする。
+          // 空ファイルや全く別形式のファイルがOKで通過してしまうfail-openを防ぐ。
+          if (type1Count === 0 && type2Count === 0) {
+            showNg('有効なレコード（区分1/区分2）が見つかりません。', [
+              { rowNumber: '-', columnName: '',
+                message: '選択したファイルが 住信SBI(VISA・MasterCard) の.datフォーマットか確認してください。' }
+            ]);
+            return;
+          }
+
           if (errors.length > 0) {
             showNg('先頭 ' + lines.length + ' 行に ' + errors.length + ' 件のエラーがあります。', errors);
           } else {
@@ -687,7 +722,30 @@
           showNg('ファイルの読み込みに失敗しました: ' + err.message, []);
         }
       };
-      reader.readAsText(blob, 'UTF-8');
+      reader.readAsArrayBuffer(blob);
+    }
+
+    /* BOMが無いファイルがUTF-8（BOMなし）かどうかを判定する。
+       非ASCIIバイトを含み、かつ全体が厳密なUTF-8として妥当なら真を返す。
+       Shift-JIS(MS932)の日本語バイト列はほぼ厳密UTF-8として妥当にならないため、
+       ヘッダー名や列数に依存せずUTF-8（BOMなし）を判別できる。 */
+    function isUtf8WithoutBom(bytes) {
+      var hasNonAscii = false;
+      for (var i = 0; i < bytes.length; i++) {
+        if (bytes[i] >= 0x80) {
+          hasNonAscii = true;
+          break;
+        }
+      }
+      if (!hasNonAscii) {
+        return false;
+      }
+      try {
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        return true;
+      } catch (err) {
+        return false;
+      }
     }
 
     /* RFC 4180 準拠の CSV 1行パーサー */
@@ -760,9 +818,10 @@
         .then(function(data) {
           if (data.replaceConfirmation) {
             var c = data.replaceConfirmation;
-            var message = '同じ決済種別で、エラーを含んだまま未確定のデータが既に存在します。\n'
+            var message = '同じ決済種別で、置き換え候補となる未確定のデータが既に存在します。\n'
               + 'ファイル名: ' + c.existingFileName + '\n'
-              + '登録件数: ' + c.existingRecordCount + ' 件 / エラー件数: ' + c.existingErrorCount + ' 件\n\n'
+              + '登録件数: ' + c.existingRecordCount + ' 件 / エラー件数: ' + c.existingErrorCount + ' 件\n'
+              + '識別キー: ' + (c.lookupKeys && c.lookupKeys.length ? c.lookupKeys.join('、') : '(なし)') + '\n\n'
               + 'これを削除して、今回のファイルで置き換えますか？';
             var shouldReplace = window.confirm(message);
             if (shouldReplace) {
@@ -782,7 +841,7 @@
           uploadIcon.innerHTML = '&#11014;';
           uploadLabel.textContent = 'アップロード';
           if (err.message === 'unauthenticated') { return; }
-          showNg('通信エラーが発生しました: ' + err.message, []);
+          showNg('通信エラーが発生しました: ' + err.message, [], '✗ 通信エラー');
           btnUpload.disabled = false;
         });
     }

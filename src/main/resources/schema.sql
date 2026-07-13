@@ -152,6 +152,13 @@ ALTER TABLE m_import_batch DROP COLUMN IF EXISTS trade_code;
 -- 確定済みの振込バッチを指す（確定処理自体は別イテレーションで実装）。
 ALTER TABLE m_import_batch ADD COLUMN IF NOT EXISTS transfer_batch_id INTEGER;
 CREATE INDEX IF NOT EXISTS idx_import_transfer ON m_import_batch(transfer_batch_id);
+-- 同じ決済種別・同一内容（ファイル全体のSHA-256ハッシュ）のファイルが、確定前に誤って
+-- 再アップロードされる二重登録を検知するために保持する。エラー有無に関わらず比較する。
+ALTER TABLE m_import_batch ADD COLUMN IF NOT EXISTS file_hash VARCHAR(64);
+-- 上記の重複検知時に、確認ダイアログで「どの取引の重複か」を利用者が判断できるよう、
+-- ファイルの全データ行から抽出した識別キー（取引コード解決に使う端末識別番号・
+-- 加盟店番号等）をカンマ区切りで保持する。件数上限が無いためTEXT型とする。
+ALTER TABLE m_import_batch ADD COLUMN IF NOT EXISTS lookup_keys TEXT;
 
 -- JCB売上明細
 CREATE TABLE IF NOT EXISTS m_jcb_sales_detail (

@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -134,6 +136,31 @@ public class SteraCreditFileImporter extends AbstractFileImporter {
             }
             return merchantId;
         }
+    }
+
+    @Override
+    public List<String> extractAllLookupKeys(MultipartFile file) throws IOException {
+        Set<String> keys = new LinkedHashSet<>();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), detectCharset(file)))) {
+            reader.readLine(); // ヘッダー行スキップ
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = stripCr(line);
+                if (line.isBlank()) {
+                    continue;
+                }
+                List<String> fields = parseLine(line);
+                if (fields.isEmpty()) {
+                    continue;
+                }
+                String merchantId = trim(fields.get(0));
+                if (!merchantId.isEmpty()) {
+                    keys.add(merchantId);
+                }
+            }
+        }
+        return new ArrayList<>(keys);
     }
 
     private String blankToNull(String value) {

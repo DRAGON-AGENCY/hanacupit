@@ -345,9 +345,9 @@
       btnUpload.disabled = false;
     }
 
-    function showNg(message, errors) {
+    function showNg(message, errors, title) {
       checkResult.className = 'check-result ng';
-      resultTitle.textContent = '✗ フォーマットチェック NG';
+      resultTitle.textContent = title || '✗ フォーマットチェック NG';
       resultSummary.textContent = message;
       if (errors && errors.length > 0) {
         errorBody.innerHTML = '';
@@ -391,6 +391,15 @@
             showNg('ファイルの文字コードがサポートされていません（UTF-16）。', [
               { rowNumber: '-', columnName: '文字コード',
                 message: 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
+            ]);
+            return;
+          } else if (isUtf8WithoutBom(bytes)) {
+            // BOMは無いが非ASCIIを含み、かつ全体が厳密UTF-8として妥当＝UTF-8（BOMなし）。
+            // Shift-JIS(MS932)の日本語バイト列はほぼ厳密UTF-8にならないため確実に判別でき、
+            // 列数が偶然一致するファイルでもBOMなしを取りこぼさない。
+            showNg('ファイルがUTF-8（BOMなし）形式で保存されています。', [
+              { rowNumber: '-', columnName: '文字コード',
+                message: 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。' }
             ]);
             return;
           } else {
@@ -461,7 +470,7 @@
         .then(function (data) { showImportResult(data); })
         .catch(function (err) {
           if (err.message === 'unauthenticated') { return; }
-          showNg('通信エラーが発生しました: ' + err.message, []);
+          showNg('通信エラーが発生しました: ' + err.message, [], '✗ 通信エラー');
           btnUpload.disabled = false;
         })
         .finally(function () {
@@ -498,6 +507,29 @@
           errorWrapper.style.display = 'none';
         }
         btnUpload.disabled = false;
+      }
+    }
+
+    /* BOMが無いファイルがUTF-8（BOMなし）かどうかを判定する。
+       非ASCIIバイトを含み、かつ全体が厳密なUTF-8として妥当なら真を返す。
+       Shift-JIS(MS932)の日本語バイト列はほぼ厳密UTF-8として妥当にならないため、
+       ヘッダー名や列数に依存せずUTF-8（BOMなし）を判別できる。 */
+    function isUtf8WithoutBom(bytes) {
+      var hasNonAscii = false;
+      for (var i = 0; i < bytes.length; i++) {
+        if (bytes[i] >= 0x80) {
+          hasNonAscii = true;
+          break;
+        }
+      }
+      if (!hasNonAscii) {
+        return false;
+      }
+      try {
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        return true;
+      } catch (err) {
+        return false;
       }
     }
 

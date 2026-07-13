@@ -111,6 +111,28 @@ class SteraCodeFileImporterTest {
     }
 
     @Test
+    void treatsRowAsDetailWhenMarkersMatchButTerminalIdIsNumeric() throws Exception {
+        when(steraTerminalRepository.findByTerminalId("7113462036751"))
+                .thenReturn(List.of(activeTerminal("01-001")));
+
+        // 通常明細・「伝票番号99999／決済時間000000が偶然一致するが端末識別番号が数字のみ
+        // の明細（罠行）」・代表加盟店番号(S…)の小計行を含むファイル。罠行は端末識別番号が
+        // 数字のみのため小計行と誤判定せず明細として登録され、小計行だけがサマリへ振り分けられる。
+        ImportResult result = importer.importFile(
+                CsvFiles.fromClasspath("stera_code_subtotal_marker.csv"), batch(20, "user001"));
+
+        assertThat(result.getSuccessCount()).isEqualTo(2);
+        ArgumentCaptor<SteraCodeSettlementDetail> detailCaptor =
+                ArgumentCaptor.forClass(SteraCodeSettlementDetail.class);
+        verify(settlementDetailRepository, times(2)).save(detailCaptor.capture());
+        SteraCodeSettlementDetail trapRow = detailCaptor.getAllValues().get(1);
+        assertThat(trapRow.getSlipNumber()).isEqualTo("99999");
+        assertThat(trapRow.getSettlementTime()).isEqualTo("000000");
+        assertThat(trapRow.getSettlementAmount()).isEqualTo(3000);
+        verify(settlementSummaryRepository, times(1)).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void skipsDetailRowWhenNoActiveTerminalExists() throws Exception {
         when(steraTerminalRepository.findByTerminalId("7113462036751"))
                 .thenReturn(List.of());
@@ -186,6 +208,16 @@ class SteraCodeFileImporterTest {
         assertThatThrownBy(() -> importer.extractLookupKey(
                 CsvFiles.utf8Bom("x.csv", HEADER, "\"楽天ペイ\",\"\"")))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void extractAllLookupKeysReturnsDistinctTerminalIdsInOrder() throws Exception {
+        List<String> keys = importer.extractAllLookupKeys(CsvFiles.fromClasspath("stera_code_valid.csv"));
+
+        // stera_code_valid.csv: 7113462036751(1行目)・7113462036121(2行目)・
+        // S68473628(3行目、小計行代表加盟店番号)の3種類の端末識別番号列の値を持つ。
+        // extractAllLookupKeysは小計行かどうかを区別せず列の値をそのまま収集する。
+        assertThat(keys).containsExactly("7113462036751", "7113462036121", "S68473628");
     }
 
     @Test

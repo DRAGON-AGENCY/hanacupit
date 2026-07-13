@@ -1,8 +1,11 @@
 package com.cupit.service;
 
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -67,7 +70,7 @@ public class OtherSettlementService {
      * @param file        アップロードファイル
      * @param paymentType 決済種類の表示名
      * @param memberNo    ログインユーザーID
-     * @param replace     同じ決済種別でエラーを含んだまま未確定のバッチが既に存在する場合に、
+     * @param replace     同じ決済種別で置き換え候補となる未確定のバッチが既に存在する場合に、
      *                    それを削除して置き換えることに同意しているかどうか
      * @return インポート結果
      * @throws IOException ファイル読み込みエラー
@@ -92,15 +95,18 @@ public class OtherSettlementService {
         }
 
         FileImporter importer = fileImporterFactory.getImporter(type);
+        String fileHash = sha256Hex(file.getBytes());
 
-        Optional<ImportBatch> existingErroredBatch = findErroredUnprocessedBatch(paymentType);
-        if (existingErroredBatch.isPresent()) {
-            ImportBatch existing = existingErroredBatch.get();
+        Optional<ImportBatch> existingReplaceable =
+                findReplaceableUnprocessedBatch(paymentType, fileHash);
+        if (existingReplaceable.isPresent()) {
+            ImportBatch existing = existingReplaceable.get();
             if (!replace) {
                 return ImportResponse.replaceConfirmationRequired(new ImportResponse.ReplaceConfirmation(
                         existing.getBatchId(), existing.getFileName(),
                         existing.getRecordCount() != null ? existing.getRecordCount() : 0,
-                        existing.getErrorCount() != null ? existing.getErrorCount() : 0));
+                        existing.getErrorCount() != null ? existing.getErrorCount() : 0,
+                        splitLookupKeys(existing.getLookupKeys())));
             }
             importer.deleteBatchData(existing.getBatchId());
             importBatchRepository.delete(existing);
@@ -111,6 +117,7 @@ public class OtherSettlementService {
             throw new IllegalArgumentException(
                     type.getDisplayName() + "ファイルから識別キーを取得できませんでした。");
         }
+        List<String> allKeys = importer.extractAllLookupKeys(file);
 
         ImportBatch batch = new ImportBatch();
         batch.setPaymentType(paymentType);
@@ -118,6 +125,8 @@ public class OtherSettlementService {
         batch.setImportedAt(LocalDateTime.now());
         batch.setUpdateEmployee(memberNo);
         batch.setCreateDate(LocalDate.now());
+        batch.setFileHash(fileHash);
+        batch.setLookupKeys(String.join(",", allKeys));
         ImportBatch savedBatch = importBatchRepository.save(batch);
 
         ImportResult result = importer.importFile(file, savedBatch);
@@ -130,16 +139,42 @@ public class OtherSettlementService {
     }
 
     /**
-     * 指定した決済種別で、エラーを含んだまま未確定（transfer_batch_id IS NULL）の
+     * 指定した決済種別で、置き換え候補となる未確定（transfer_batch_id IS NULL）の
      * インポートバッチが存在すれば返す。通常運用で同じ決済種別のファイルを複数回・
      * 確定前にアップロードすること自体は正常系（未確定分はまとめて確定される）だが、
-     * エラーを含んだまま残っているバッチが存在するのは「訂正しての再アップロード」の
-     * 可能性が高いため、この場合だけユーザーに置き換えの確認を求める。
+     * 次のいずれかに該当するバッチは「訂正しての再アップロード」または「同一ファイルの
+     * 誤った再アップロード」の可能性が高いため、この場合だけユーザーに置き換えの
+     * 確認を求める。
+     * ・エラーを含んだまま残っている（訂正後の再アップロードを想定）
+     * ・アップロードされたファイルと内容（SHA-256ハッシュ）が完全に一致する
+     *   （同一ファイルの誤った再アップロードを想定。エラー有無は問わない）
      */
-    private Optional<ImportBatch> findErroredUnprocessedBatch(String paymentType) {
+    private Optional<ImportBatch> findReplaceableUnprocessedBatch(String paymentType, String fileHash) {
         return importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(paymentType).stream()
-                .filter(b -> b.getErrorCount() != null && b.getErrorCount() > 0)
+                .filter(b -> (b.getErrorCount() != null && b.getErrorCount() > 0)
+                        || fileHash.equals(b.getFileHash()))
                 .findFirst();
+    }
+
+    private List<String> splitLookupKeys(String lookupKeys) {
+        if (lookupKeys == null || lookupKeys.isBlank()) {
+            return List.of();
+        }
+        return Arrays.asList(lookupKeys.split(","));
+    }
+
+    private String sha256Hex(byte[] content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(content);
+            StringBuilder sb = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256アルゴリズムが利用できません。", e);
+        }
     }
 
     private String buildFatalDetailMessage(CsvValidationResult validationResult) {

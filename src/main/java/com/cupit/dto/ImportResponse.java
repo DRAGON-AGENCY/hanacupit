@@ -47,7 +47,7 @@ public class ImportResponse {
      */
     public static ImportResponse replaceConfirmationRequired(ReplaceConfirmation confirmation) {
         return new ImportResponse(false, 0, null,
-                "同じ決済種別でエラーを含んだまま未確定のデータが既に存在します。",
+                "同じ決済種別で、置き換え候補となる未確定のデータが既に存在します。",
                 List.of(), 0, false, confirmation);
     }
 
@@ -121,14 +121,17 @@ public class ImportResponse {
         private final String existingFileName;
         private final int existingRecordCount;
         private final int existingErrorCount;
+        private final List<String> lookupKeys;
 
         public ReplaceConfirmation(
                 int existingBatchId, String existingFileName,
-                int existingRecordCount, int existingErrorCount) {
+                int existingRecordCount, int existingErrorCount,
+                List<String> lookupKeys) {
             this.existingBatchId = existingBatchId;
             this.existingFileName = existingFileName;
             this.existingRecordCount = existingRecordCount;
             this.existingErrorCount = existingErrorCount;
+            this.lookupKeys = lookupKeys != null ? lookupKeys : List.of();
         }
 
         public int getExistingBatchId() {
@@ -145,6 +148,10 @@ public class ImportResponse {
 
         public int getExistingErrorCount() {
             return existingErrorCount;
+        }
+
+        public List<String> getLookupKeys() {
+            return lookupKeys;
         }
     }
 }

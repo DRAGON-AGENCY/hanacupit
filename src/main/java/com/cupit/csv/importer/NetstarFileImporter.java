@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -198,6 +200,26 @@ public class NetstarFileImporter extends AbstractFileImporter {
             }
             throw new IllegalArgumentException("データ行がありません。");
         }
+    }
+
+    @Override
+    public List<String> extractAllLookupKeys(MultipartFile file) throws IOException {
+        Set<String> keys = new LinkedHashSet<>();
+        try (InputStream is = file.getInputStream();
+             Workbook wb = new XSSFWorkbook(is)) {
+            Sheet sheet = wb.getSheetAt(0);
+            for (int rowIdx = DATA_START_ROW; rowIdx <= sheet.getLastRowNum(); rowIdx++) {
+                Row row = sheet.getRow(rowIdx);
+                if (row == null) {
+                    continue;
+                }
+                String storeCode = getCellString(row, 1);
+                if (storeCode != null && !storeCode.isBlank()) {
+                    keys.add(storeCode);
+                }
+            }
+        }
+        return new ArrayList<>(keys);
     }
 
     private String getCellString(Row row, int colIdx) {

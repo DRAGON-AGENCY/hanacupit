@@ -29,7 +29,19 @@ public final class CsvFiles {
      * @return 読み込んだ内容を保持するアップロードファイル
      */
     public static MockMultipartFile fromClasspath(String resourceName) {
-        String path = "/stera/" + resourceName;
+        return fromClasspath("stera", resourceName);
+    }
+
+    /**
+     * src/test/resources 配下の任意フォルダにあるファイルを読み込んで
+     * {@code MockMultipartFile} を返す。バイナリ（xlsx等）も含めそのまま読み込む。
+     *
+     * @param folder       クラスパス上のフォルダ名（例: "jftd"）
+     * @param resourceName フォルダ内のファイル名（例: "jcb_duplicate_key.csv"）
+     * @return 読み込んだ内容を保持するアップロードファイル
+     */
+    public static MockMultipartFile fromClasspath(String folder, String resourceName) {
+        String path = "/" + folder + "/" + resourceName;
         try (InputStream is = CsvFiles.class.getResourceAsStream(path)) {
             if (is == null) {
                 throw new IllegalStateException("テストリソースが見つかりません: " + path);

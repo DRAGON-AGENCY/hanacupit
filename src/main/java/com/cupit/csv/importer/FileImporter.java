@@ -1,6 +1,7 @@
 package com.cupit.csv.importer;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,6 +32,20 @@ public interface FileImporter {
      */
     default String extractLookupKey(MultipartFile file) throws IOException {
         throw new UnsupportedOperationException("extractLookupKey は未実装です。");
+    }
+
+    /**
+     * ファイルの全データ行から、{@link #extractLookupKey}と同じ種別の検索キーを
+     * 出現順・重複除去したうえで一覧として取得する。同じ決済種別・同一内容のファイルが
+     * 誤って再アップロードされた際に、確認ダイアログで「どの取引の重複か」を利用者が
+     * 判断できるようにするために使用する。
+     *
+     * @param file アップロードファイル
+     * @return 検索キー文字列の一覧（出現順、重複除去済み）
+     * @throws IOException ファイル読み込みエラー
+     */
+    default List<String> extractAllLookupKeys(MultipartFile file) throws IOException {
+        throw new UnsupportedOperationException("extractAllLookupKeys は未実装です。");
     }
 
     /**

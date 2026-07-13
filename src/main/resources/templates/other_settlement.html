@@ -348,7 +348,6 @@
       <ol class="notice-list">
         <li>stera terminalから受領した精算ファイルを参照ボタンから選択してください。</li>
         <li>ファイル選択後、フォーマットチェックが自動で実行されます。エラーがない場合にアップロードボタンが有効になります。</li>
-        <li>アップロード後、内容を確認してください。誤った内容の場合はファイルを差し替えて再アップロードしてください。</li>
         <li>取引コードが特定できない行やデータ形式が不正な行はその行だけ登録されず、正常な行のみ登録されます。エラーが発生した行はすべて一覧に表示されます。</li>
         <li>stera codeファイルは、ブランド（楽天ペイ・PayPay等）ごとの明細ブロック末尾に小計行が含まれますが、これは個別取引として登録せず自動的に除外されます。</li>
         <li>対応文字コードは <strong>UTF-8（BOM付き）</strong> または <strong>Shift-JIS（MS932）</strong> です。それ以外の文字コード（UTF-8 BOMなし・UTF-16 等）はエラーになります。</li>
@@ -494,9 +493,9 @@
       btnUpload.disabled = false;
     }
 
-    function showNg(message, errors) {
+    function showNg(message, errors, title) {
       checkResult.className = 'check-result ng';
-      resultTitle.textContent = '✗ フォーマットチェック NG';
+      resultTitle.textContent = title || '✗ フォーマットチェック NG';
       resultSummary.textContent = message;
       if (errors && errors.length > 0) {
         errorBody.innerHTML = '';
@@ -565,6 +564,15 @@
                 message: 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
             ]);
             return;
+          } else if (isUtf8WithoutBom(bytes)) {
+            // BOMは無いが非ASCIIを含み、かつ全体が厳密UTF-8として妥当＝UTF-8（BOMなし）。
+            // Shift-JIS(MS932)の日本語バイト列はほぼ厳密UTF-8にならないため確実に判別でき、
+            // 選択された決済種類（期待ヘッダー）に依存せずBOMなしを検出できる。
+            showNg('ファイルがUTF-8（BOMなし）形式で保存されています。', [
+              { rowNumber: '-', columnName: '文字コード',
+                message: 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。' }
+            ]);
+            return;
           } else {
             charset = 'shift-jis';
           }
@@ -626,6 +634,29 @@
         }
       };
       reader.readAsArrayBuffer(file);
+    }
+
+    /* BOMが無いファイルがUTF-8（BOMなし）かどうかを判定する。
+       非ASCIIバイトを含み、かつ全体が厳密なUTF-8として妥当なら真を返す。
+       Shift-JIS(MS932)の日本語バイト列はほぼ厳密UTF-8として妥当にならないため、
+       ヘッダー名や列数に依存せずUTF-8（BOMなし）を判別できる。 */
+    function isUtf8WithoutBom(bytes) {
+      var hasNonAscii = false;
+      for (var i = 0; i < bytes.length; i++) {
+        if (bytes[i] >= 0x80) {
+          hasNonAscii = true;
+          break;
+        }
+      }
+      if (!hasNonAscii) {
+        return false;
+      }
+      try {
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        return true;
+      } catch (err) {
+        return false;
+      }
     }
 
     /* RFC 4180 準拠の CSV 1行パーサー */
@@ -698,9 +729,10 @@
         .then(function(data) {
           if (data.replaceConfirmation) {
             var c = data.replaceConfirmation;
-            var message = '同じ決済種別で、エラーを含んだまま未確定のデータが既に存在します。\n'
+            var message = '同じ決済種別で、置き換え候補となる未確定のデータが既に存在します。\n'
               + 'ファイル名: ' + c.existingFileName + '\n'
-              + '登録件数: ' + c.existingRecordCount + ' 件 / エラー件数: ' + c.existingErrorCount + ' 件\n\n'
+              + '登録件数: ' + c.existingRecordCount + ' 件 / エラー件数: ' + c.existingErrorCount + ' 件\n'
+              + '識別キー: ' + (c.lookupKeys && c.lookupKeys.length ? c.lookupKeys.join('、') : '(なし)') + '\n\n'
               + 'これを削除して、今回のファイルで置き換えますか？';
             var shouldReplace = window.confirm(message);
             if (shouldReplace) {
@@ -720,7 +752,7 @@
           uploadIcon.innerHTML = '&#11014;';
           uploadLabel.textContent = 'アップロード';
           if (err.message === 'unauthenticated') { return; }
-          showNg('通信エラーが発生しました: ' + err.message, []);
+          showNg('通信エラーが発生しました: ' + err.message, [], '✗ 通信エラー');
           btnUpload.disabled = false;
         });
     }

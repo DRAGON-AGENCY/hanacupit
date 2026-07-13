@@ -189,6 +189,15 @@ class SteraJcbFileImporterTest {
     }
 
     @Test
+    void extractAllLookupKeysReturnsDistinctMerchantNosInOrder() throws Exception {
+        // stera_jcb_valid.csvは2行とも同一加盟店番号（２１８１－５００－５１－０００３４）
+        // のため、重複除去した結果は1件のみになる。
+        List<String> keys = importer.extractAllLookupKeys(CsvFiles.fromClasspath("stera_jcb_valid.csv"));
+
+        assertThat(keys).containsExactly("２１８１－５００－５１－０００３４");
+    }
+
+    @Test
     void deleteBatchDataDelegatesToRepository() {
         importer.deleteBatchData(7);
 
