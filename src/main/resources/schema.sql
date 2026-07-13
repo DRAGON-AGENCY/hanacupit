@@ -733,6 +733,14 @@ CREATE TABLE IF NOT EXISTS m_stera_store (
     CONSTRAINT pk_m_stera_store PRIMARY KEY (record_no)
 );
 CREATE INDEX IF NOT EXISTS idx_stera_store_trade ON m_stera_store(trade_code);
+-- 1店舗（取引コード）につき口座情報は1件のはずだが、当初の制約定義に漏れがあったため
+-- 追加する。その他CSV作成（stera terminal統合振込CSV）の確定処理が、取引コードから
+-- 一意に振込先口座を引けることを前提にしているため必須。
+DO $$
+BEGIN
+    ALTER TABLE m_stera_store ADD CONSTRAINT uq_stera_store_trade UNIQUE (trade_code);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Stera 端末情報
 CREATE TABLE IF NOT EXISTS m_stera_terminal (
@@ -862,6 +870,44 @@ CREATE TABLE IF NOT EXISTS m_stera_credit_sales_detail (
 );
 CREATE INDEX IF NOT EXISTS idx_stera_credit_batch ON m_stera_credit_sales_detail(batch_id);
 
+-- その他統合振込CSV作成（stera terminal）の確定単位のヘッダー。
+-- m_jftd_transfer_batchと対だが、CSV出力形式が全銀フォーマット（口座情報＋振込金額）と
+-- 全く異なるため、m_jftd_transfer_batch/detailは流用せず別テーブルとする。
+CREATE TABLE IF NOT EXISTS m_stera_transfer_batch (
+    transfer_batch_id  SERIAL          NOT NULL,
+    created_at         TIMESTAMP       NOT NULL DEFAULT NOW(),
+    update_employee    VARCHAR(50),
+    create_date        DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date       DATE,
+    CONSTRAINT pk_m_stera_transfer_batch PRIMARY KEY (transfer_batch_id)
+);
+
+-- その他統合振込明細（確定時点の計算結果・口座情報のスナップショット。
+-- 確定後にm_stera_storeの内容が変わっても振込内容が変わらないようにする）
+CREATE TABLE IF NOT EXISTS m_stera_transfer_detail (
+    transfer_detail_id   SERIAL          NOT NULL,
+    transfer_batch_id    INTEGER         NOT NULL,
+    trade_code           VARCHAR(10)     NOT NULL,
+    gross_amount         INTEGER         NOT NULL DEFAULT 0,
+    acquirer_fee         INTEGER         NOT NULL DEFAULT 0,
+    company_fee          INTEGER         NOT NULL DEFAULT 0,
+    transfer_fee         INTEGER         NOT NULL DEFAULT 0,
+    net_amount           INTEGER         NOT NULL DEFAULT 0,
+    bank_code             VARCHAR(4)     NOT NULL,
+    bank_name              VARCHAR(30)   NOT NULL,
+    bank_branch_code       VARCHAR(3)    NOT NULL,
+    branch_name            VARCHAR(20)   NOT NULL,
+    account_type           VARCHAR(4)    NOT NULL,
+    account_no             VARCHAR(7)    NOT NULL,
+    account_holder_kana    VARCHAR(80)   NOT NULL,
+    update_employee      VARCHAR(50),
+    create_date          DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date         DATE,
+    CONSTRAINT pk_m_stera_transfer_detail PRIMARY KEY (transfer_detail_id)
+);
+CREATE INDEX IF NOT EXISTS idx_stera_transfer_detail_batch ON m_stera_transfer_detail(transfer_batch_id);
+CREATE INDEX IF NOT EXISTS idx_stera_transfer_detail_trade ON m_stera_transfer_detail(trade_code);
+
 -- テーブル所有者をアプリケーションユーザーに設定（postgresで実行した場合も正しく動作させる）
 ALTER TABLE m_employee                  OWNER TO hanacupit;
 ALTER TABLE m_member_info               OWNER TO hanacupit;
@@ -885,4 +931,6 @@ ALTER TABLE m_stera_jcb_sales_detail        OWNER TO hanacupit;
 ALTER TABLE m_stera_code_settlement_detail  OWNER TO hanacupit;
 ALTER TABLE m_stera_code_settlement_summary OWNER TO hanacupit;
 ALTER TABLE m_stera_credit_sales_detail     OWNER TO hanacupit;
+ALTER TABLE m_stera_transfer_batch          OWNER TO hanacupit;
+ALTER TABLE m_stera_transfer_detail         OWNER TO hanacupit;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO hanacupit;

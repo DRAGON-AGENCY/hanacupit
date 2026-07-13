@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,14 +20,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.cupit.model.ImportBatch;
 import com.cupit.model.SteraCodeSettlementDetail;
 import com.cupit.model.SteraCodeSettlementSummary;
+import com.cupit.model.SteraStore;
 import com.cupit.model.SteraTerminal;
 import com.cupit.repository.SteraCodeSettlementDetailRepository;
 import com.cupit.repository.SteraCodeSettlementSummaryRepository;
+import com.cupit.repository.SteraStoreRepository;
 import com.cupit.repository.SteraTerminalRepository;
 import com.cupit.testsupport.CsvFiles;
 
 /**
  * {@link SteraCodeFileImporter} のテスト。個別明細の取引コード解決、
+ * m_stera_store の振込先口座突合（未登録はスキップ）、
  * 小計行（伝票番号99999・決済時間000000）の判別とサマリテーブルへの振り分け、
  * サブウォレット名の空→null 変換、部分登録、extractLookupKey／deleteBatchData を検証する。
  */
@@ -46,12 +50,16 @@ class SteraCodeFileImporterTest {
     @Mock
     private SteraTerminalRepository steraTerminalRepository;
 
+    @Mock
+    private SteraStoreRepository steraStoreRepository;
+
     private SteraCodeFileImporter importer;
 
     @BeforeEach
     void setUp() {
         importer = new SteraCodeFileImporter(
-                settlementDetailRepository, settlementSummaryRepository, steraTerminalRepository);
+                settlementDetailRepository, settlementSummaryRepository,
+                steraTerminalRepository, steraStoreRepository);
     }
 
     @Test
@@ -60,6 +68,10 @@ class SteraCodeFileImporterTest {
                 .thenReturn(List.of(activeTerminal("01-001")));
         when(steraTerminalRepository.findByTerminalId("7113462036121"))
                 .thenReturn(List.of(activeTerminal("01-002")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
+        when(steraStoreRepository.findByTradeCode("01-002"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         ImportResult result = importer.importFile(
                 CsvFiles.fromClasspath("stera_code_valid.csv"), batch(20, "user001"));
@@ -81,6 +93,10 @@ class SteraCodeFileImporterTest {
                 .thenReturn(List.of(activeTerminal("01-001")));
         when(steraTerminalRepository.findByTerminalId("7113462036121"))
                 .thenReturn(List.of(activeTerminal("01-002")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
+        when(steraStoreRepository.findByTradeCode("01-002"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         importer.importFile(CsvFiles.fromClasspath("stera_code_valid.csv"), batch(20, "user001"));
 
@@ -99,6 +115,8 @@ class SteraCodeFileImporterTest {
     void treatsRowAsDetailWhenOnlyOneFixedMarkerMatches() throws Exception {
         when(steraTerminalRepository.findByTerminalId("7113462036751"))
                 .thenReturn(List.of(activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         // 伝票番号は99999だが決済時間が000000でないため小計行とは判別されない
         ImportResult result = importer.importFile(
@@ -114,6 +132,8 @@ class SteraCodeFileImporterTest {
     void treatsRowAsDetailWhenMarkersMatchButTerminalIdIsNumeric() throws Exception {
         when(steraTerminalRepository.findByTerminalId("7113462036751"))
                 .thenReturn(List.of(activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         // 通常明細・「伝票番号99999／決済時間000000が偶然一致するが端末識別番号が数字のみ
         // の明細（罠行）」・代表加盟店番号(S…)の小計行を含むファイル。罠行は端末識別番号が
@@ -164,6 +184,8 @@ class SteraCodeFileImporterTest {
     void skipsDetailRowWhenSettlementAmountIsNonNumeric() throws Exception {
         when(steraTerminalRepository.findByTerminalId("7113462036751"))
                 .thenReturn(List.of(activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         ImportResult result = importer.importFile(
                 CsvFiles.utf8Bom("x.csv", HEADER,
@@ -172,6 +194,21 @@ class SteraCodeFileImporterTest {
 
         assertThat(result.getSuccessCount()).isZero();
         assertThat(result.getErrors()).isNotEmpty();
+    }
+
+    @Test
+    void skipsDetailRowWhenNoStoreAccountExists() throws Exception {
+        when(steraTerminalRepository.findByTerminalId("7113462036751"))
+                .thenReturn(List.of(activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001")).thenReturn(Optional.empty());
+
+        ImportResult result = importer.importFile(
+                CsvFiles.utf8Bom("x.csv", HEADER,
+                        "\"楽天ペイ\",\"7113462036751\",\"03447\",\"20251101\",\"091102\",\"1\",\"5000\",\"\",\"\",\"\""),
+                batch(20, "user001"));
+
+        assertThat(result.getSuccessCount()).isZero();
+        assertThat(result.getErrors().get(0).getMessage()).contains("振込先口座情報");
     }
 
     @Test

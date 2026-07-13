@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,14 +19,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.cupit.model.ImportBatch;
 import com.cupit.model.SmccMerchantNo;
 import com.cupit.model.SteraCreditSalesDetail;
+import com.cupit.model.SteraStore;
 import com.cupit.repository.SmccMerchantNoRepository;
 import com.cupit.repository.SteraCreditSalesDetailRepository;
+import com.cupit.repository.SteraStoreRepository;
 import com.cupit.testsupport.CsvFiles;
 
 /**
  * {@link SteraCreditFileImporter} のテスト。利用加盟店番号からの取引コード解決
- * （0件・複数件はスキップ）、任意列の空→null 変換、部分登録、
- * extractLookupKey／deleteBatchData を検証する。
+ * （0件・複数件はスキップ）、m_stera_store の振込先口座突合（未登録はスキップ）、
+ * 任意列の空→null 変換、部分登録、extractLookupKey／deleteBatchData を検証する。
  */
 @ExtendWith(MockitoExtension.class)
 class SteraCreditFileImporterTest {
@@ -41,12 +44,15 @@ class SteraCreditFileImporterTest {
     @Mock
     private SmccMerchantNoRepository smccMerchantNoRepository;
 
+    @Mock
+    private SteraStoreRepository steraStoreRepository;
+
     private SteraCreditFileImporter importer;
 
     @BeforeEach
     void setUp() {
         importer = new SteraCreditFileImporter(
-                steraCreditSalesDetailRepository, smccMerchantNoRepository);
+                steraCreditSalesDetailRepository, smccMerchantNoRepository, steraStoreRepository);
     }
 
     @Test
@@ -55,6 +61,10 @@ class SteraCreditFileImporterTest {
                 .thenReturn(List.of(merchant("01-001")));
         when(smccMerchantNoRepository.findByMerchantNo("12348936"))
                 .thenReturn(List.of(merchant("01-002")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
+        when(steraStoreRepository.findByTradeCode("01-002"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         ImportResult result = importer.importFile(
                 CsvFiles.fromClasspath("stera_credit_valid.csv"), batch(30, "user001"));
@@ -77,6 +87,10 @@ class SteraCreditFileImporterTest {
                 .thenReturn(List.of(merchant("01-001")));
         when(smccMerchantNoRepository.findByMerchantNo("12348936"))
                 .thenReturn(List.of(merchant("01-002")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
+        when(steraStoreRepository.findByTradeCode("01-002"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         importer.importFile(CsvFiles.fromClasspath("stera_credit_valid.csv"), batch(30, "user001"));
 
@@ -97,6 +111,8 @@ class SteraCreditFileImporterTest {
                 .thenReturn(List.of(merchant("01-001")));
         when(smccMerchantNoRepository.findByMerchantNo("99999999"))
                 .thenReturn(List.of());
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         ImportResult result = importer.importFile(
                 CsvFiles.fromClasspath("stera_credit_partial.csv"), batch(30, "user001"));
@@ -132,6 +148,8 @@ class SteraCreditFileImporterTest {
     void skipsRowWhenBillingAmountIsNonNumeric() throws Exception {
         when(smccMerchantNoRepository.findByMerchantNo("12348894"))
                 .thenReturn(List.of(merchant("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
         String row =
                 "12348894,20251103,１回払,,,20251103,0,ABC,27500,0847146,"
                 + "71134-620-36114,,店舗,ＶＭ,00050,,,68473628";
@@ -141,6 +159,19 @@ class SteraCreditFileImporterTest {
 
         assertThat(result.getSuccessCount()).isZero();
         assertThat(result.getErrors()).isNotEmpty();
+    }
+
+    @Test
+    void skipsRowWhenNoStoreAccountExists() throws Exception {
+        when(smccMerchantNoRepository.findByMerchantNo("12348894"))
+                .thenReturn(List.of(merchant("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001")).thenReturn(Optional.empty());
+
+        ImportResult result = importer.importFile(
+                CsvFiles.ms932("x.csv", HEADER, validRow("12348894")), batch(30, "user001"));
+
+        assertThat(result.getSuccessCount()).isZero();
+        assertThat(result.getErrors().get(0).getMessage()).contains("振込先口座情報");
     }
 
     @Test

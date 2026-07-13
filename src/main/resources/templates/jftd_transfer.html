@@ -247,7 +247,8 @@
       </div>
       <ol class="notice-list">
         <li>「JFTD CSV作成」はJCB・スマレジ・ネットスターズ・楽天ペイ・住信SBIのうち、まだ振込CSVに含めていない（未処理の）インポート分をまとめて集計します。</li>
-        <li>「弊社手数料（本体・消費税）」は計算式が未確定のため<strong>0円のまま</strong>算出されます。表示される金額は決済事業者手数料控除後の暫定値であり、最終的な振込金額ではありません。</li>
+        <li>「その他 CSV作成」はstera JCB・stera code・steraクレジットのうち、まだ振込CSVに含めていない（未処理の）インポート分をまとめて集計します。</li>
+        <li>「JFTD CSV作成」の弊社手数料（本体・消費税）は計算式が未確定のため<strong>0円のまま</strong>算出されます。表示される金額は決済事業者手数料控除後の暫定値であり、最終的な振込金額ではありません（「その他 CSV作成」は仕入手数料・当社手数料・振込手数料まで含めた最終振込金額です）。</li>
         <li>「CSV作成」ボタンを押した時点で対象データが確定され、以後の集計対象から除外されます（<strong>後から取り消せません</strong>）。実行前に内容をよく確認してください。</li>
         <li>対象データが1件もない場合、CSVは生成されません。</li>
         <li>売上報告書・支払明細書は、確定後に「帳票出力」画面から何度でもダウンロードできます。</li>
@@ -257,9 +258,6 @@
 
   <script>
     var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    var currentTransferBatchId = null;
-
-    var btnCsv = document.getElementById('btn-csv-jftd');
 
     /* 確定（初回のみ）→ CSVダウンロードURLへ遷移してブラウザのダウンロードを発火させる。
        2回目以降（同じ画面でもう一度「CSV作成」を押した場合）は確定済みの
@@ -267,75 +265,84 @@
        0件でも空のバッチを黙って作成してしまうため、確定前に必ずpreviewで
        対象データの有無を確認する（画面には表示しない、0件時にボタン操作を
        止めるためだけの内部チェック）。
-       確定前（currentTransferBatchIdがnullの間）はボタンを無効化し、連打や
-       通信の遅延による二重クリックで/jftd_transfer/confirmが2回呼ばれることを防ぐ
-       （サーバー側でも排他ロックにより二重確定を防いでいるが、UI側でも
-       不要な二重リクエスト自体を出さないようにする）。 */
-    function ensureConfirmedThenDownloadCsv() {
-      if (currentTransferBatchId !== null) {
-        window.location.href = '/jftd_transfer/' + currentTransferBatchId + '/csv';
-        return;
+       確定前（batchIdがnullの間）はボタンを無効化し、連打や通信の遅延による
+       二重クリックでconfirmが2回呼ばれることを防ぐ（サーバー側でも排他ロックにより
+       二重確定を防いでいるが、UI側でも不要な二重リクエスト自体を出さないようにする）。
+       JFTD・その他の2つの「CSV作成」ボタンはエンドポイントのprefixが異なるだけで
+       流れが同一のため、この関数で両方の状態・イベントリスナーをまとめて生成する。 */
+    function setupCsvAction(buttonId, endpointPrefix) {
+      var button = document.getElementById(buttonId);
+      var currentTransferBatchId = null;
+
+      function ensureConfirmedThenDownloadCsv() {
+        if (currentTransferBatchId !== null) {
+          window.location.href = endpointPrefix + '/' + currentTransferBatchId + '/csv';
+          return;
+        }
+        button.disabled = true;
+        fetch(endpointPrefix + '/preview', {
+          method: 'POST',
+          headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
+        })
+          .then(function (res) {
+            if (res.status === 401) {
+              window.location.href = '/login';
+              return Promise.reject(new Error('unauthenticated'));
+            }
+            return res.json();
+          })
+          .then(function (rows) {
+            if (!rows || rows.length === 0) {
+              alert('まだ振込CSVに含めていない未処理のデータがありません。');
+              button.disabled = false;
+              return;
+            }
+            if (!window.confirm('確定すると対象データは今後の集計対象から除外されます。よろしいですか？')) {
+              button.disabled = false;
+              return;
+            }
+            confirmAndDownloadCsv();
+          })
+          .catch(function (err) {
+            button.disabled = false;
+            if (err.message === 'unauthenticated') { return; }
+            alert('通信エラーが発生しました: ' + err.message);
+          });
       }
-      btnCsv.disabled = true;
-      fetch('/jftd_transfer/preview', {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(function (res) {
-          if (res.status === 401) {
-            window.location.href = '/login';
-            return Promise.reject(new Error('unauthenticated'));
-          }
-          return res.json();
+
+      function confirmAndDownloadCsv() {
+        fetch(endpointPrefix + '/confirm', {
+          method: 'POST',
+          headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(function (rows) {
-          if (!rows || rows.length === 0) {
-            alert('まだ振込CSVに含めていない未処理のデータがありません。');
-            btnCsv.disabled = false;
-            return;
-          }
-          if (!window.confirm('確定すると対象データは今後の集計対象から除外されます。よろしいですか？')) {
-            btnCsv.disabled = false;
-            return;
-          }
-          confirmAndDownloadCsv();
-        })
-        .catch(function (err) {
-          btnCsv.disabled = false;
-          if (err.message === 'unauthenticated') { return; }
-          alert('通信エラーが発生しました: ' + err.message);
-        });
+          .then(function (res) {
+            if (res.status === 401) {
+              window.location.href = '/login';
+              return Promise.reject(new Error('unauthenticated'));
+            }
+            return res.json();
+          })
+          .then(function (data) {
+            if (data.success) {
+              currentTransferBatchId = data.transferBatchId;
+              window.location.href = endpointPrefix + '/' + currentTransferBatchId + '/csv';
+            } else {
+              button.disabled = false;
+              alert(data.errorMessage || 'エラーが発生しました。');
+            }
+          })
+          .catch(function (err) {
+            button.disabled = false;
+            if (err.message === 'unauthenticated') { return; }
+            alert('通信エラーが発生しました: ' + err.message);
+          });
+      }
+
+      button.addEventListener('click', ensureConfirmedThenDownloadCsv);
     }
 
-    function confirmAndDownloadCsv() {
-      fetch('/jftd_transfer/confirm', {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(function (res) {
-          if (res.status === 401) {
-            window.location.href = '/login';
-            return Promise.reject(new Error('unauthenticated'));
-          }
-          return res.json();
-        })
-        .then(function (data) {
-          if (data.success) {
-            currentTransferBatchId = data.transferBatchId;
-            window.location.href = '/jftd_transfer/' + currentTransferBatchId + '/csv';
-          } else {
-            btnCsv.disabled = false;
-            alert(data.errorMessage || 'エラーが発生しました。');
-          }
-        })
-        .catch(function (err) {
-          btnCsv.disabled = false;
-          if (err.message === 'unauthenticated') { return; }
-          alert('通信エラーが発生しました: ' + err.message);
-        });
-    }
-
-    btnCsv.addEventListener('click', ensureConfirmedThenDownloadCsv);
+    setupCsvAction('btn-csv-jftd', '/jftd_transfer');
+    setupCsvAction('btn-csv-other', '/stera_transfer');
   </script>
 </body>
 </html>

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,14 +18,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.cupit.model.ImportBatch;
 import com.cupit.model.SteraJcbSalesDetail;
+import com.cupit.model.SteraStore;
 import com.cupit.model.SteraTerminal;
 import com.cupit.repository.SteraJcbSalesDetailRepository;
+import com.cupit.repository.SteraStoreRepository;
 import com.cupit.repository.SteraTerminalRepository;
 import com.cupit.testsupport.CsvFiles;
 
 /**
  * {@link SteraJcbFileImporter} のテスト。加盟店番号の全角→半角正規化、
- * m_stera_terminal からの有効端末解決（0件・複数件はスキップ）、部分登録、
+ * m_stera_terminal からの有効端末解決（0件・複数件はスキップ）、
+ * m_stera_store の振込先口座突合（未登録はスキップ）、部分登録、
  * extractLookupKey／deleteBatchData を検証する。
  */
 @ExtendWith(MockitoExtension.class)
@@ -41,17 +45,23 @@ class SteraJcbFileImporterTest {
     @Mock
     private SteraTerminalRepository steraTerminalRepository;
 
+    @Mock
+    private SteraStoreRepository steraStoreRepository;
+
     private SteraJcbFileImporter importer;
 
     @BeforeEach
     void setUp() {
-        importer = new SteraJcbFileImporter(steraJcbSalesDetailRepository, steraTerminalRepository);
+        importer = new SteraJcbFileImporter(
+                steraJcbSalesDetailRepository, steraTerminalRepository, steraStoreRepository);
     }
 
     @Test
     void importsValidFileAndResolvesTradeCode() throws Exception {
         when(steraTerminalRepository.findByJcbMerchantNo(MERCHANT_A_NORMALIZED))
                 .thenReturn(List.of(activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         ImportResult result = importer.importFile(
                 CsvFiles.fromClasspath("stera_jcb_valid.csv"), batch(10, "user001"));
@@ -111,6 +121,8 @@ class SteraJcbFileImporterTest {
         expired.setTerminalEndDate(LocalDate.of(2025, 3, 31));
         when(steraTerminalRepository.findByJcbMerchantNo(MERCHANT_A_NORMALIZED))
                 .thenReturn(List.of(expired, activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         ImportResult result = importer.importFile(
                 CsvFiles.fromClasspath("stera_jcb_valid.csv"), batch(10, "user001"));
@@ -127,6 +139,8 @@ class SteraJcbFileImporterTest {
                 .thenReturn(List.of(activeTerminal("01-001")));
         when(steraTerminalRepository.findByJcbMerchantNo(MERCHANT_B_NORMALIZED))
                 .thenReturn(List.of());
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         ImportResult result = importer.importFile(
                 CsvFiles.fromClasspath("stera_jcb_partial.csv"), batch(10, "user001"));
@@ -153,6 +167,8 @@ class SteraJcbFileImporterTest {
     void skipsBlankLineWithoutError() throws Exception {
         when(steraTerminalRepository.findByJcbMerchantNo(MERCHANT_A_NORMALIZED))
                 .thenReturn(List.of(activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
 
         ImportResult result = importer.importFile(
                 CsvFiles.utf8Bom("x.csv",
@@ -163,6 +179,20 @@ class SteraJcbFileImporterTest {
 
         assertThat(result.getSuccessCount()).isEqualTo(1);
         assertThat(result.hasErrors()).isFalse();
+    }
+
+    @Test
+    void skipsRowWhenNoStoreAccountExists() throws Exception {
+        when(steraTerminalRepository.findByJcbMerchantNo(MERCHANT_A_NORMALIZED))
+                .thenReturn(List.of(activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001")).thenReturn(Optional.empty());
+
+        ImportResult result = importer.importFile(
+                CsvFiles.fromClasspath("stera_jcb_valid.csv"), batch(10, "user001"));
+
+        assertThat(result.getSuccessCount()).isZero();
+        assertThat(result.getErrors()).isNotEmpty();
+        assertThat(result.getErrors().get(0).getMessage()).contains("振込先口座情報");
     }
 
     @Test

@@ -19,6 +19,7 @@ import com.cupit.model.ImportBatch;
 import com.cupit.model.SteraJcbSalesDetail;
 import com.cupit.model.SteraTerminal;
 import com.cupit.repository.SteraJcbSalesDetailRepository;
+import com.cupit.repository.SteraStoreRepository;
 import com.cupit.repository.SteraTerminalRepository;
 
 /**
@@ -35,12 +36,15 @@ public class SteraJcbFileImporter extends AbstractFileImporter {
 
     private final SteraJcbSalesDetailRepository steraJcbSalesDetailRepository;
     private final SteraTerminalRepository steraTerminalRepository;
+    private final SteraStoreRepository steraStoreRepository;
 
     public SteraJcbFileImporter(
             SteraJcbSalesDetailRepository steraJcbSalesDetailRepository,
-            SteraTerminalRepository steraTerminalRepository) {
+            SteraTerminalRepository steraTerminalRepository,
+            SteraStoreRepository steraStoreRepository) {
         this.steraJcbSalesDetailRepository = steraJcbSalesDetailRepository;
         this.steraTerminalRepository = steraTerminalRepository;
+        this.steraStoreRepository = steraStoreRepository;
     }
 
     @Override
@@ -80,10 +84,14 @@ public class SteraJcbFileImporter extends AbstractFileImporter {
                 if (terminal.isEmpty()) {
                     continue;
                 }
+                String tradeCode = terminal.get().getTradeCode();
+                if (!hasStoreAccount(tradeCode, rowNum, "加盟店番号", errors)) {
+                    continue;
+                }
 
                 int errorCountBeforeRow = errors.size();
                 SteraJcbSalesDetail detail = new SteraJcbSalesDetail();
-                detail.setTradeCode(terminal.get().getTradeCode());
+                detail.setTradeCode(tradeCode);
                 detail.setBatchId(batch.getBatchId());
                 detail.setStoreName(trim(fields.get(0)));
                 detail.setStoreNumber(merchantNo);
@@ -191,6 +199,22 @@ public class SteraJcbFileImporter extends AbstractFileImporter {
                             + "取引コードを一意に決定できません。マスタデータをご確認ください。"));
         }
         return Optional.empty();
+    }
+
+    /**
+     * 解決済みの取引コードに対応する振込先口座情報がm_stera_storeに存在するか確認する。
+     * その他統合振込CSV作成の確定処理はこの突合を行わない前提のため、口座情報の有無は
+     * 必ずインポート時点で確認し、無ければ取引コード未解決の行と同様にスキップする。
+     */
+    private boolean hasStoreAccount(
+            String tradeCode, int rowNum, String columnName, List<CsvValidationError> errors) {
+        if (steraStoreRepository.findByTradeCode(tradeCode).isPresent()) {
+            return true;
+        }
+        errors.add(new CsvValidationError(rowNum, columnName,
+                "取引コード「" + tradeCode + "」に対応する振込先口座情報がm_stera_storeに"
+                        + "存在しません。"));
+        return false;
     }
 
     /**
