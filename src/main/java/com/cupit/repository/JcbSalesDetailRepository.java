@@ -10,10 +10,10 @@ import com.cupit.model.JcbSalesDetail;
 
 public interface JcbSalesDetailRepository extends JpaRepository<JcbSalesDetail, Integer> {
 
-    @Query("SELECT d.tradeCode AS tradeCode, d.cardName AS cardName, "
+    @Query("SELECT d.tradeCode AS tradeCode, d.cardName AS cardName, d.batchId AS batchId, "
             + "SUM(d.salesCount) AS totalSalesCount, SUM(d.salesAmount) AS totalSalesAmount "
             + "FROM JcbSalesDetail d WHERE d.batchId IN :batchIds "
-            + "GROUP BY d.tradeCode, d.cardName")
+            + "GROUP BY d.tradeCode, d.cardName, d.batchId")
     List<JcbBrandAggregate> sumByTradeCodeAndCardName(@Param("batchIds") List<Integer> batchIds);
 
     void deleteByBatchId(int batchId);
@@ -23,6 +23,8 @@ public interface JcbSalesDetailRepository extends JpaRepository<JcbSalesDetail, 
         String getTradeCode();
 
         String getCardName();
+
+        Integer getBatchId();
 
         Long getTotalSalesCount();
 

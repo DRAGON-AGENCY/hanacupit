@@ -79,6 +79,7 @@ public class JftdReportDataService {
     private TransferBatchSummary toSummary(JftdTransferBatch batch, List<ImportBatch> importBatches) {
         List<ImportBatchDetail> details = importBatches.stream()
                 .map(ib -> new ImportBatchDetail(
+                        ib.getBatchId(),
                         ib.getPaymentType(),
                         ib.getFileName(),
                         ib.getImportedAt(),
@@ -91,16 +92,18 @@ public class JftdReportDataService {
 
     /**
      * 確定済みの統合振込明細（m_jftd_transfer_detail）から帳票データを集計する。
-     * 帳票出力画面で複数の確定バッチをまとめて選択した場合、それらを1つの帳票として
-     * 集計できるよう、複数のtransferBatchIdをまたいで集計する。
+     * 帳票出力画面ではファイル（m_import_batch.batch_id）単位でチェックボックスを選択する
+     * ため、ここで受け取るのは確定バッチIDではなく元ファイルのbatch_idの一覧
+     * （{@code JftdTransferDetail.importBatchId}）である点に注意。複数ファイルを
+     * まとめて選択した場合はそれらを1つの帳票として集計する。
      */
-    public List<ReportRow> getReportRows(List<Integer> transferBatchIds) {
-        List<JftdTransferDetail> details = transferDetailRepository.findByTransferBatchIdIn(transferBatchIds);
+    public List<ReportRow> getReportRows(List<Integer> importBatchIds) {
+        List<JftdTransferDetail> details = transferDetailRepository.findByImportBatchIdIn(importBatchIds);
         List<TransferLineItem> lineItems = details.stream()
                 .map(d -> new TransferLineItem(
                         d.getTradeCode(), d.getItemCode(), d.getQuantity(), d.getAmount(),
                         d.getGrossAmount(), d.getAcquirerFeeTaxFree(),
-                        d.getAcquirerFeeBase(), d.getAcquirerFeeTax()))
+                        d.getAcquirerFeeBase(), d.getAcquirerFeeTax(), d.getImportBatchId()))
                 .toList();
         return summarize(lineItems);
     }

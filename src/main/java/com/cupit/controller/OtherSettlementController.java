@@ -69,6 +69,8 @@ public class OtherSettlementController {
      *
      * @param file        アップロードファイル
      * @param paymentType 決済種類の表示名
+     * @param cutoffDate  締め日（yyyy-MM-dd）。ファイルの精算対象期間をDBから判定する
+     *                    手段が無いため、画面でユーザーに明示入力させている
      * @param replace     同じ決済種別でエラーを含んだまま未確定のバッチが既に存在する場合に、
      *                    それを削除して置き換えることに同意しているかどうか
      * @param session     HTTPセッション（ログインユーザー取得用）
@@ -81,6 +83,7 @@ public class OtherSettlementController {
     public ResponseEntity<ImportResponse> importFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("paymentType") String paymentType,
+            @RequestParam("cutoffDate") String cutoffDate,
             @RequestParam(value = "replace", defaultValue = "false") boolean replace,
             HttpSession session) {
         try {
@@ -88,7 +91,7 @@ public class OtherSettlementController {
                     AuthenticationInterceptor.SESSION_ATTRIBUTE_LOGIN_USER);
             String memberNo = (loginUserAttr != null) ? loginUserAttr.toString() : "UNKNOWN";
             ImportResponse response = otherSettlementService.importFile(
-                    file, paymentType, memberNo, replace);
+                    file, paymentType, cutoffDate, memberNo, replace);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()

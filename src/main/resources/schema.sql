@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS m_import_batch (
     update_employee   VARCHAR(50),
     create_date       DATE            NOT NULL DEFAULT CURRENT_DATE,
     updated_date      DATE,
+    cutoff_date       DATE,
     CONSTRAINT pk_m_import_batch PRIMARY KEY (batch_id)
 );
 DO $$
@@ -159,6 +160,10 @@ ALTER TABLE m_import_batch ADD COLUMN IF NOT EXISTS file_hash VARCHAR(64);
 -- ファイルの全データ行から抽出した識別キー（取引コード解決に使う端末識別番号・
 -- 加盟店番号等）をカンマ区切りで保持する。件数上限が無いためTEXT型とする。
 ALTER TABLE m_import_batch ADD COLUMN IF NOT EXISTS lookup_keys TEXT;
+-- その他精算データ作成（stera terminal）画面でユーザーが明示入力する締め日。
+-- stera JCBのsales_date列は年を含まず、ファイルの締め期間をDBから判定する手段が
+-- 無かったため追加。JFTD側（PAYGATE Station）5社のインポートでは設定せずNULLのまま。
+ALTER TABLE m_import_batch ADD COLUMN IF NOT EXISTS cutoff_date DATE;
 
 -- JCB売上明細
 CREATE TABLE IF NOT EXISTS m_jcb_sales_detail (
@@ -533,6 +538,12 @@ ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS gross_amount INTEGER
 ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS acquirer_fee_tax_free INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS acquirer_fee_base INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS acquirer_fee_tax INTEGER NOT NULL DEFAULT 0;
+-- 帳票出力画面でファイル（m_import_batch）単位に選択・再ダウンロードできるようにするため
+-- 追加。確定時点で取引コード×項目コードだけでなく元ファイル単位まで行を分けて保存する
+-- ことで、金額は確定時点の値のまま固定しつつファイル単位の絞り込みを可能にする。
+-- m_import_batch.batch_idへの論理参照（FK制約なし、transfer_batch_idと同様の方針）。
+ALTER TABLE m_jftd_transfer_detail ADD COLUMN IF NOT EXISTS import_batch_id INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_transfer_detail_import_batch ON m_jftd_transfer_detail(import_batch_id);
 
 -- 項目コードマスタ（決済会社×カードブランド×金額種別→会計項目コード）
 CREATE TABLE IF NOT EXISTS m_settlement_item_code (

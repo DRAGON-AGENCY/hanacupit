@@ -24,9 +24,9 @@ class TransferCsvWriterTest {
     void writeZipGroupsLineItemsByItemCode() throws IOException {
         TransferCsvWriter writer = new TransferCsvWriter();
         List<TransferLineItem> lineItems = List.of(
-                new TransferLineItem("01-001", "3300024", 1, 14150, 14150, 0, 0, 0),
-                new TransferLineItem("03-048", "3300024", 1, 164758, 164758, 0, 0, 0),
-                new TransferLineItem("35-026", "3300007", 1, 649, 649, 0, 0, 0));
+                new TransferLineItem("01-001", "3300024", 1, 14150, 14150, 0, 0, 0, 10),
+                new TransferLineItem("03-048", "3300024", 1, 164758, 164758, 0, 0, 0, 10),
+                new TransferLineItem("35-026", "3300007", 1, 649, 649, 0, 0, 0, 20));
 
         byte[] zipBytes = writer.writeZip(lineItems);
 

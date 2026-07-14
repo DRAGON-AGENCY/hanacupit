@@ -153,6 +153,8 @@
     display: flex; justify-content: space-between; align-items: flex-end; gap: 20px;
   }
 
+  .form-fields-group { display: flex; align-items: flex-end; gap: 10px; }
+
   .button-group { display: flex; align-items: center; gap: 10px; }
 
   .btn {
@@ -275,6 +277,7 @@
   @media (max-width: 640px) {
     .container { padding: 20px 16px 24px; }
     .form-row-with-action { flex-direction: column; align-items: stretch; }
+    .form-fields-group { flex-direction: column; align-items: stretch; }
     .custom-select, .text-input { width: 100%; }
     .button-group { align-self: flex-end; }
   }
@@ -296,16 +299,23 @@
       </div>
 
       <div class="form-row-with-action">
-        <div class="form-field" style="margin-bottom:0">
-          <label class="form-label">決済種類</label>
-          <div class="custom-select" id="payment-type-select">
-            <div class="select-display">
-              <span id="payment-type-value">stera JCB</span>
-            </div>
-            <div class="select-options">
-              <div class="select-option selected" data-value="stera JCB">stera JCB</div>
-              <div class="select-option" data-value="stera code">stera code</div>
-              <div class="select-option" data-value="steraクレジット">steraクレジット</div>
+        <div class="form-fields-group">
+          <div class="form-field" style="margin-bottom:0">
+            <label class="form-label" for="cutoff-date">締め日</label>
+            <input type="date" id="cutoff-date" class="text-input" />
+          </div>
+
+          <div class="form-field" style="margin-bottom:0">
+            <label class="form-label">決済種類</label>
+            <div class="custom-select" id="payment-type-select">
+              <div class="select-display">
+                <span id="payment-type-value">stera JCB</span>
+              </div>
+              <div class="select-options">
+                <div class="select-option selected" data-value="stera JCB">stera JCB</div>
+                <div class="select-option" data-value="stera code">stera code</div>
+                <div class="select-option" data-value="steraクレジット">steraクレジット</div>
+              </div>
             </div>
           </div>
         </div>
@@ -347,6 +357,7 @@
       </div>
       <ol class="notice-list">
         <li>stera terminalから受領した精算ファイルを参照ボタンから選択してください。</li>
+        <li>締め日を正しく入力してください（未入力の場合はアップロードできません）。</li>
         <li>ファイル選択後、フォーマットチェックが自動で実行されます。エラーがない場合にアップロードボタンが有効になります。</li>
         <li>取引コードが特定できない行やデータ形式が不正な行はその行だけ登録されず、正常な行のみ登録されます。エラーが発生した行はすべて一覧に表示されます。</li>
         <li>stera codeファイルは、ブランド（楽天ペイ・PayPay等）ごとの明細ブロック末尾に小計行が含まれますが、これは個別取引として登録せず自動的に除外されます。</li>
@@ -394,6 +405,7 @@
     const optionEls       = selectEl.querySelectorAll('.select-option');
     const fileHidden      = document.getElementById('file-hidden');
     const fileDisplay     = document.getElementById('file-display');
+    const cutoffDateInput = document.getElementById('cutoff-date');
     const btnBrowse       = document.getElementById('btn-browse');
     const btnUpload       = document.getElementById('btn-upload');
     const checkResult     = document.getElementById('check-result');
@@ -409,6 +421,15 @@
 
     let selectedFile = null;
     let currentPaymentType = DEFAULT_PAYMENT_TYPE;
+    let formatCheckPassed = false;
+
+    /* アップロードボタンは「フォーマットチェックOK」かつ「締め日入力済み」の
+       両方が揃って初めて有効化する */
+    function updateUploadButtonState() {
+      btnUpload.disabled = !(formatCheckPassed && cutoffDateInput.value);
+    }
+
+    cutoffDateInput.addEventListener('input', updateUploadButtonState);
 
     /* =============================================
        カスタムドロップダウン
@@ -462,7 +483,8 @@
       fileHidden.value = '';
       fileDisplay.value = '';
       hideResult();
-      btnUpload.disabled = true;
+      formatCheckPassed = false;
+      updateUploadButtonState();
     }
 
     /* 決済種類の選択を初期値（先頭のstera JCB）に戻す */
@@ -479,6 +501,8 @@
     btnClearResult.addEventListener('click', function () {
       resetFileAndResult();
       resetPaymentTypeSelection();
+      cutoffDateInput.value = '';
+      updateUploadButtonState();
     });
 
     function hideResult() {
@@ -490,7 +514,8 @@
       resultTitle.textContent = '✓ フォーマットチェック OK';
       resultSummary.textContent = message;
       errorWrapper.style.display = 'none';
-      btnUpload.disabled = false;
+      formatCheckPassed = true;
+      updateUploadButtonState();
     }
 
     function showNg(message, errors, title) {
@@ -510,7 +535,8 @@
       } else {
         errorWrapper.style.display = 'none';
       }
-      btnUpload.disabled = true;
+      formatCheckPassed = false;
+      updateUploadButtonState();
     }
 
     function escapeHtml(str) {
@@ -712,6 +738,7 @@
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('paymentType', currentPaymentType);
+      formData.append('cutoffDate', cutoffDateInput.value);
       formData.append('replace', replace ? 'true' : 'false');
 
       fetch('/other_settlement/import', {
@@ -741,7 +768,7 @@
             }
             uploadIcon.innerHTML = '&#11014;';
             uploadLabel.textContent = 'アップロード';
-            btnUpload.disabled = false;
+            updateUploadButtonState();
             return;
           }
           uploadIcon.innerHTML = '&#11014;';
@@ -753,7 +780,6 @@
           uploadLabel.textContent = 'アップロード';
           if (err.message === 'unauthenticated') { return; }
           showNg('通信エラーが発生しました: ' + err.message, [], '✗ 通信エラー');
-          btnUpload.disabled = false;
         });
     }
 
@@ -784,7 +810,7 @@
         } else {
           errorWrapper.style.display = 'none';
         }
-        btnUpload.disabled = false;
+        updateUploadButtonState();
       }
     }
   </script>

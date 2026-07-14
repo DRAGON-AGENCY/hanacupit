@@ -52,6 +52,9 @@ public class ImportBatch {
     @Column(name = "updated_date")
     private LocalDate updatedDate;
 
+    @Column(name = "cutoff_date")
+    private LocalDate cutoffDate;
+
     public int getBatchId() {
         return batchId;
     }
@@ -146,5 +149,13 @@ public class ImportBatch {
 
     public void setUpdatedDate(LocalDate updatedDate) {
         this.updatedDate = updatedDate;
+    }
+
+    public LocalDate getCutoffDate() {
+        return cutoffDate;
+    }
+
+    public void setCutoffDate(LocalDate cutoffDate) {
+        this.cutoffDate = cutoffDate;
     }
 }

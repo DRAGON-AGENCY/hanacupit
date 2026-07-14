@@ -106,14 +106,16 @@ public class JftdTransferController {
     }
 
     /**
-     * 確定済みの統合振込バッチの売上報告書(.xlsx)をダウンロードする。帳票出力画面の
-     * 履歴一覧で複数バッチを選択した場合、それらをまとめて1つの帳票に集計する。
-     * 指定されたバッチに明細が1件も無い場合（存在しない・削除済みのtransferBatchIdを
+     * 確定済みの統合振込明細から売上報告書(.xlsx)をダウンロードする。帳票出力画面の
+     * 履歴一覧はファイル（m_import_batch.batch_id）単位でチェックボックスを選択する
+     * ため、{@code ids}は確定バッチIDではなく元ファイルのbatch_idの一覧である。
+     * 複数ファイルを選択した場合、それらをまとめて1つの帳票に集計する。
+     * 指定されたファイルに明細が1件も無い場合（存在しない・削除済みのbatch_idを
      * 指定した場合等）は、0円のプレースホルダー帳票を黙って返さず404を返す。
      */
     @GetMapping("/jftd_transfer/report/sales")
-    public ResponseEntity<byte[]> downloadSalesReport(@RequestParam("ids") List<Integer> transferBatchIds) {
-        List<ReportRow> rows = reportDataService.getReportRows(transferBatchIds);
+    public ResponseEntity<byte[]> downloadSalesReport(@RequestParam("ids") List<Integer> importBatchIds) {
+        List<ReportRow> rows = reportDataService.getReportRows(importBatchIds);
         if (rows.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -122,13 +124,13 @@ public class JftdTransferController {
     }
 
     /**
-     * 確定済みの統合振込バッチの支払明細書(.xlsx)をダウンロードする。帳票出力画面の
-     * 履歴一覧で複数バッチを選択した場合、それらをまとめて1つの帳票に集計する。
-     * 指定されたバッチに明細が1件も無い場合は404を返す（downloadSalesReport()と同様）。
+     * 確定済みの統合振込明細から支払明細書(.xlsx)をダウンロードする。{@code ids}の意味は
+     * downloadSalesReport()と同じくファイル単位のbatch_idである。
+     * 指定されたファイルに明細が1件も無い場合は404を返す（downloadSalesReport()と同様）。
      */
     @GetMapping("/jftd_transfer/report/statement")
-    public ResponseEntity<byte[]> downloadStatement(@RequestParam("ids") List<Integer> transferBatchIds) {
-        List<ReportRow> rows = reportDataService.getReportRows(transferBatchIds);
+    public ResponseEntity<byte[]> downloadStatement(@RequestParam("ids") List<Integer> importBatchIds) {
+        List<ReportRow> rows = reportDataService.getReportRows(importBatchIds);
         if (rows.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -152,7 +154,7 @@ public class JftdTransferController {
                 .map(d -> new TransferLineItem(
                         d.getTradeCode(), d.getItemCode(), d.getQuantity(), d.getAmount(),
                         d.getGrossAmount(), d.getAcquirerFeeTaxFree(),
-                        d.getAcquirerFeeBase(), d.getAcquirerFeeTax()))
+                        d.getAcquirerFeeBase(), d.getAcquirerFeeTax(), d.getImportBatchId()))
                 .toList();
     }
 

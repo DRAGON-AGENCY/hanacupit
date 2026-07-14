@@ -16,53 +16,54 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.cupit.model.ImportBatch;
-import com.cupit.model.JftdTransferBatch;
-import com.cupit.model.JftdTransferDetail;
+import com.cupit.model.SteraTransferBatch;
+import com.cupit.model.SteraTransferDetail;
 import com.cupit.repository.ImportBatchRepository;
-import com.cupit.repository.JftdTransferBatchRepository;
-import com.cupit.repository.JftdTransferDetailRepository;
-import com.cupit.service.settlement.TransferLineItem;
+import com.cupit.repository.SteraTransferBatchRepository;
+import com.cupit.repository.SteraTransferDetailRepository;
+import com.cupit.service.settlement.SteraTransferLineItem;
 
 /**
- * JftdTransferConfirmService のテスト。
- * 確定処理で計算結果がスナップショット保存され、対象インポートバッチに
- * transferBatchIdが設定されることを検証する。
+ * SteraTransferConfirmService のテスト。{@link JftdTransferConfirmServiceTest}と
+ * 同じ構造で、確定処理で計算結果（口座情報のスナップショットを含む）が保存され、
+ * 対象インポートバッチにtransferBatchIdが設定されることを検証する。
  */
 @ExtendWith(MockitoExtension.class)
-class JftdTransferConfirmServiceTest {
+class SteraTransferConfirmServiceTest {
 
     private static final int NEW_TRANSFER_BATCH_ID = 999;
     private static final String LOGIN_USER = "user001";
 
     @Mock
-    private JftdTransferCalculationService calculationService;
+    private SteraTransferCalculationService calculationService;
 
     @Mock
-    private JftdTransferBatchRepository transferBatchRepository;
+    private SteraTransferBatchRepository transferBatchRepository;
 
     @Mock
-    private JftdTransferDetailRepository transferDetailRepository;
+    private SteraTransferDetailRepository transferDetailRepository;
 
     @Mock
     private ImportBatchRepository importBatchRepository;
 
-    private JftdTransferConfirmService service;
+    private SteraTransferConfirmService service;
 
     @BeforeEach
     void setUp() {
-        service = new JftdTransferConfirmService(
+        service = new SteraTransferConfirmService(
                 calculationService, transferBatchRepository, transferDetailRepository, importBatchRepository);
 
         when(calculationService.calculateAllLineItems(anyMap())).thenReturn(List.of(
-                new TransferLineItem("01-001", "3300024", 1, 14150, 14150, 0, 0, 0, 10)));
+                new SteraTransferLineItem("01-030", 15070, 415, 30, 129, 14496,
+                        "0100", "三菱ＵＦＪ銀行", "001", "本店", "1", "1234567", "ﾊﾅｷﾕ-ﾋﾟﾂﾄ")));
 
-        when(transferBatchRepository.save(any(JftdTransferBatch.class))).thenAnswer(invocation -> {
-            JftdTransferBatch batch = invocation.getArgument(0);
+        when(transferBatchRepository.save(any(SteraTransferBatch.class))).thenAnswer(invocation -> {
+            SteraTransferBatch batch = invocation.getArgument(0);
             batch.setTransferBatchId(NEW_TRANSFER_BATCH_ID);
             return batch;
         });
 
-        for (String paymentType : List.of("JCB", "スマレジ", "ネットスターズ", "楽天ペイ", "住信SBI")) {
+        for (String paymentType : List.of("stera JCB", "stera code", "steraクレジット")) {
             when(importBatchRepository.lockUnprocessedByPaymentType(paymentType))
                     .thenReturn(List.of());
         }
@@ -74,27 +75,27 @@ class JftdTransferConfirmServiceTest {
 
         assertThat(result).isEqualTo(NEW_TRANSFER_BATCH_ID);
 
-        ArgumentCaptor<JftdTransferDetail> detailCaptor = ArgumentCaptor.forClass(JftdTransferDetail.class);
+        ArgumentCaptor<SteraTransferDetail> detailCaptor = ArgumentCaptor.forClass(SteraTransferDetail.class);
         verify(transferDetailRepository).save(detailCaptor.capture());
-        JftdTransferDetail savedDetail = detailCaptor.getValue();
+        SteraTransferDetail savedDetail = detailCaptor.getValue();
         assertThat(savedDetail.getTransferBatchId()).isEqualTo(NEW_TRANSFER_BATCH_ID);
-        assertThat(savedDetail.getImportBatchId()).isEqualTo(10);
-        assertThat(savedDetail.getTradeCode()).isEqualTo("01-001");
-        assertThat(savedDetail.getItemCode()).isEqualTo("3300024");
-        assertThat(savedDetail.getAmount()).isEqualTo(14150);
-        assertThat(savedDetail.getGrossAmount()).isEqualTo(14150);
-        assertThat(savedDetail.getAcquirerFeeTaxFree()).isEqualTo(0);
-        assertThat(savedDetail.getAcquirerFeeBase()).isEqualTo(0);
-        assertThat(savedDetail.getAcquirerFeeTax()).isEqualTo(0);
+        assertThat(savedDetail.getTradeCode()).isEqualTo("01-030");
+        assertThat(savedDetail.getGrossAmount()).isEqualTo(15070);
+        assertThat(savedDetail.getAcquirerFee()).isEqualTo(415);
+        assertThat(savedDetail.getCompanyFee()).isEqualTo(30);
+        assertThat(savedDetail.getTransferFee()).isEqualTo(129);
+        assertThat(savedDetail.getNetAmount()).isEqualTo(14496);
+        assertThat(savedDetail.getBankCode()).isEqualTo("0100");
+        assertThat(savedDetail.getAccountHolderKana()).isEqualTo("ﾊﾅｷﾕ-ﾋﾟﾂﾄ");
         assertThat(savedDetail.getUpdateEmployee()).isEqualTo(LOGIN_USER);
     }
 
     @Test
     void confirmMarksUnprocessedImportBatchesAsTransferred() {
-        ImportBatch jcbBatch = new ImportBatch();
-        jcbBatch.setBatchId(1);
-        when(importBatchRepository.lockUnprocessedByPaymentType("JCB"))
-                .thenReturn(List.of(jcbBatch));
+        ImportBatch steraJcbBatch = new ImportBatch();
+        steraJcbBatch.setBatchId(1);
+        when(importBatchRepository.lockUnprocessedByPaymentType("stera JCB"))
+                .thenReturn(List.of(steraJcbBatch));
 
         service.confirm(LOGIN_USER);
 

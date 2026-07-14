@@ -78,6 +78,7 @@ public class JftdTransferConfirmService {
         for (TransferLineItem item : lineItems) {
             JftdTransferDetail detail = new JftdTransferDetail();
             detail.setTransferBatchId(transferBatchId);
+            detail.setImportBatchId(item.getImportBatchId());
             detail.setTradeCode(item.getTradeCode());
             detail.setItemCode(item.getItemCode());
             detail.setQuantity(item.getQuantity());

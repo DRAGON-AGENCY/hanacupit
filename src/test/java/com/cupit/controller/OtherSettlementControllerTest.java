@@ -33,6 +33,7 @@ import jakarta.servlet.http.HttpSession;
 class OtherSettlementControllerTest {
 
     private static final String STERA_CODE = "stera code";
+    private static final String CUTOFF_DATE = "2025-11-30";
 
     @Mock
     private OtherSettlementService otherSettlementService;
@@ -84,15 +85,16 @@ class OtherSettlementControllerTest {
     void importFileUsesLoginUserFromSession() throws Exception {
         when(session.getAttribute(AuthenticationInterceptor.SESSION_ATTRIBUTE_LOGIN_USER))
                 .thenReturn("user001");
-        when(otherSettlementService.importFile(any(), eq(STERA_CODE), any(), eq(false)))
+        when(otherSettlementService.importFile(any(), eq(STERA_CODE), eq(CUTOFF_DATE), any(), eq(false)))
                 .thenReturn(new ImportResponse(true, 2, 100, null));
 
-        ResponseEntity<ImportResponse> response = controller.importFile(file, STERA_CODE, false, session);
+        ResponseEntity<ImportResponse> response =
+                controller.importFile(file, STERA_CODE, CUTOFF_DATE, false, session);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         ArgumentCaptor<String> memberNo = ArgumentCaptor.forClass(String.class);
         org.mockito.Mockito.verify(otherSettlementService)
-                .importFile(any(), eq(STERA_CODE), memberNo.capture(), eq(false));
+                .importFile(any(), eq(STERA_CODE), eq(CUTOFF_DATE), memberNo.capture(), eq(false));
         assertThat(memberNo.getValue()).isEqualTo("user001");
     }
 
@@ -100,10 +102,11 @@ class OtherSettlementControllerTest {
     void importFileFallsBackToUnknownWhenNoLoginUser() throws Exception {
         when(session.getAttribute(AuthenticationInterceptor.SESSION_ATTRIBUTE_LOGIN_USER))
                 .thenReturn(null);
-        when(otherSettlementService.importFile(any(), eq(STERA_CODE), eq("UNKNOWN"), eq(false)))
+        when(otherSettlementService.importFile(any(), eq(STERA_CODE), eq(CUTOFF_DATE), eq("UNKNOWN"), eq(false)))
                 .thenReturn(new ImportResponse(true, 0, 1, null));
 
-        ResponseEntity<ImportResponse> response = controller.importFile(file, STERA_CODE, false, session);
+        ResponseEntity<ImportResponse> response =
+                controller.importFile(file, STERA_CODE, CUTOFF_DATE, false, session);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
     }
@@ -112,10 +115,11 @@ class OtherSettlementControllerTest {
     void importFileReturnsBadRequestOnIllegalArgument() throws Exception {
         when(session.getAttribute(AuthenticationInterceptor.SESSION_ATTRIBUTE_LOGIN_USER))
                 .thenReturn("user001");
-        when(otherSettlementService.importFile(any(), eq(STERA_CODE), any(), eq(false)))
+        when(otherSettlementService.importFile(any(), eq(STERA_CODE), eq(CUTOFF_DATE), any(), eq(false)))
                 .thenThrow(new IllegalArgumentException("識別キー"));
 
-        ResponseEntity<ImportResponse> response = controller.importFile(file, STERA_CODE, false, session);
+        ResponseEntity<ImportResponse> response =
+                controller.importFile(file, STERA_CODE, CUTOFF_DATE, false, session);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
     }
@@ -124,10 +128,11 @@ class OtherSettlementControllerTest {
     void importFileReturnsServerErrorOnIoException() throws Exception {
         when(session.getAttribute(AuthenticationInterceptor.SESSION_ATTRIBUTE_LOGIN_USER))
                 .thenReturn("user001");
-        when(otherSettlementService.importFile(any(), eq(STERA_CODE), any(), eq(false)))
+        when(otherSettlementService.importFile(any(), eq(STERA_CODE), eq(CUTOFF_DATE), any(), eq(false)))
                 .thenThrow(new IOException("io"));
 
-        ResponseEntity<ImportResponse> response = controller.importFile(file, STERA_CODE, false, session);
+        ResponseEntity<ImportResponse> response =
+                controller.importFile(file, STERA_CODE, CUTOFF_DATE, false, session);
 
         assertThat(response.getStatusCode().value()).isEqualTo(500);
     }
@@ -136,10 +141,11 @@ class OtherSettlementControllerTest {
     void importFileReturnsServerErrorOnRuntimeException() throws Exception {
         when(session.getAttribute(AuthenticationInterceptor.SESSION_ATTRIBUTE_LOGIN_USER))
                 .thenReturn("user001");
-        when(otherSettlementService.importFile(any(), eq(STERA_CODE), any(), eq(false)))
+        when(otherSettlementService.importFile(any(), eq(STERA_CODE), eq(CUTOFF_DATE), any(), eq(false)))
                 .thenThrow(new RuntimeException("boom"));
 
-        ResponseEntity<ImportResponse> response = controller.importFile(file, STERA_CODE, false, session);
+        ResponseEntity<ImportResponse> response =
+                controller.importFile(file, STERA_CODE, CUTOFF_DATE, false, session);
 
         assertThat(response.getStatusCode().value()).isEqualTo(500);
     }

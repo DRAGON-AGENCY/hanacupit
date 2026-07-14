@@ -16,10 +16,10 @@ public interface VisaMasterTransactionRepository extends JpaRepository<VisaMaste
      * 300件超）で数円〜十数円の丸め誤差が生じ実データと一致しないことを検証済みのため、
      * 必ずfee_amount_1列の値を使うこと（fee_rateは実績値の参考表示以上の意味を持たない）。
      */
-    @Query("SELECT d.tradeCode AS tradeCode, SUM(d.salesAmount) AS totalSalesAmount, "
+    @Query("SELECT d.tradeCode AS tradeCode, d.batchId AS batchId, SUM(d.salesAmount) AS totalSalesAmount, "
             + "SUM(d.feeAmount1) AS totalFeeAmount1 "
             + "FROM VisaMasterTransaction d WHERE d.batchId IN :batchIds "
-            + "GROUP BY d.tradeCode")
+            + "GROUP BY d.tradeCode, d.batchId")
     List<VisaMasterAggregate> sumByTradeCode(@Param("batchIds") List<Integer> batchIds);
 
     void deleteByBatchId(int batchId);
@@ -27,6 +27,8 @@ public interface VisaMasterTransactionRepository extends JpaRepository<VisaMaste
     interface VisaMasterAggregate {
 
         String getTradeCode();
+
+        Integer getBatchId();
 
         Long getTotalSalesAmount();
 

@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -69,6 +70,9 @@ public class OtherSettlementService {
      *
      * @param file        アップロードファイル
      * @param paymentType 決済種類の表示名
+     * @param cutoffDate  締め日（yyyy-MM-dd）。stera terminal側は精算ファイルの日付列だけ
+     *                    では精算対象期間を一意に判定できないため、画面で明示入力させた
+     *                    値をそのままバッチに記録する
      * @param memberNo    ログインユーザーID
      * @param replace     同じ決済種別で置き換え候補となる未確定のバッチが既に存在する場合に、
      *                    それを削除して置き換えることに同意しているかどうか
@@ -79,10 +83,21 @@ public class OtherSettlementService {
     public ImportResponse importFile(
             MultipartFile file,
             String paymentType,
+            String cutoffDate,
             String memberNo,
             boolean replace) throws IOException {
         if (file == null || file.isEmpty()) {
             return new ImportResponse(false, 0, null, "ファイルが選択されていません。");
+        }
+
+        LocalDate parsedCutoffDate;
+        try {
+            parsedCutoffDate = LocalDate.parse(cutoffDate);
+        } catch (DateTimeParseException e) {
+            String message = (cutoffDate == null || cutoffDate.isBlank())
+                    ? "締め日を入力してください。"
+                    : "締め日の形式が不正です。";
+            return new ImportResponse(false, 0, null, message);
         }
 
         PaymentType type = PaymentType.fromDisplayName(paymentType);
@@ -127,6 +142,7 @@ public class OtherSettlementService {
         batch.setCreateDate(LocalDate.now());
         batch.setFileHash(fileHash);
         batch.setLookupKeys(String.join(",", allKeys));
+        batch.setCutoffDate(parsedCutoffDate);
         ImportBatch savedBatch = importBatchRepository.save(batch);
 
         ImportResult result = importer.importFile(file, savedBatch);

@@ -17,9 +17,10 @@ public interface TerminalMonthlyFeeRepository extends JpaRepository<TerminalMont
      * 共通で、1800円端末のみ差額1100円が別項目（調整）として加算される。
      * そのためtrade_code・unit_price単位で端末数を集計する。
      */
-    @Query("SELECT d.tradeCode AS tradeCode, d.unitPrice AS unitPrice, COUNT(d) AS terminalCount "
+    @Query("SELECT d.tradeCode AS tradeCode, d.unitPrice AS unitPrice, d.batchId AS batchId, "
+            + "COUNT(d) AS terminalCount "
             + "FROM TerminalMonthlyFee d WHERE d.batchId IN :batchIds "
-            + "GROUP BY d.tradeCode, d.unitPrice")
+            + "GROUP BY d.tradeCode, d.unitPrice, d.batchId")
     List<TerminalFeeAggregate> sumByTradeCodeAndUnitPrice(@Param("batchIds") List<Integer> batchIds);
 
     void deleteByBatchId(int batchId);
@@ -29,6 +30,8 @@ public interface TerminalMonthlyFeeRepository extends JpaRepository<TerminalMont
         String getTradeCode();
 
         Integer getUnitPrice();
+
+        Integer getBatchId();
 
         Long getTerminalCount();
 

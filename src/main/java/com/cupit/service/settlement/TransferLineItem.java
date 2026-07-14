@@ -29,9 +29,12 @@ public class TransferLineItem {
 
     private final int acquirerFeeTax;
 
+    private final int importBatchId;
+
     public TransferLineItem(
             String tradeCode, String itemCode, int quantity, int amount,
-            int grossAmount, int acquirerFeeTaxFree, int acquirerFeeBase, int acquirerFeeTax) {
+            int grossAmount, int acquirerFeeTaxFree, int acquirerFeeBase, int acquirerFeeTax,
+            int importBatchId) {
         this.tradeCode = tradeCode;
         this.itemCode = itemCode;
         this.quantity = quantity;
@@ -40,6 +43,7 @@ public class TransferLineItem {
         this.acquirerFeeTaxFree = acquirerFeeTaxFree;
         this.acquirerFeeBase = acquirerFeeBase;
         this.acquirerFeeTax = acquirerFeeTax;
+        this.importBatchId = importBatchId;
     }
 
     public String getTradeCode() {
@@ -72,6 +76,10 @@ public class TransferLineItem {
 
     public int getAcquirerFeeTax() {
         return acquirerFeeTax;
+    }
+
+    public int getImportBatchId() {
+        return importBatchId;
     }
 
 }

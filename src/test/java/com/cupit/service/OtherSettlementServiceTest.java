@@ -7,11 +7,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -37,6 +39,7 @@ import com.cupit.testsupport.CsvFiles;
 class OtherSettlementServiceTest {
 
     private static final String STERA_CODE = "stera code";
+    private static final String CUTOFF_DATE = "2025-11-30";
 
     @Mock
     private FileImporterFactory fileImporterFactory;
@@ -71,9 +74,28 @@ class OtherSettlementServiceTest {
 
     @Test
     void importFileReturnsErrorWhenFileIsNull() throws Exception {
-        ImportResponse response = service.importFile(null, STERA_CODE, "user001", false);
+        ImportResponse response = service.importFile(null, STERA_CODE, CUTOFF_DATE, "user001", false);
 
         assertThat(response.isSuccess()).isFalse();
+        verify(importBatchRepository, never()).save(any());
+    }
+
+    @Test
+    void importFileRejectsBlankCutoffDateWithoutRegistering() throws Exception {
+        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, "", "user001", false);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getErrorMessage()).contains("締め日を入力してください");
+        verify(importBatchRepository, never()).save(any());
+    }
+
+    @Test
+    void importFileRejectsInvalidCutoffDateWithoutRegistering() throws Exception {
+        ImportResponse response =
+                service.importFile(validSteraCodeFile(), STERA_CODE, "not-a-date", "user001", false);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getErrorMessage()).contains("締め日の形式が不正です");
         verify(importBatchRepository, never()).save(any());
     }
 
@@ -82,7 +104,7 @@ class OtherSettlementServiceTest {
         MockMultipartFile wrongExtension = CsvFiles.utf8Bom("stera_code.txt",
                 "ブランド,端末識別番号,伝票番号,決済年月日,決済時間,1:売上2:返品,決済金額,手数料金額,収納金額,サブウォレット名");
 
-        ImportResponse response = service.importFile(wrongExtension, STERA_CODE, "user001", false);
+        ImportResponse response = service.importFile(wrongExtension, STERA_CODE, CUTOFF_DATE, "user001", false);
 
         assertThat(response.isSuccess()).isFalse();
         assertThat(response.getErrorMessage()).contains("フォーマット検証エラー");
@@ -100,13 +122,17 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(2, 2, List.of()));
 
-        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, "user001", false);
+        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, CUTOFF_DATE, "user001", false);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getImportedCount()).isEqualTo(2);
         assertThat(response.getBatchId()).isEqualTo(100);
         assertThat(saved.getRecordCount()).isEqualTo(2);
         assertThat(saved.getErrorCount()).isZero();
+
+        ArgumentCaptor<ImportBatch> batchCaptor = ArgumentCaptor.forClass(ImportBatch.class);
+        verify(importBatchRepository, org.mockito.Mockito.times(2)).save(batchCaptor.capture());
+        assertThat(batchCaptor.getAllValues().get(0).getCutoffDate()).isEqualTo(LocalDate.parse(CUTOFF_DATE));
     }
 
     @Test
@@ -121,7 +147,7 @@ class OtherSettlementServiceTest {
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(1, 2,
                 List.of(new CsvValidationError(3, "決済金額", "数値変換エラー"))));
 
-        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, "user001", false);
+        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, CUTOFF_DATE, "user001", false);
 
         assertThat(response.isSuccess()).isFalse();
         assertThat(response.getImportedCount()).isEqualTo(1);
@@ -135,7 +161,7 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(STERA_CODE))
                 .thenReturn(List.of(batch(50, 3, null)));
 
-        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, "user001", false);
+        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, CUTOFF_DATE, "user001", false);
 
         assertThat(response.getReplaceConfirmation()).isNotNull();
         assertThat(response.getReplaceConfirmation().getExistingBatchId()).isEqualTo(50);
@@ -154,7 +180,8 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(2, 2, List.of()));
 
-        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, "user001", true);
+        ImportResponse response =
+                service.importFile(validSteraCodeFile(), STERA_CODE, CUTOFF_DATE, "user001", true);
 
         verify(importer).deleteBatchData(50);
         verify(importBatchRepository).delete(existing);
@@ -172,7 +199,7 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(2, 2, List.of()));
 
-        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, "user001", false);
+        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, CUTOFF_DATE, "user001", false);
 
         assertThat(response.getReplaceConfirmation()).isNull();
         assertThat(response.isSuccess()).isTrue();
@@ -187,7 +214,7 @@ class OtherSettlementServiceTest {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(STERA_CODE))
                 .thenReturn(List.of(existing));
 
-        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, "user001", false);
+        ImportResponse response = service.importFile(validSteraCodeFile(), STERA_CODE, CUTOFF_DATE, "user001", false);
 
         assertThat(response.getReplaceConfirmation()).isNotNull();
         assertThat(response.getReplaceConfirmation().getExistingBatchId()).isEqualTo(60);
@@ -213,7 +240,7 @@ class OtherSettlementServiceTest {
                 .thenReturn(List.of());
         when(importer.extractLookupKey(any())).thenReturn("  ");
 
-        assertThatThrownBy(() -> service.importFile(validSteraCodeFile(), STERA_CODE, "user001", false))
+        assertThatThrownBy(() -> service.importFile(validSteraCodeFile(), STERA_CODE, CUTOFF_DATE, "user001", false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("識別キー");
     }

@@ -194,6 +194,55 @@ class JftdTransferCalculationServiceTest {
     }
 
     @Test
+    void calculateJcbLineItemsKeepsDifferentBatchesAsSeparateLineItemsForReportFileSelection() {
+        // 同じ取引コード・カードブランドでも元ファイル（batchId）が異なれば、
+        // 統合振込明細（m_jftd_transfer_detail）は合算せず別々の行として保存する必要がある
+        // （帳票出力画面でファイル単位に絞り込めるようにするため）。
+        givenUnprocessedBatch("JCB", JCB_BATCH_ID);
+        givenFeeRateAndItemCode("JCB", JCB_BRAND, "STRAIGHT", "0.0275", JCB_PAYMENT_ITEM_CODE);
+        int otherBatchId = JCB_BATCH_ID + 1;
+        JcbBrandAggregate first = jcbAggregate("01-001", JCB_BATCH_ID, 5, 14550);
+        JcbBrandAggregate second = jcbAggregate("01-001", otherBatchId, 3, 10000);
+        when(jcbSalesDetailRepository.sumByTradeCodeAndCardName(List.of(JCB_BATCH_ID)))
+                .thenReturn(List.of(first, second));
+
+        List<TransferLineItem> result = service.calculateJcbLineItems();
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(TransferLineItem::getImportBatchId)
+                .containsExactlyInAnyOrder(JCB_BATCH_ID, otherBatchId);
+    }
+
+    private JcbBrandAggregate jcbAggregate(String tradeCode, int batchId, int salesCount, int salesAmount) {
+        return new JcbBrandAggregate() {
+            @Override
+            public String getTradeCode() {
+                return tradeCode;
+            }
+
+            @Override
+            public String getCardName() {
+                return JCB_BRAND;
+            }
+
+            @Override
+            public Integer getBatchId() {
+                return batchId;
+            }
+
+            @Override
+            public Long getTotalSalesCount() {
+                return (long) salesCount;
+            }
+
+            @Override
+            public Long getTotalSalesAmount() {
+                return (long) salesAmount;
+            }
+        };
+    }
+
+    @Test
     void calculateJcbLineItemsReturnsEmptyWhenNoUnprocessedBatches() {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull("JCB"))
                 .thenReturn(List.of());
@@ -218,6 +267,11 @@ class JftdTransferCalculationServiceTest {
             @Override
             public String getCardName() {
                 return "【交通系電子マネー】";
+            }
+
+            @Override
+            public Integer getBatchId() {
+                return JCB_BATCH_ID;
             }
 
             @Override
@@ -297,6 +351,11 @@ class JftdTransferCalculationServiceTest {
     }
 
     private TerminalFeeAggregate fixedTerminalFeeAggregate(String tradeCode, int unitPrice, long terminalCount) {
+        return fixedTerminalFeeAggregate(tradeCode, unitPrice, terminalCount, SUMAREJO_BATCH_ID);
+    }
+
+    private TerminalFeeAggregate fixedTerminalFeeAggregate(
+            String tradeCode, int unitPrice, long terminalCount, int batchId) {
         return new TerminalFeeAggregate() {
             @Override
             public String getTradeCode() {
@@ -309,10 +368,38 @@ class JftdTransferCalculationServiceTest {
             }
 
             @Override
+            public Integer getBatchId() {
+                return batchId;
+            }
+
+            @Override
             public Long getTerminalCount() {
                 return terminalCount;
             }
         };
+    }
+
+    @Test
+    void calculateSumarejoLineItemsKeepsDifferentBatchesAsSeparateLineItemsForReportFileSelection() {
+        // 同じ取引コードでも元ファイル（batchId）が異なれば合算せず別々の行にする
+        // （Sumarejoはtrade_codeだけでマージするmapを使っているため、複合キーで
+        // 正しく分離できているかを確認する回帰テスト）。
+        givenUnprocessedBatch("スマレジ", SUMAREJO_BATCH_ID);
+        givenItemCode("スマレジ(端末月額)", "本体", "3300217");
+        givenItemCode("スマレジ(端末月額)", "調整", "3300219");
+        int otherBatchId = SUMAREJO_BATCH_ID + 1;
+
+        when(terminalMonthlyFeeRepository.sumByTradeCodeAndUnitPrice(List.of(SUMAREJO_BATCH_ID)))
+                .thenReturn(List.of(
+                        fixedTerminalFeeAggregate("01-001", 700, 1L, SUMAREJO_BATCH_ID),
+                        fixedTerminalFeeAggregate("01-001", 700, 1L, otherBatchId)));
+
+        List<TransferLineItem> result = service.calculateSumarejoLineItems();
+
+        assertThat(result).hasSize(2);
+        assertThat(result).allMatch(item -> item.getAmount() == 700);
+        assertThat(result).extracting(TransferLineItem::getImportBatchId)
+                .containsExactlyInAnyOrder(SUMAREJO_BATCH_ID, otherBatchId);
     }
 
     @Test
@@ -453,6 +540,11 @@ class JftdTransferCalculationServiceTest {
             }
 
             @Override
+            public Integer getBatchId() {
+                return RAKUTENPAY_BATCH_ID;
+            }
+
+            @Override
             public Long getTotalAmount() {
                 return 22550L;
             }
@@ -479,6 +571,11 @@ class JftdTransferCalculationServiceTest {
             @Override
             public String getTradeCode() {
                 return "31-010";
+            }
+
+            @Override
+            public Integer getBatchId() {
+                return RAKUTENPAY_BATCH_ID;
             }
 
             @Override
@@ -538,6 +635,11 @@ class JftdTransferCalculationServiceTest {
             }
 
             @Override
+            public Integer getBatchId() {
+                return VISA_MASTER_BATCH_ID;
+            }
+
+            @Override
             public Long getTotalSalesAmount() {
                 return totalSalesAmount;
             }
@@ -559,6 +661,11 @@ class JftdTransferCalculationServiceTest {
             @Override
             public String getCardName() {
                 return JCB_BRAND;
+            }
+
+            @Override
+            public Integer getBatchId() {
+                return JCB_BATCH_ID;
             }
 
             @Override

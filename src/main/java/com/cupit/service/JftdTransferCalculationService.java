@@ -174,7 +174,7 @@ public class JftdTransferCalculationService {
             lineItems.add(new TransferLineItem(
                     aggregate.getTradeCode(), itemCode.getItemCode(), 1, result.getPayableAmount1(),
                     totalSalesAmount, result.getAcquirerFeeTaxFree(),
-                    result.getAcquirerFeeBase(), result.getAcquirerFeeTax()));
+                    result.getAcquirerFeeBase(), result.getAcquirerFeeTax(), aggregate.getBatchId()));
         }
         return lineItems;
     }
@@ -201,30 +201,43 @@ public class JftdTransferCalculationService {
         SettlementItemCode baseItemCode = findItemCode(MASTER_COMPANY_SUMAREJO, "本体");
         SettlementItemCode adjustmentItemCode = findItemCode(MASTER_COMPANY_SUMAREJO, "調整");
 
-        Map<String, Integer> baseAmountByTradeCode = new LinkedHashMap<>();
-        Map<String, Integer> premiumAmountByTradeCode = new LinkedHashMap<>();
+        Map<SumarejoGroupKey, Integer> baseAmountByGroup = new LinkedHashMap<>();
+        Map<SumarejoGroupKey, Integer> premiumAmountByGroup = new LinkedHashMap<>();
         for (TerminalFeeAggregate aggregate : aggregates) {
             if (SUMAREJO_EXCLUDED_TEST_TRADE_CODE.equals(aggregate.getTradeCode())) {
                 continue;
             }
+            SumarejoGroupKey key = new SumarejoGroupKey(aggregate.getTradeCode(), aggregate.getBatchId());
             int terminalCount = aggregate.getTerminalCount().intValue();
             int premiumPerTerminal = Math.max(aggregate.getUnitPrice() - SUMAREJO_BASE_UNIT_PRICE, 0);
-            baseAmountByTradeCode.merge(
-                    aggregate.getTradeCode(), SUMAREJO_BASE_UNIT_PRICE * terminalCount, Integer::sum);
+            baseAmountByGroup.merge(
+                    key, SUMAREJO_BASE_UNIT_PRICE * terminalCount, Integer::sum);
             if (premiumPerTerminal > 0) {
-                premiumAmountByTradeCode.merge(
-                        aggregate.getTradeCode(), premiumPerTerminal * terminalCount, Integer::sum);
+                premiumAmountByGroup.merge(
+                        key, premiumPerTerminal * terminalCount, Integer::sum);
             }
         }
 
         List<TransferLineItem> lineItems = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : baseAmountByTradeCode.entrySet()) {
-            lineItems.add(sumarejoLineItem(entry.getKey(), baseItemCode.getItemCode(), entry.getValue()));
+        for (Map.Entry<SumarejoGroupKey, Integer> entry : baseAmountByGroup.entrySet()) {
+            lineItems.add(sumarejoLineItem(
+                    entry.getKey().tradeCode(), baseItemCode.getItemCode(), entry.getValue(),
+                    entry.getKey().batchId()));
         }
-        for (Map.Entry<String, Integer> entry : premiumAmountByTradeCode.entrySet()) {
-            lineItems.add(sumarejoLineItem(entry.getKey(), adjustmentItemCode.getItemCode(), entry.getValue()));
+        for (Map.Entry<SumarejoGroupKey, Integer> entry : premiumAmountByGroup.entrySet()) {
+            lineItems.add(sumarejoLineItem(
+                    entry.getKey().tradeCode(), adjustmentItemCode.getItemCode(), entry.getValue(),
+                    entry.getKey().batchId()));
         }
         return lineItems;
+    }
+
+    /**
+     * スマレジの端末月額集計を、帳票出力画面でファイル単位に絞り込めるようにするための
+     * 集計キー（取引コード×元ファイル）。同じ取引コードでも元ファイルが異なれば
+     * 別々のTransferLineItemとして保存する。
+     */
+    private record SumarejoGroupKey(String tradeCode, int batchId) {
     }
 
     /**
@@ -235,10 +248,11 @@ public class JftdTransferCalculationService {
      * 0-本体-消費税で負数になる）。amount（統合振込CSVで使う支払金額①）自体は
      * 従来どおり月額料金の金額をそのまま使う（符号は変更しない）。
      */
-    private TransferLineItem sumarejoLineItem(String tradeCode, String itemCode, int monthlyFeeAmount) {
+    private TransferLineItem sumarejoLineItem(
+            String tradeCode, String itemCode, int monthlyFeeAmount, int batchId) {
         int tax = settlementFeeCalculator.calculateTax(monthlyFeeAmount);
         return new TransferLineItem(
-                tradeCode, itemCode, 1, monthlyFeeAmount, 0, 0, monthlyFeeAmount, tax);
+                tradeCode, itemCode, 1, monthlyFeeAmount, 0, 0, monthlyFeeAmount, tax, batchId);
     }
 
     /**
@@ -261,16 +275,16 @@ public class JftdTransferCalculationService {
 
         List<TransferLineItem> lineItems = new ArrayList<>();
         for (NetstarSalesSummary row : rows) {
-            addNetstarBrandLineItem(lineItems, row.getTradeCode(), "Alipay", row.getAlipayNetAmount());
-            addNetstarBrandLineItem(lineItems, row.getTradeCode(), "PayPay", row.getPaypayNetAmount());
-            addNetstarBrandLineItem(lineItems, row.getTradeCode(), "d払い", row.getDpayNetAmount());
-            addNetstarBrandLineItem(lineItems, row.getTradeCode(), "WeChatPay", row.getWechatNetAmount());
+            addNetstarBrandLineItem(lineItems, row.getTradeCode(), "Alipay", row.getAlipayNetAmount(), row.getBatchId());
+            addNetstarBrandLineItem(lineItems, row.getTradeCode(), "PayPay", row.getPaypayNetAmount(), row.getBatchId());
+            addNetstarBrandLineItem(lineItems, row.getTradeCode(), "d払い", row.getDpayNetAmount(), row.getBatchId());
+            addNetstarBrandLineItem(lineItems, row.getTradeCode(), "WeChatPay", row.getWechatNetAmount(), row.getBatchId());
         }
         return lineItems;
     }
 
     private void addNetstarBrandLineItem(
-            List<TransferLineItem> lineItems, String tradeCode, String cardBrand, int netAmount) {
+            List<TransferLineItem> lineItems, String tradeCode, String cardBrand, int netAmount, int batchId) {
         if (netAmount == 0) {
             return;
         }
@@ -278,7 +292,8 @@ public class JftdTransferCalculationService {
         SettlementItemCode itemCode = findItemCode(PAYMENT_TYPE_NETSTAR, cardBrand);
         FeeCalculationResult result = calculate(netAmount, rate);
         lineItems.add(new TransferLineItem(tradeCode, itemCode.getItemCode(), 1, result.getPayableAmount1(),
-                netAmount, result.getAcquirerFeeTaxFree(), result.getAcquirerFeeBase(), result.getAcquirerFeeTax()));
+                netAmount, result.getAcquirerFeeTaxFree(), result.getAcquirerFeeBase(), result.getAcquirerFeeTax(),
+                batchId));
     }
 
     /**
@@ -305,7 +320,7 @@ public class JftdTransferCalculationService {
             lineItems.add(new TransferLineItem(
                     aggregate.getTradeCode(), itemCode.getItemCode(), 1, result.getPayableAmount1(),
                     totalAmount, result.getAcquirerFeeTaxFree(),
-                    result.getAcquirerFeeBase(), result.getAcquirerFeeTax()));
+                    result.getAcquirerFeeBase(), result.getAcquirerFeeTax(), aggregate.getBatchId()));
         }
         return lineItems;
     }
@@ -338,7 +353,7 @@ public class JftdTransferCalculationService {
             int acquirerFeeTaxFree = aggregate.getTotalFeeAmount1().intValue();
             int payableAmount1 = grossAmount - acquirerFeeTaxFree;
             lineItems.add(new TransferLineItem(aggregate.getTradeCode(), itemCode.getItemCode(), 1, payableAmount1,
-                    grossAmount, acquirerFeeTaxFree, 0, 0));
+                    grossAmount, acquirerFeeTaxFree, 0, 0, aggregate.getBatchId()));
         }
         return lineItems;
     }

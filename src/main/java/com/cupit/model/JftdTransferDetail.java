@@ -21,6 +21,9 @@ public class JftdTransferDetail {
     @Column(name = "transfer_batch_id", nullable = false)
     private int transferBatchId;
 
+    @Column(name = "import_batch_id", nullable = false)
+    private int importBatchId;
+
     @Column(name = "trade_code", nullable = false)
     private String tradeCode;
 
@@ -68,6 +71,14 @@ public class JftdTransferDetail {
 
     public void setTransferBatchId(int transferBatchId) {
         this.transferBatchId = transferBatchId;
+    }
+
+    public int getImportBatchId() {
+        return importBatchId;
+    }
+
+    public void setImportBatchId(int importBatchId) {
+        this.importBatchId = importBatchId;
     }
 
     public String getTradeCode() {

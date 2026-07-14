@@ -114,6 +114,64 @@
   .notice-list li::before { content: counter(notice-counter) "."; position: absolute; left: 8px; font-weight: 500; }
   .notice-list li:last-child { margin-bottom: 0; }
 
+  .section-title {
+    font-size: var(--fs-base);
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 8px;
+    letter-spacing: 0.01em;
+  }
+
+  .section-desc {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .cashless-card {
+    background-color: var(--accent-blue-light);
+    border: 1px solid var(--accent-blue-border);
+    border-radius: 8px;
+    padding: 14px 18px 16px;
+    margin-bottom: 14px;
+  }
+
+  .cashless-card-desc {
+    font-size: var(--fs-xs);
+    color: var(--text-sub);
+    margin-bottom: 12px;
+  }
+
+  .cashless-card-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .cashless-card-controls label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.02em;
+  }
+
+  .cashless-month-input {
+    padding: 6px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-family: var(--font-jp);
+    font-size: var(--fs-xs);
+    color: var(--text-main);
+  }
+
+  .cashless-month-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
   .result-header {
     display: flex;
     align-items: center;
@@ -355,23 +413,41 @@
         <span>ご注意</span>
       </div>
       <ol class="notice-list">
-        <li>本画面は「JFTD・その他統合振込CSV作成」画面で確定済みの統合振込バッチを一覧表示します。ここから確定操作は行えません。</li>
-        <li>売上報告書・支払明細書は、確定済みのバッチであれば何度でも再ダウンロードできます。</li>
-        <li>左端のチェックボックスでバッチを選択し（複数選択可）、上部のボタンからダウンロードしてください。複数選択した場合はまとめて1つの帳票として集計されます。</li>
+        <li>本画面は「JFTD・その他統合振込CSV作成」画面で確定済みのデータを一覧表示します。ここから確定操作は行えません。</li>
+        <li>売上報告書・支払明細書は、確定済みのデータであれば何度でも再ダウンロードできます。</li>
+        <li>左端のチェックボックスで対象データを選択し（複数選択可）、上部のボタンから帳票を作成してください。複数選択した場合はまとめて1つの帳票として集計されます。</li>
         <li>「弊社手数料（本体・消費税）」は計算式が未確定のため<strong>0円のまま</strong>算出されます。表示される金額は決済事業者手数料控除後の暫定値であり、最終的な振込金額ではありません。</li>
         <li>「エラー件数」が1件以上の場合、取込元ファイルの一部行がエラーでスキップされたまま確定されています。</li>
       </ol>
     </div>
 
+    <h2 class="section-title">キャッシュレス決済売上報告書</h2>
+    <div class="cashless-card" id="cashless-card">
+      <p class="cashless-card-desc">対象年月と振込日区分を選択して帳票をダウンロードします（準備中）。</p>
+      <div class="cashless-card-controls">
+        <label for="cashless-year-month">対象年月</label>
+        <input type="month" id="cashless-year-month" class="cashless-month-input">
+        <label for="cashless-cycle-select">振込日区分</label>
+        <select id="cashless-cycle-select" class="per-page-select">
+          <option value="5" selected>5日払い</option>
+          <option value="20">20日払い</option>
+          <option value="month-end">月末総合精算</option>
+        </select>
+        <button class="btn-card" type="button" id="btn-download-cashless">帳票作成</button>
+      </div>
+    </div>
+
+    <h2 class="section-title">売上報告書・支払明細書</h2>
+    <p class="section-desc">下の一覧から対象データを選択し、プルダウンで作成する帳票（売上報告書／支払明細書）を選んでください。</p>
     <div class="selection-bar" id="selection-bar">
       <span class="selection-summary" id="selection-summary">0件選択中</span>
       <div class="selection-actions">
         <button class="btn-card" type="button" id="btn-toggle-all">全選択／全解除</button>
         <select id="report-type-select" class="per-page-select">
-          <option value="jftd" selected>売上報告書、支払明細書</option>
-          <option value="cashless">キャッシュレス決済売上報告書</option>
+          <option value="sales" selected>売上報告書</option>
+          <option value="statement">支払明細書</option>
         </select>
-        <button class="btn-card" type="button" id="btn-download-selected" disabled>選択分をダウンロード</button>
+        <button class="btn-card" type="button" id="btn-download-selected" disabled>選択分の帳票作成</button>
       </div>
     </div>
 
@@ -418,8 +494,8 @@
             <th:block th:each="batch : ${transferBatches}">
               <tr class="data-row" th:each="detail, detailStat : ${batch.importBatches}"
                   th:attr="data-batch-id=${batch.transferBatchId}">
-                <td th:if="${detailStat.first}" th:rowspan="${batch.importBatches.size()}" class="select-cell">
-                  <input type="checkbox" class="batch-checkbox" th:value="${batch.transferBatchId}">
+                <td class="select-cell">
+                  <input type="checkbox" class="batch-checkbox" th:value="${detail.batchId}">
                 </td>
                 <td th:if="${detailStat.first}" th:rowspan="${batch.importBatches.size()}" class="created-at"
                     th:text="${#temporals.format(batch.createdAt, 'yyyy/MM/dd HH:mm')}"></td>
@@ -435,7 +511,7 @@
               </tr>
             </th:block>
             <tr id="empty-row" class="empty-row" th:if="${#lists.isEmpty(transferBatches)}">
-              <td class="empty-cell" colspan="8">確定済みの統合振込バッチがありません。</td>
+              <td class="empty-cell" colspan="8">確定済みのデータがありません。</td>
             </tr>
           </tbody>
         </table>
@@ -580,7 +656,8 @@
       render();
     })();
 
-    /* 複数バッチ選択 → まとめて1つの帳票としてダウンロード */
+    /* ファイル単位で複数選択 → まとめて1つの帳票としてダウンロード。
+       チェックボックスの値は確定バッチIDではなくm_import_batch.batch_id（元ファイル）。 */
     (function () {
       var checkboxes = Array.prototype.slice.call(
         document.querySelectorAll('.batch-checkbox')
@@ -623,25 +700,27 @@
         window.location.href = path + '?ids=' + selectedIds.join(',');
       }
 
-      /* 「売上報告書、支払明細書」は2ファイルを続けてダウンロードする。
-         location.hrefを間を空けずに2回書き換えると、1回目のダウンロードが
-         開始する前に2回目の遷移でキャンセルされるブラウザがあるため、
-         少し間隔を空けて発火させる。 */
       downloadBtn.addEventListener('click', function () {
         if (getSelectedIds().length === 0) {
           return;
         }
-        if (reportTypeSelect.value === 'cashless') {
-          downloadSelected('/jftd_transfer/report/sales');
+        if (reportTypeSelect.value === 'statement') {
+          downloadSelected('/jftd_transfer/report/statement');
         } else {
           downloadSelected('/jftd_transfer/report/sales');
-          setTimeout(function () {
-            downloadSelected('/jftd_transfer/report/statement');
-          }, 400);
         }
       });
 
       updateSelectionState();
+    })();
+
+    /* キャッシュレス決済売上報告書はUIのみ（バックエンド未実装）。
+       集計対象・手数料の商流等が確定するまでの暫定案内を表示する。 */
+    (function () {
+      var downloadCashlessBtn = document.getElementById('btn-download-cashless');
+      downloadCashlessBtn.addEventListener('click', function () {
+        alert('キャッシュレス決済売上報告書は近日実装予定です。');
+      });
     })();
   </script>
 </body>

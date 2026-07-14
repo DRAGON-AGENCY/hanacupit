@@ -10,9 +10,9 @@ import com.cupit.model.RakutenPayTransaction;
 
 public interface RakutenPayTransactionRepository extends JpaRepository<RakutenPayTransaction, Integer> {
 
-    @Query("SELECT d.tradeCode AS tradeCode, SUM(d.totalAmount) AS totalAmount "
+    @Query("SELECT d.tradeCode AS tradeCode, d.batchId AS batchId, SUM(d.totalAmount) AS totalAmount "
             + "FROM RakutenPayTransaction d WHERE d.batchId IN :batchIds "
-            + "GROUP BY d.tradeCode")
+            + "GROUP BY d.tradeCode, d.batchId")
     List<RakutenPayAggregate> sumByTradeCode(@Param("batchIds") List<Integer> batchIds);
 
     void deleteByBatchId(int batchId);
@@ -20,6 +20,8 @@ public interface RakutenPayTransactionRepository extends JpaRepository<RakutenPa
     interface RakutenPayAggregate {
 
         String getTradeCode();
+
+        Integer getBatchId();
 
         Long getTotalAmount();
 

@@ -13,4 +13,6 @@ public interface JftdTransferDetailRepository
 
     List<JftdTransferDetail> findByTransferBatchIdIn(List<Integer> transferBatchIds);
 
+    List<JftdTransferDetail> findByImportBatchIdIn(List<Integer> importBatchIds);
+
 }
