@@ -200,9 +200,26 @@ public class SteraTransferCalculationService {
     }
 
     private List<Integer> unprocessedBatchIds(String paymentType) {
-        return importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(paymentType).stream()
+        return unprocessedBatches(paymentType).stream()
                 .map(ImportBatch::getBatchId)
                 .toList();
+    }
+
+    private List<ImportBatch> unprocessedBatches(String paymentType) {
+        return importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(paymentType);
+    }
+
+    /**
+     * 3フォーマットすべての未確定インポートバッチをまとめて返す。統合振込CSV作成の
+     * プレビュー画面で、確定前に「どのファイルが対象になるか」（締め日を含む）を
+     * ユーザーに提示するために使う（集計対象の決定ロジック自体には影響しない）。
+     */
+    public List<ImportBatch> findTargetImportBatches() {
+        List<ImportBatch> all = new ArrayList<>();
+        all.addAll(unprocessedBatches(PAYMENT_TYPE_STERA_JCB));
+        all.addAll(unprocessedBatches(PAYMENT_TYPE_STERA_CODE));
+        all.addAll(unprocessedBatches(PAYMENT_TYPE_STERA_CREDIT));
+        return all;
     }
 
 }

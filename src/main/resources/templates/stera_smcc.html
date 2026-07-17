@@ -23,11 +23,9 @@
     --bg-summary: #f5f0e0;
     --bg-label: #ede8db;
     --bg-label-soft: #f5f2eb;
-    --bg-label-group: #efe9d8;
-    --bg-label-group-active: #e3edfb;
     --bg-white: #ffffff;
     --bg-total: #e6f0fb;
-    --bg-detail: #fbfaf4;
+    --bg-hover: #faf8f2;
     --border-color: #e8e4da;
     --border-input: #d8d4c8;
     --border-table: #e5e2d8;
@@ -96,29 +94,6 @@
     flex-direction: column;
   }
 
-  .header-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 6px;
-  }
-
-  .btn-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background-color: var(--bg-white);
-    border: 1px solid var(--border-input);
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-size: var(--fs-base);
-    color: var(--text-main);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: inherit;
-  }
-
-  .btn-back:hover { background-color: #faf8f2; border-color: #c4bfae; }
-
   .page-title {
     font-size: var(--fs-lg);
     font-weight: 700;
@@ -129,6 +104,7 @@
     letter-spacing: 0.01em;
   }
 
+  /* 絞込みエリア */
   .search-box {
     background-color: var(--bg-search);
     border: 1px solid #dde5f0;
@@ -162,6 +138,7 @@
     font-size: var(--fs-base);
     color: var(--text-main);
     font-family: inherit;
+    min-width: 170px;
   }
 
   .search-input {
@@ -171,7 +148,7 @@
   }
 
   .search-select {
-    width: 220px;
+    width: 200px;
     appearance: none;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%23888' stroke-width='1.5' d='M3 5l3 3 3-3'/></svg>");
     background-repeat: no-repeat;
@@ -185,7 +162,11 @@
     box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
   }
 
-  .search-actions { display: flex; gap: 10px; }
+  .search-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
 
   .btn {
     display: inline-flex;
@@ -200,6 +181,8 @@
     border: 1px solid transparent;
   }
 
+  .btn:disabled { opacity: 0.45; cursor: default; }
+
   .btn-search {
     background-color: var(--accent-blue-light);
     border-color: var(--accent-blue-border);
@@ -207,7 +190,9 @@
     font-weight: 500;
   }
 
-  .btn-search:hover { background-color: #d5e4f6; }
+  .btn-search:hover:not(:disabled) {
+    background-color: #d5e4f6;
+  }
 
   .btn-clear {
     background-color: var(--bg-white);
@@ -215,8 +200,11 @@
     color: var(--text-main);
   }
 
-  .btn-clear:hover { background-color: #faf8f2; }
+  .btn-clear:hover {
+    background-color: #faf8f2;
+  }
 
+  /* サマリーカード */
   .summary-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -256,57 +244,135 @@
     font-family: var(--font-jp);
   }
 
-  .section-header {
+  /* 結果ヘッダー（件数サマリー・表示件数セレクト） */
+  .result-header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
     margin-bottom: 6px;
-    flex-wrap: wrap;
   }
 
-  .section-title {
-    font-size: var(--fs-md);
-    font-weight: 700;
-    color: var(--text-main);
+  .result-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-left: 2px;
     letter-spacing: 0.02em;
   }
 
-  .section-count {
-    font-size: var(--fs-sm);
-    color: var(--text-subtle);
-  }
-
-  .section-actions {
-    margin-left: auto;
+  .per-page-control {
     display: flex;
-    gap: 8px;
     align-items: center;
+    gap: 8px;
   }
 
-  .btn-toggle-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background-color: var(--bg-white);
+  .per-page-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-select {
+    padding: 6px 30px 6px 12px;
     border: 1px solid var(--border-input);
     border-radius: 6px;
-    padding: 6px 12px;
+    background-color: var(--bg-white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    font-family: var(--font-base);
     font-size: var(--fs-xs);
-    color: var(--text-sub);
+    color: var(--text-main);
     cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .per-page-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* ページネーション */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .page-numbers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-main);
     font-family: inherit;
+    font-size: var(--fs-xs);
+    cursor: pointer;
     transition: all 0.15s ease;
   }
 
-  .btn-toggle-all:hover {
-    background-color: #faf8f2;
+  .page-btn:hover:not(:disabled):not(.is-active) {
+    background-color: var(--bg-hover);
     border-color: #c4bfae;
   }
+
+  .page-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .page-number.is-active {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .page-ellipsis {
+    min-width: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+  }
+
+  .msg-error {
+    color: #8a1a1a;
+    background: #fdeaea;
+    border: 1px solid #e9b0b0;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: var(--fs-sm);
+    margin-bottom: 12px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--accent-blue-border);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ページ全体のカスタムスクロールバー */
   body::-webkit-scrollbar {
     width: 14px;
-    height: 14px;
   }
 
   body::-webkit-scrollbar-track {
@@ -324,63 +390,60 @@
     background: #aea892;
   }
 
-  /* データビュー切替 */
-  .data-view {
-    display: none;
-    flex-direction: column;
-    margin-bottom: 14px;
-  }
-  .data-view.active { display: flex; }
-
+  /* データテーブル */
   .data-table-wrapper {
     background-color: var(--bg-white);
     border: 1px solid var(--border-table);
     border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .data-scroll {
     overflow-x: auto;
     overflow-y: hidden;
   }
 
-  .data-table-wrapper::-webkit-scrollbar {
+  .data-scroll::-webkit-scrollbar {
     width: 14px;
     height: 14px;
   }
 
-  .data-table-wrapper::-webkit-scrollbar-track {
+  .data-scroll::-webkit-scrollbar-track {
     background: #ffffff;
   }
 
-  .data-table-wrapper::-webkit-scrollbar-thumb {
+  .data-scroll::-webkit-scrollbar-thumb {
     background: #c9c4b4;
     border: 3px solid #ffffff;
     border-radius: 8px;
   }
 
-  .data-inner {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
+  .data-scroll::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
   }
 
   .data-table {
     width: 100%;
     border-collapse: collapse;
     font-size: var(--fs-base);
-  }
-
-  .data-table-footer {
-    border-top: 1px solid #c7d9ef;
+    table-layout: fixed;
+    /* 列幅の合計 = 1600px。店舗名・カード名は実データの文字数
+       （例：店舗名「花キューピットstera codeテスト店」、カード名「交通系（ｔｏｉｃａ）」）
+       を収容できる幅にしている。 */
+    min-width: 1600px;
   }
 
   .data-table thead th {
     background-color: #FFDCE4;
     color: var(--text-label);
     font-weight: 600;
-    padding: 10px 10px;
+    padding: 10px 14px;
     text-align: right;
     border-bottom: 1px solid var(--border-table);
     border-right: 1px solid var(--border-table);
     white-space: nowrap;
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     letter-spacing: 0.02em;
   }
 
@@ -388,69 +451,13 @@
     border-right: none;
   }
 
-  .data-table thead th.text-left { text-align: left; }
-
-  /* 決済種類グループ親ヘッダ */
-  .data-table thead th.group {
-    text-align: center;
-    background-color: #FFDCE4;
-    border-bottom: 1px solid var(--border-table);
-    border-left: 1px solid var(--border-table);
-    border-right: 1px solid var(--border-table);
-    user-select: none;
-    transition: background-color 0.15s ease;
-    position: relative;
-  }
-
-  /* 展開可能なグループヘッダ（複数支払方法を持つ）にだけクリック反応を付ける */
-  .data-table thead th.group[data-toggleable="1"] {
-    cursor: pointer;
-  }
-
-  .data-table thead th.group[data-toggleable="1"]:hover {
-    background-color: #fbc9d5;
-  }
-
-  .data-table thead th.group.expanded {
-    background-color: #FFDCE4;
-    color: var(--accent-blue-total);
-  }
-
-  .data-table thead th.group.expanded:hover {
-    background-color: #fbc9d5;
-  }
-
-  .group-toggle-icon {
-    display: inline-block;
-    margin-left: 4px;
-    font-size: 10px;
-    color: var(--text-muted);
-    transition: transform 0.2s ease;
-  }
-
-  .data-table thead th.group.expanded .group-toggle-icon {
-    color: var(--accent-blue-total);
-  }
-
-  /* サブヘッダ（支払方法） */
-  .data-table thead tr.sub-header th {
-    background-color: #FFDCE4;
-    font-weight: 500;
-    border-left: 1px solid var(--border-table);
-    color: var(--text-sub);
-  }
-
-  .data-table thead tr.sub-header th:first-child {
-    border-left: none;
-  }
-
-  /* 展開された支払方法列のセル */
-  .data-table tbody td.detail-cell {
-    background-color: var(--bg-detail);
+  .data-table thead th:first-child,
+  .data-table thead th.text-left {
+    text-align: left;
   }
 
   .data-table tbody td {
-    padding: 11px 10px;
+    padding: 11px 14px;
     text-align: right;
     border-bottom: 1px solid var(--border-table);
     border-right: 1px solid var(--border-table);
@@ -459,6 +466,8 @@
     font-size: var(--fs-base);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .data-table tbody tr:last-child td {
@@ -469,64 +478,50 @@
     border-right: none;
   }
 
-  .data-table tbody td.text-left,
-  .data-table tbody td.jp { text-align: left; }
+  .data-table tbody td.text-left {
+    text-align: left;
+  }
 
   .data-table tbody td.jp {
     font-family: var(--font-jp);
     font-variant-numeric: normal;
-    white-space: normal;
-    min-width: 180px;
   }
 
-  .data-table tbody td.muted { color: var(--text-subtle); }
-
-  .data-table tr.total-row td {
-    background-color: var(--bg-total);
-    color: var(--accent-blue-total);
-    font-weight: 600;
-    border-top: none;
-    border-bottom: none;
-    padding: 11px 10px;
-    text-align: right;
-    border-right: 1px solid var(--border-table);
-    white-space: nowrap;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+  .data-table tbody tr:hover td {
+    background-color: var(--bg-hover);
   }
 
-  .data-table tr.total-row td:last-child {
-    border-right: none;
-  }
-
-  .data-table tr.total-row td.label {
+  .data-table tbody td.empty-cell {
+    text-align: center;
+    color: var(--text-muted);
     font-family: var(--font-jp);
-    font-weight: 700;
-    text-align: right;
-    padding-right: 16px;
-    letter-spacing: 0.02em;
-  }
-
-  .data-table tr.total-row td.muted {
-    color: var(--text-subtle);
-  }
-
-  /* グループ列の左端境界を強調 */
-  .data-table thead th.group-boundary,
-  .data-table tbody td.group-boundary {
-    border-left: 1px solid var(--border-table);
+    padding: 28px 16px;
+    white-space: normal;
   }
 
   @media (max-width: 900px) {
-    body { padding: 16px 8px; }
-    .container { padding: 20px 16px 24px; }
-    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    body {
+      padding: 16px 8px;
+    }
+    .container {
+      padding: 20px 16px 24px;
+    }
+    .summary-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (max-width: 520px) {
-    .summary-grid { grid-template-columns: 1fr; }
-    .search-input, .search-select { width: 100%; }
-    .search-field { width: 100%; }
+    .summary-grid {
+      grid-template-columns: 1fr;
+    }
+    .search-input, .search-select {
+      width: 100%;
+      min-width: 0;
+    }
+    .search-field {
+      width: 100%;
+    }
   }
 </style>
 </head>
@@ -534,484 +529,395 @@
   <div class="container">
     <h1 class="page-title">stera terminal精算情報 (SMCC) 照会</h1>
 
+    <!-- 絞込みエリア -->
     <div class="search-box">
       <div class="search-field">
-        <label class="search-label" for="target-month">対象月</label>
-        <input type="text" id="target-month" class="search-input" value="2026/05" />
+        <label class="search-label" for="cutoff-date">締め日</label>
+        <input type="date" id="cutoff-date" class="search-input" min="2000-01-01" max="2099-12-31" />
       </div>
       <div class="search-field">
-        <label class="search-label" for="payment-type">決済種類</label>
-        <select id="payment-type" class="search-select">
-          <option value="vm-emi">VM-EMI</option>
-          <option value="code">code</option>
+        <label class="search-label" for="payment-format">決済フォーマット</label>
+        <select id="payment-format" class="search-select">
+          <option>すべて</option>
+        </select>
+      </div>
+      <div class="search-field">
+        <label class="search-label" for="card-brand">カード名</label>
+        <select id="card-brand" class="search-select">
+          <option>すべて</option>
+        </select>
+      </div>
+      <div class="search-field">
+        <label class="search-label" for="transaction-type">取扱区分</label>
+        <select id="transaction-type" class="search-select">
+          <option>すべて</option>
         </select>
       </div>
       <div class="search-actions">
-        <button class="btn btn-search" type="button">
-          <span>🔍</span><span>検索</span>
+        <button class="btn btn-search" type="button" id="btn-search">
+          <span>&#128269;</span><span>絞込み</span>
         </button>
-        <button class="btn btn-clear" type="button">クリア</button>
+        <button class="btn btn-clear" type="button" id="btn-clear">クリア</button>
       </div>
     </div>
 
-    <div id="results">
+    <div id="msg-area"></div>
+
     <!-- サマリーカード -->
-    <div class="summary-grid" id="summary-vm-emi">
+    <div class="summary-grid">
       <div class="summary-card">
-        <div class="summary-label">合計 総計</div>
-        <div class="summary-value"><span id="sum-vm-total">—</span><span class="summary-unit">円</span></div>
+        <div class="summary-label">合計 売上金額</div>
+        <div class="summary-value"><span id="sum-sales">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
-        <div class="summary-label">合計 仕入手数料額</div>
-        <div class="summary-value"><span id="sum-vm-fee1">—</span><span class="summary-unit">円</span></div>
+        <div class="summary-label">合計 仕入手数料</div>
+        <div class="summary-value"><span id="sum-acquirer-fee">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
-        <div class="summary-label">合計 当社手数料額</div>
-        <div class="summary-value"><span id="sum-vm-fee2">—</span><span class="summary-unit">円</span></div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">合計 精算金額</div>
-        <div class="summary-value"><span id="sum-vm-settlement">—</span><span class="summary-unit">円</span></div>
-      </div>
-    </div>
-
-    <div class="summary-grid" id="summary-code" style="display:none">
-      <div class="summary-card">
-        <div class="summary-label">合計 総計</div>
-        <div class="summary-value"><span id="sum-code-total">—</span><span class="summary-unit">円</span></div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">合計 仕入手数料額</div>
-        <div class="summary-value"><span id="sum-code-fee1">—</span><span class="summary-unit">円</span></div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">合計 当社手数料額</div>
-        <div class="summary-value"><span id="sum-code-fee2">—</span><span class="summary-unit">円</span></div>
+        <div class="summary-label">合計 当社手数料</div>
+        <div class="summary-value"><span id="sum-company-fee">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 精算金額</div>
-        <div class="summary-value"><span id="sum-code-settlement">—</span><span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-settlement">—</span><span class="summary-unit">円</span></div>
       </div>
     </div>
 
-    <div class="section-header">
-      <span class="section-title">精算明細</span>
-      <span class="section-count" id="section-count" style="display:none">全 6 件</span>
-      <div class="section-actions">
-        <button class="btn-toggle-all" type="button" id="btn-expand-all">
-          <span>▼</span><span>すべて展開</span>
-        </button>
-        <button class="btn-toggle-all" type="button" id="btn-collapse-all">
-          <span>▲</span><span>すべて折りたたみ</span>
-        </button>
+    <!-- 精算明細 -->
+    <div class="result-header">
+      <span class="result-summary" id="result-summary"></span>
+      <div class="per-page-control">
+        <label class="per-page-label" for="per-page-select">表示件数</label>
+        <select id="per-page-select" class="per-page-select">
+          <option value="10" selected>10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+        </select>
       </div>
     </div>
 
-    <!-- VM-EMI ビュー（案1：列グループ化＋折りたたみ） -->
-    <div class="data-view active" data-view="vm-emi">
-      <div class="data-table-wrapper">
-        <div class="data-inner" id="vm-emi-table-container">
-          <!-- テーブルはJSで動的に生成 -->
-        </div>
+    <div class="data-table-wrapper">
+      <div class="data-scroll">
+        <table class="data-table">
+          <colgroup>
+            <col style="width: 100px">
+            <col style="width: 200px">
+            <col style="width: 300px">
+            <col style="width: 130px">
+            <col style="width: 180px">
+            <col style="width: 100px">
+            <col style="width: 110px">
+            <col style="width: 120px">
+            <col style="width: 120px">
+            <col style="width: 120px">
+            <col style="width: 120px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="text-left">取引コード</th>
+              <th class="text-left">識別番号</th>
+              <th class="text-left">店舗名</th>
+              <th class="text-left">決済フォーマット</th>
+              <th class="text-left">カード名</th>
+              <th class="text-left">取扱区分</th>
+              <th class="text-left">締め日</th>
+              <th>売上金額 (円)</th>
+              <th>仕入手数料 (円)</th>
+              <th>当社手数料 (円)</th>
+              <th>精算金額 (円)</th>
+            </tr>
+          </thead>
+          <tbody id="data-tbody">
+            <tr>
+              <td class="empty-cell" colspan="11"><span class="spinner"></span> 読み込み中…</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <!-- code ビュー（同じく案1適用） -->
-    <div class="data-view" data-view="code">
-      <div class="data-table-wrapper">
-        <div class="data-inner" id="code-table-container">
-          <!-- テーブルはJSで動的に生成 -->
-        </div>
-      </div>
-    </div>
+    <div class="pagination" id="pagination" style="display:none">
+      <button class="page-btn" type="button" id="btn-prev" aria-label="前のページ">‹</button>
+      <div class="page-numbers" id="page-numbers"></div>
+      <button class="page-btn" type="button" id="btn-next" aria-label="次のページ">›</button>
     </div>
   </div>
 
   <script>
-    /**
-     * 案1：列グループ化＋折りたたみ
-     *
-     * データ構造の特徴：
-     * - 決済種類（payment_type）ごとに支払方法（methods）の配列を持つ
-     * - 支払方法が増えても data の methods 配列に追加するだけで対応可能
-     * - 例：VMに「リボ払」を追加したい場合、methods に "リボ払" を加え、
-     *   各店舗の amounts に対応する金額を追加するだけ
-     */
+    const ALL_VALUE = 'すべて';
 
-    // ========================================
-    // データ定義（VM-EMIビュー）
-    // ========================================
-    const vmEmiData = {
-      paymentTypes: [
-        { key: 'edy',    label: 'Edy',    methods: ['1回払'] },
-        { key: 'id',     label: 'iD',     methods: ['1回払'] },
-        { key: 'nanaco', label: 'nanaco', methods: ['1回払'] },
-        { key: 'pwmc',   label: 'pWmc',   methods: ['1回払'] },
-        // VMは2回払があるため複数の支払方法を持つ。今後リボ払を追加する場合は ['1回払', '2回払', 'リボ払'] とするだけでよい
-        { key: 'vm',     label: 'VM',     methods: ['1回払', '2回払'] },
-        { key: 'waon',   label: 'WAON',   methods: ['1回払'] },
-        { key: 'ginren', label: '銀聯',   methods: ['1回払'] },
-        { key: 'icoca',  label: 'ICOCA',  methods: ['1回払'] },
-        { key: 'kitaca', label: 'Kitaca', methods: ['1回払'] },
-        { key: 'sugoca', label: 'SUGOCA', methods: ['1回払'] },
-        { key: 'suica',  label: 'Suica',  methods: ['1回払'] },
-        { key: 'toica',  label: 'toica',  methods: ['1回払'] }
-      ],
-      rows: [
-        {
-          txCode: '01-020', branchCode: '01-020000', shopName: 'フラワーブティック エハラ',
-          amounts: { edy:[null], id:[null], nanaco:[10000], pwmc:[null], vm:[null,null], waon:[null], ginren:[null], icoca:[null], kitaca:[null], sugoca:[null], suica:[null], toica:[null] },
-          total: 10000, fee1: 275, fee2: 20, settlement: 9705
-        },
-        {
-          txCode: '01-030', branchCode: '01-030000', shopName: '東京花屋',
-          amounts: { edy:[null], id:[null], nanaco:[null], pwmc:[4070], vm:[11000,null], waon:[null], ginren:[null], icoca:[null], kitaca:[null], sugoca:[null], suica:[null], toica:[null] },
-          total: 15070, fee1: 415, fee2: 30, settlement: 14625
-        },
-        {
-          txCode: '01-047', branchCode: '01-047000', shopName: 'フラワーショップ花太郎',
-          amounts: { edy:[null], id:[11000], nanaco:[null], pwmc:[40326], vm:[236767,24750], waon:[null], ginren:[null], icoca:[null], kitaca:[null], sugoca:[null], suica:[null], toica:[null] },
-          total: 312843, fee1: 8604, fee2: 627, settlement: 303612
-        },
-        {
-          txCode: '02-007', branchCode: '02-007000', shopName: '木村生花店',
-          amounts: { edy:[null], id:[null], nanaco:[null], pwmc:[20000], vm:[null,null], waon:[null], ginren:[null], icoca:[null], kitaca:[null], sugoca:[null], suica:[null], toica:[null] },
-          total: 20000, fee1: 550, fee2: 40, settlement: 19410
-        },
-        {
-          txCode: '02-044', branchCode: '02-044000', shopName: '尾田新生園',
-          amounts: { edy:[null], id:[null], nanaco:[null], pwmc:[7280], vm:[11120,null], waon:[null], ginren:[null], icoca:[null], kitaca:[null], sugoca:[null], suica:[null], toica:[null] },
-          total: 18400, fee1: 506, fee2: 37, settlement: 17857
-        },
-        {
-          txCode: '02-044', branchCode: '02-044001', shopName: '尾田新生園 フラワーショップおだいっきゅう店',
-          amounts: { edy:[null], id:[null], nanaco:[5060], pwmc:[18110], vm:[4860,null], waon:[2190], ginren:[null], icoca:[null], kitaca:[null], sugoca:[null], suica:[null], toica:[null] },
-          total: 30220, fee1: 831, fee2: 60, settlement: 29329
-        }
-      ]
-    };
+    const cutoffDateInput    = document.getElementById('cutoff-date');
+    const paymentFormatSel   = document.getElementById('payment-format');
+    const cardBrandSelect    = document.getElementById('card-brand');
+    const transactionTypeSel = document.getElementById('transaction-type');
+    const btnFilter          = document.getElementById('btn-search');
+    const btnClear           = document.getElementById('btn-clear');
+    const msgArea            = document.getElementById('msg-area');
 
-    // ========================================
-    // データ定義（codeビュー）
-    // ========================================
-    const codeData = {
-      paymentTypes: [
-        { key: 'alipay',   label: 'Alipay+',     methods: ['1回払'] },
-        { key: 'aupay',    label: 'auPAY',       methods: ['1回払'] },
-        { key: 'dpay',     label: 'd払い',       methods: ['1回払'] },
-        { key: 'paypay',   label: 'PayPay',      methods: ['1回払'] },
-        { key: 'wechat',   label: 'WeChat Pay',  methods: ['1回払'] },
-        { key: 'merpay',   label: 'メルペイ',    methods: ['1回払'] },
-        { key: 'yucho',    label: 'ゆうちょ&Pay', methods: ['1回払'] },
-        { key: 'rakuten',  label: '楽天ペイ',    methods: ['1回払'] }
-      ],
-      rows: [
-        {
-          txCode: '01-020', branchCode: '01-020000', shopName: 'フラワーブティック エハラ',
-          amounts: { alipay:[null], aupay:[null], dpay:[2420], paypay:[null], wechat:[null], merpay:[null], yucho:[null], rakuten:[null] },
-          total: 2420, fee1: 67, fee2: 5, settlement: 2348
-        },
-        {
-          txCode: '01-030', branchCode: '01-030000', shopName: '東京花屋',
-          amounts: { alipay:[null], aupay:[770], dpay:[9680], paypay:[8332], wechat:[null], merpay:[null], yucho:[null], rakuten:[3073] },
-          total: 21855, fee1: 601, fee2: 44, settlement: 21210
-        },
-        {
-          txCode: '01-047', branchCode: '01-047000', shopName: 'フラワーショップ花太郎',
-          amounts: { alipay:[null], aupay:[6600], dpay:[null], paypay:[12650], wechat:[null], merpay:[null], yucho:[null], rakuten:[660] },
-          total: 19910, fee1: 548, fee2: 39, settlement: 19323
-        },
-        {
-          txCode: '02-044', branchCode: '02-044000', shopName: '尾田新生園',
-          amounts: { alipay:[null], aupay:[1500], dpay:[5350], paypay:[null], wechat:[null], merpay:[null], yucho:[null], rakuten:[null] },
-          total: 6850, fee1: 188, fee2: 14, settlement: 6648
-        },
-        {
-          txCode: '02-044', branchCode: '02-044001', shopName: '尾田新生園 フラワーショップおだいっきゅう店',
-          amounts: { alipay:[null], aupay:[3100], dpay:[null], paypay:[11730], wechat:[null], merpay:[null], yucho:[null], rakuten:[1680] },
-          total: 16510, fee1: 454, fee2: 32, settlement: 16024
-        },
-        {
-          txCode: '02-044', branchCode: '02-044003', shopName: '尾田新生園 花キッチン',
-          amounts: { alipay:[null], aupay:[1380], dpay:[7903], paypay:[5700], wechat:[null], merpay:[null], yucho:[null], rakuten:[2070] },
-          total: 17053, fee1: 469, fee2: 34, settlement: 16550
-        }
-      ]
-    };
+    var allData = [];
+    var filteredData = [];
+    var currentPage = 1;
+    var perPage = 10;
 
-    // ========================================
-    // ユーティリティ
-    // ========================================
-    const fmt = (v) => (v === null || v === undefined) ? null : v.toLocaleString('ja-JP');
+    var tbodyEl      = document.getElementById('data-tbody');
+    var summaryEl    = document.getElementById('result-summary');
+    var pageNumsEl   = document.getElementById('page-numbers');
+    var paginationEl = document.getElementById('pagination');
+    var btnPrev      = document.getElementById('btn-prev');
+    var btnNext      = document.getElementById('btn-next');
+    var perPageSel   = document.getElementById('per-page-select');
 
-    // 数値セル生成（null/0なら "—"）
-    function cell(value, extraClass = '') {
-      if (value === null || value === undefined) {
-        return `<td class="muted${extraClass ? ' ' + extraClass : ''}">—</td>`;
+    function totalPages() {
+      return Math.max(1, Math.ceil(filteredData.length / perPage));
+    }
+
+    function buildPageItems(cur, total) {
+      var items = [];
+      if (total <= 7) {
+        for (var i = 1; i <= total; i++) { items.push(i); }
+        return items;
       }
-      return `<td${extraClass ? ' class="' + extraClass + '"' : ''}>${fmt(value)}</td>`;
+      items.push(1);
+      var left  = Math.max(2, cur - 1);
+      var right = Math.min(total - 1, cur + 1);
+      if (left > 2)        { items.push('...'); }
+      for (var p = left; p <= right; p++) { items.push(p); }
+      if (right < total - 1) { items.push('...'); }
+      items.push(total);
+      return items;
     }
 
-    // 各決済種類の合計（行ごと、支払方法を全て足す）
-    function sumPaymentType(amountsArr) {
-      return amountsArr.reduce((s, v) => s + (v || 0), 0) || null;
+    function formatNumber(n) {
+      return (n || 0).toLocaleString('ja-JP');
     }
 
-    // 列ごとの総計（footer用）
-    function calcColumnTotals(data) {
-      const totals = { byPayment: {}, total: 0, fee1: 0, fee2: 0, settlement: 0 };
-      data.paymentTypes.forEach(pt => {
-        totals.byPayment[pt.key] = pt.methods.map(() => 0);
-      });
-      data.rows.forEach(row => {
-        data.paymentTypes.forEach(pt => {
-          row.amounts[pt.key].forEach((v, i) => {
-            totals.byPayment[pt.key][i] += (v || 0);
-          });
-        });
-        totals.total += row.total;
-        totals.fee1 += row.fee1;
-        totals.fee2 += row.fee2;
-        totals.settlement += row.settlement;
-      });
-      // 0は null に変換（"—"表示のため）
-      Object.keys(totals.byPayment).forEach(k => {
-        totals.byPayment[k] = totals.byPayment[k].map(v => v === 0 ? null : v);
-      });
-      if (totals.total === 0) totals.total = null;
-      if (totals.fee1 === 0) totals.fee1 = null;
-      if (totals.fee2 === 0) totals.fee2 = null;
-      if (totals.settlement === 0) totals.settlement = null;
-      return totals;
+    function buildRow(row) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="text-left">'    + esc(row.tradeCode)                  + '</td>' +
+        '<td class="text-left jp">' + esc(row.storeNumber)                + '</td>' +
+        '<td class="text-left jp">' + esc(row.storeName)                  + '</td>' +
+        '<td class="text-left jp">' + esc(row.paymentFormat)              + '</td>' +
+        '<td class="text-left jp">' + esc(row.cardBrand)                  + '</td>' +
+        '<td class="text-left jp">' + esc(row.transactionType || '－')    + '</td>' +
+        '<td class="text-left">'    + esc(row.cutoffDate || '')           + '</td>' +
+        '<td>'                      + formatNumber(row.salesAmount)       + '</td>' +
+        '<td>'                      + formatNumber(row.acquirerFee)       + '</td>' +
+        '<td>'                      + formatNumber(row.companyFee)        + '</td>' +
+        '<td>'                      + formatNumber(row.settlementAmount)  + '</td>';
+      return tr;
     }
 
-    // ========================================
-    // テーブル生成（案1：グループ化＋折りたたみ）
-    // ========================================
-    // expandedSet：展開中の決済種類keyのセット
-    function renderTable(containerEl, data, expandedSet) {
-      const totals = calcColumnTotals(data);
+    function render() {
+      var total = filteredData.length;
+      var pages = totalPages();
+      if (currentPage > pages) { currentPage = pages; }
 
-      // colgroup生成
-      const fixedCols = ['取引コード', '支店コード', '店舗名'];
-      const tailCols = 4; // 総計、仕入手数料、当社手数料、精算金額
+      var start = (currentPage - 1) * perPage;
+      var end   = Math.min(start + perPage, total);
 
-      let colgroupHtml = '<colgroup>';
-      colgroupHtml += '<col style="width: 90px"><col style="width: 100px"><col style="width: 200px">';
-      data.paymentTypes.forEach(pt => {
-        const isExpanded = expandedSet.has(pt.key);
-        const cols = isExpanded ? pt.methods.length : 1;
-        for (let i = 0; i < cols; i++) {
-          colgroupHtml += '<col style="width: 90px">';
-        }
-      });
-      colgroupHtml += '<col style="width: 95px"><col style="width: 100px"><col style="width: 100px"><col style="width: 100px">';
-      colgroupHtml += '</colgroup>';
-
-      // メインヘッダ
-      let theadHtml = '<thead>';
-      // 1段目
-      theadHtml += '<tr>';
-      theadHtml += '<th rowspan="2" class="text-left">取引コード</th>';
-      theadHtml += '<th rowspan="2" class="text-left">支店コード</th>';
-      theadHtml += '<th rowspan="2" class="text-left">店舗名</th>';
-      data.paymentTypes.forEach(pt => {
-        const isExpanded = expandedSet.has(pt.key);
-        const colspan = isExpanded ? pt.methods.length : 1;
-        const icon = isExpanded ? '▼' : '▶';
-        const expandedClass = isExpanded ? ' expanded' : '';
-        // 単一支払方法の場合は折りたたみでも展開でも同じなので折りたたみアイコンを出さない
-        const showIcon = pt.methods.length > 1;
-        theadHtml += `<th colspan="${colspan}" class="group${expandedClass}" data-payment-key="${pt.key}" ${showIcon ? 'data-toggleable="1"' : ''}>${pt.label}${showIcon ? ` <span class="group-toggle-icon">${icon}</span>` : ''}</th>`;
-      });
-      theadHtml += '<th rowspan="2">総計<br>(円)</th>';
-      theadHtml += '<th rowspan="2">仕入手数料額<br>(円)</th>';
-      theadHtml += '<th rowspan="2">当社手数料額<br>(円)</th>';
-      theadHtml += '<th rowspan="2">精算金額<br>(円)</th>';
-      theadHtml += '</tr>';
-
-      // 2段目（サブヘッダ：展開中の決済種類のみ各支払方法、折りたたみ中は「合計」）
-      theadHtml += '<tr class="sub-header">';
-      data.paymentTypes.forEach(pt => {
-        const isExpanded = expandedSet.has(pt.key);
-        if (isExpanded) {
-          pt.methods.forEach(m => {
-            theadHtml += `<th>${m}</th>`;
-          });
-        } else {
-          // 単一支払方法のときは支払方法名そのまま、複数のときは「合計」
-          const label = pt.methods.length === 1 ? pt.methods[0] : '合計';
-          theadHtml += `<th>${label}</th>`;
-        }
-      });
-      theadHtml += '</tr>';
-      theadHtml += '</thead>';
-
-      // ボディ（データあり：実データ行、データなし：空行10行）
-      let tbodyHtml = '<tbody>';
-      if (data.rows.length > 0) {
-        data.rows.forEach(row => {
-          tbodyHtml += '<tr>';
-          tbodyHtml += `<td class="text-left">${row.txCode}</td>`;
-          tbodyHtml += `<td class="text-left">${row.branchCode}</td>`;
-          tbodyHtml += `<td class="jp">${row.shopName}</td>`;
-          data.paymentTypes.forEach(pt => {
-            const isExpanded = expandedSet.has(pt.key);
-            if (isExpanded) {
-              row.amounts[pt.key].forEach(v => {
-                tbodyHtml += cell(v, 'detail-cell');
-              });
-            } else {
-              tbodyHtml += cell(sumPaymentType(row.amounts[pt.key]));
-            }
-          });
-          tbodyHtml += cell(row.total);
-          tbodyHtml += cell(row.fee1);
-          tbodyHtml += cell(row.fee2);
-          tbodyHtml += cell(row.settlement);
-          tbodyHtml += '</tr>';
-        });
+      tbodyEl.innerHTML = '';
+      if (total === 0) {
+        var emptyTr = document.createElement('tr');
+        emptyTr.innerHTML = '<td class="empty-cell" colspan="11">該当するデータがありません。</td>';
+        tbodyEl.appendChild(emptyTr);
+        summaryEl.textContent = '0 件';
+        paginationEl.style.display = 'none';
       } else {
-        const totalCols = 3 + data.paymentTypes.reduce((s, pt) =>
-          s + (expandedSet.has(pt.key) ? pt.methods.length : 1), 0) + 4;
-        for (let i = 0; i < 10; i++) {
-          tbodyHtml += '<tr>' + '<td></td>'.repeat(totalCols) + '</tr>';
+        for (var i = start; i < end; i++) {
+          tbodyEl.appendChild(buildRow(filteredData[i]));
         }
+        summaryEl.textContent = (start + 1) + '–' + end + ' / ' + total + ' 件';
+        paginationEl.style.display = '';
       }
-      tbodyHtml += '</tbody>';
 
-      const html = `
-        <table class="data-table">
-          ${colgroupHtml}
-          ${theadHtml}
-          ${tbodyHtml}
-        </table>
-      `;
-
-      containerEl.innerHTML = html;
-    }
-
-    /**
-     * イベント委譲でクリックを処理する
-     * containerEl に対して1回だけ登録し、innerHTML 書き換え後も動作する
-     */
-    function setupDelegatedClick(containerEl, data, expandedSet) {
-      containerEl.addEventListener('click', (e) => {
-        // クリックされた要素から最も近い「展開可能な親 th」を探す
-        const th = e.target.closest('th.group[data-toggleable="1"]');
-        if (!th || !containerEl.contains(th)) return;
-        const key = th.dataset.paymentKey;
-        if (!key) return;
-        if (expandedSet.has(key)) {
-          expandedSet.delete(key);
-        } else {
-          expandedSet.add(key);
+      pageNumsEl.innerHTML = '';
+      buildPageItems(currentPage, pages).forEach(function (item) {
+        if (item === '...') {
+          var sp = document.createElement('span');
+          sp.className = 'page-ellipsis';
+          sp.textContent = '…';
+          pageNumsEl.appendChild(sp);
+          return;
         }
-        renderTable(containerEl, data, expandedSet);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'page-btn page-number' + (item === currentPage ? ' is-active' : '');
+        btn.textContent = item;
+        btn.addEventListener('click', function () {
+          currentPage = item;
+          render();
+        });
+        pageNumsEl.appendChild(btn);
       });
+
+      btnPrev.disabled = (currentPage === 1);
+      btnNext.disabled = (currentPage === pages);
     }
 
-    // ========================================
-    // 状態管理 & 初期化
-    // ========================================
-    const expandedVmEmi = new Set(); // VM-EMIビューで展開中の決済種類
-    const expandedCode = new Set();  // codeビューで展開中の決済種類
-
-    const vmEmiContainer = document.getElementById('vm-emi-table-container');
-    const codeContainer = document.getElementById('code-table-container');
-
-    // イベント委譲のセットアップ（初回のみ）
-    setupDelegatedClick(vmEmiContainer, vmEmiData, expandedVmEmi);
-    setupDelegatedClick(codeContainer, codeData, expandedCode);
-
-    let dataLoaded = false;
-
-    function rerenderAll() {
-      const vmData = dataLoaded ? vmEmiData : { ...vmEmiData, rows: [] };
-      const cdData = dataLoaded ? codeData : { ...codeData, rows: [] };
-      renderTable(vmEmiContainer, vmData, expandedVmEmi);
-      renderTable(codeContainer, cdData, expandedCode);
+    function updateSummaryCards() {
+      var totals = filteredData.reduce(function (acc, row) {
+        acc.sales      += row.salesAmount || 0;
+        acc.acquirer   += row.acquirerFee || 0;
+        acc.company    += row.companyFee || 0;
+        acc.settlement += row.settlementAmount || 0;
+        return acc;
+      }, { sales: 0, acquirer: 0, company: 0, settlement: 0 });
+      document.getElementById('sum-sales').textContent        = formatNumber(totals.sales);
+      document.getElementById('sum-acquirer-fee').textContent = formatNumber(totals.acquirer);
+      document.getElementById('sum-company-fee').textContent  = formatNumber(totals.company);
+      document.getElementById('sum-settlement').textContent   = formatNumber(totals.settlement);
     }
 
-    rerenderAll();
+    function esc(val) {
+      if (val == null) { return ''; }
+      return String(val)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
 
-    // ========================================
-    // ビュー切替
-    // ========================================
-    const paymentTypeSelect = document.getElementById('payment-type');
-    const views = document.querySelectorAll('.data-view');
-    const summaryVm = document.getElementById('summary-vm-emi');
-    const summaryCode = document.getElementById('summary-code');
-    const sectionCount = document.getElementById('section-count');
+    /* 決済フォーマット・カード名・取扱区分プルダウンは、取得済みデータに実際に存在する
+       値から動的に構築する（「すべて」を先頭に固定）。ハードコードの一覧は持たない。
+       決済フォーマット→カード名→取扱区分の順に絞り込み対象を段階的に狭める。
+       取扱区分はstera code（QR決済）には概念が無くnullのため、選択肢には出てこない。 */
+    function populatePaymentFormatOptions() {
+      var current = paymentFormatSel.value || ALL_VALUE;
+      var formats = Array.from(new Set(allData.map(function (r) { return r.paymentFormat; })))
+          .filter(Boolean).sort();
+      paymentFormatSel.innerHTML = '';
+      addOption(paymentFormatSel, ALL_VALUE);
+      formats.forEach(function (f) { addOption(paymentFormatSel, f); });
+      paymentFormatSel.value = formats.includes(current) || current === ALL_VALUE ? current : ALL_VALUE;
+    }
 
-    function applyView() {
-      const type = paymentTypeSelect.value;
-      views.forEach(v => {
-        v.classList.toggle('active', v.dataset.view === type);
+    function populateCardBrandOptions() {
+      var current = cardBrandSelect.value || ALL_VALUE;
+      var format = paymentFormatSel.value;
+      var brands = Array.from(new Set(
+          allData
+              .filter(function (r) { return format === ALL_VALUE || r.paymentFormat === format; })
+              .map(function (r) { return r.cardBrand; })
+              .filter(Boolean)
+      )).sort();
+      cardBrandSelect.innerHTML = '';
+      addOption(cardBrandSelect, ALL_VALUE);
+      brands.forEach(function (b) { addOption(cardBrandSelect, b); });
+      cardBrandSelect.value = brands.includes(current) || current === ALL_VALUE ? current : ALL_VALUE;
+    }
+
+    function populateTransactionTypeOptions() {
+      var current = transactionTypeSel.value || ALL_VALUE;
+      var format = paymentFormatSel.value;
+      var cardBrand = cardBrandSelect.value;
+      var types = Array.from(new Set(
+          allData
+              .filter(function (r) {
+                return (format === ALL_VALUE || r.paymentFormat === format)
+                    && (cardBrand === ALL_VALUE || r.cardBrand === cardBrand);
+              })
+              .map(function (r) { return r.transactionType; })
+              .filter(Boolean)
+      )).sort();
+      transactionTypeSel.innerHTML = '';
+      addOption(transactionTypeSel, ALL_VALUE);
+      types.forEach(function (t) { addOption(transactionTypeSel, t); });
+      transactionTypeSel.value = types.includes(current) || current === ALL_VALUE ? current : ALL_VALUE;
+    }
+
+    function addOption(selectEl, value) {
+      var option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      selectEl.appendChild(option);
+    }
+
+    paymentFormatSel.addEventListener('change', function () {
+      populateCardBrandOptions();
+      populateTransactionTypeOptions();
+    });
+    cardBrandSelect.addEventListener('change', populateTransactionTypeOptions);
+
+    function applyFilter() {
+      var cutoffDate      = cutoffDateInput.value;
+      var paymentFormat   = paymentFormatSel.value;
+      var cardBrand       = cardBrandSelect.value;
+      var transactionType = transactionTypeSel.value;
+
+      filteredData = allData.filter(function (row) {
+        if (cutoffDate && row.cutoffDate !== cutoffDate) { return false; }
+        if (paymentFormat !== ALL_VALUE && row.paymentFormat !== paymentFormat) { return false; }
+        if (cardBrand !== ALL_VALUE && row.cardBrand !== cardBrand) { return false; }
+        if (transactionType !== ALL_VALUE && row.transactionType !== transactionType) { return false; }
+        return true;
       });
-      if (type === 'vm-emi') {
-        summaryVm.style.display = '';
-        summaryCode.style.display = 'none';
-        sectionCount.textContent = '全 6 件';
-      } else {
-        summaryVm.style.display = 'none';
-        summaryCode.style.display = '';
-        sectionCount.textContent = '全 6 件';
-      }
+      currentPage = 1;
+      render();
+      updateSummaryCards();
     }
 
-    paymentTypeSelect.addEventListener('change', applyView);
-    applyView();
+    function loadAll() {
+      msgArea.innerHTML = '';
+      tbodyEl.innerHTML =
+        '<tr><td class="empty-cell" colspan="11"><span class="spinner"></span> 読み込み中…</td></tr>';
+      summaryEl.textContent = '';
 
-    function setSummaryValues(loaded) {
-      document.getElementById('sum-vm-total').textContent      = loaded ? '406,533' : '—';
-      document.getElementById('sum-vm-fee1').textContent       = loaded ? '11,181'  : '—';
-      document.getElementById('sum-vm-fee2').textContent       = loaded ? '814'     : '—';
-      document.getElementById('sum-vm-settlement').textContent = loaded ? '394,538' : '—';
-      document.getElementById('sum-code-total').textContent      = loaded ? '84,598' : '—';
-      document.getElementById('sum-code-fee1').textContent       = loaded ? '2,327'  : '—';
-      document.getElementById('sum-code-fee2').textContent       = loaded ? '168'    : '—';
-      document.getElementById('sum-code-settlement').textContent = loaded ? '82,103' : '—';
+      fetch('/stera_smcc_search', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('unauthenticated'));
+          }
+          if (!res.ok) { throw new Error('HTTP ' + res.status); }
+          return res.json();
+        })
+        .then(function (data) {
+          allData = data || [];
+          populatePaymentFormatOptions();
+          populateCardBrandOptions();
+          populateTransactionTypeOptions();
+          applyFilter();
+        })
+        .catch(function (err) {
+          if (err && err.message === 'unauthenticated') { return; }
+          msgArea.innerHTML =
+            '<div class="msg-error">データの取得に失敗しました。再度お試しください。</div>';
+          tbodyEl.innerHTML = '<tr><td class="empty-cell" colspan="11">読み込みエラー</td></tr>';
+          summaryEl.textContent = '';
+        });
     }
 
-    document.querySelector('.btn-search').addEventListener('click', () => {
-      dataLoaded = true;
-      rerenderAll();
-      applyView();
-      setSummaryValues(true);
-      document.getElementById('section-count').style.display = '';
+    btnPrev.addEventListener('click', function () {
+      if (currentPage > 1) { currentPage--; render(); }
     });
 
-    document.querySelector('.btn-clear').addEventListener('click', () => {
-      document.getElementById('target-month').value = '';
-      document.getElementById('payment-type').value = 'vm-emi';
-      dataLoaded = false;
-      rerenderAll();
-      applyView();
-      setSummaryValues(false);
-      document.getElementById('section-count').style.display = 'none';
+    btnNext.addEventListener('click', function () {
+      if (currentPage < totalPages()) { currentPage++; render(); }
     });
 
-    // ========================================
-    // 一括展開／折りたたみボタン
-    // ========================================
-    document.getElementById('btn-expand-all').addEventListener('click', () => {
-      const isVmEmi = paymentTypeSelect.value === 'vm-emi';
-      const data = isVmEmi ? vmEmiData : codeData;
-      const expandedSet = isVmEmi ? expandedVmEmi : expandedCode;
-      // 複数の支払方法を持つ決済種類のみ展開対象
-      data.paymentTypes.forEach(pt => {
-        if (pt.methods.length > 1) expandedSet.add(pt.key);
-      });
-      rerenderAll();
+    perPageSel.addEventListener('change', function () {
+      perPage = parseInt(perPageSel.value, 10);
+      currentPage = 1;
+      render();
     });
 
-    document.getElementById('btn-collapse-all').addEventListener('click', () => {
-      const isVmEmi = paymentTypeSelect.value === 'vm-emi';
-      const expandedSet = isVmEmi ? expandedVmEmi : expandedCode;
-      expandedSet.clear();
-      rerenderAll();
+    btnFilter.addEventListener('click', applyFilter);
+
+    btnClear.addEventListener('click', function () {
+      cutoffDateInput.value = '';
+      paymentFormatSel.value = ALL_VALUE;
+      populateCardBrandOptions();
+      populateTransactionTypeOptions();
+      applyFilter();
     });
+
+    /* 初期ロード：全件を取得したうえで表示する */
+    loadAll();
   </script>
 </body>
 </html>

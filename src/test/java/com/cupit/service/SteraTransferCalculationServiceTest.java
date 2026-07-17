@@ -265,4 +265,24 @@ class SteraTransferCalculationServiceTest {
                 .hasMessageContaining("振込先口座情報");
     }
 
+    @Test
+    void findTargetImportBatchesReturnsUnprocessedBatchesFromAllThreeFormats() {
+        // 統合振込CSV作成のプレビュー画面で「対象ファイル一覧」（締め日を含む）として
+        // 表示するためのメソッド。3フォーマット分の未確定バッチをまとめて返すことを確認する。
+        ImportBatch jcbBatch = new ImportBatch();
+        jcbBatch.setBatchId(JCB_BATCH_ID);
+        when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(PAYMENT_TYPE_JCB))
+                .thenReturn(List.of(jcbBatch));
+        ImportBatch codeBatch = new ImportBatch();
+        codeBatch.setBatchId(CODE_BATCH_ID);
+        when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(PAYMENT_TYPE_CODE))
+                .thenReturn(List.of(codeBatch));
+        givenUnprocessedCreditBatch();
+
+        List<ImportBatch> result = service.findTargetImportBatches();
+
+        assertThat(result).extracting(ImportBatch::getBatchId)
+                .containsExactlyInAnyOrder(JCB_BATCH_ID, CODE_BATCH_ID, CREDIT_BATCH_ID);
+    }
+
 }

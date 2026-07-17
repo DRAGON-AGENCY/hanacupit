@@ -2,57 +2,89 @@ package com.cupit.service.settlement;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.DataFormat;
-import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.cupit.model.JftdReportCompanyInfo;
 import com.cupit.repository.JftdReportCompanyInfoRepository;
 
 /**
- * 支払明細書（サンプル_支払明細書.xlsx）と同じ列構成でxlsxを書き出す。
- * 花キューピットからJFTDへの振込通知書に相当する。決済種別（決済会社×カードブランド、
- * スマレジ端末月額利用料は本体・調整を合算）単位の内訳行と、3グループの小計・
- * 総合計を出力する。行の並び・グルーピングはReportLineDefinitionを参照。
+ * 支払明細書（サンプル_支払明細書.xlsx）をテンプレートとしてそのまま読み込み、
+ * 金額項目のセルにだけ値を設定して書き出す。レイアウト・ラベル・罫線等の見た目は
+ * テンプレート（{@code report.template.dir}で指定した外部フォルダの
+ * {@code support_statement_template.xlsx}）に完全に委ね、Java側は「どの行の
+ * どの列に何を書くか」だけを持つ。将来サンプルのフォーマットが変わった場合は、
+ * 外部フォルダのテンプレートファイルを差し替えるだけで対応でき、再ビルド・
+ * 再デプロイは不要（行番号を変える場合はReportLineDefinition側の対応・再デプロイが必要）。
+ * 行の並び・グルーピングはReportLineDefinition#supportStatementOrder()を参照。
  * 「(C)株式会社手数料」（手数料②、弊社→加盟店の上乗せ手数料）は計算式が未確定のため
  * 常に0円で出力する（調査メモ「論点・オープン事項」項番6を参照）。
  */
 @Component
 public class SupportStatementXlsxWriter {
 
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+    private static final String TEMPLATE_FILE_NAME = "support_statement_template.xlsx";
+
+    private static final int COL_C_PERIOD = 2;
+    private static final int COL_D_COUNT = 3;
+    private static final int COL_E_GROSS = 4;
+    private static final int COL_F_FEE_TAX_FREE = 5;
+    private static final int COL_G_FEE_BASE = 6;
+    private static final int COL_H_FEE_TAX = 7;
+    private static final int COL_I_FEE_TOTAL = 8;
+    private static final int COL_J_AFTER_FEE = 9;
+    private static final int COL_K_OUR_FEE_BASE = 10;
+    private static final int COL_L_OUR_FEE_TAX = 11;
+    private static final int COL_M_OUR_FEE_TOTAL = 12;
+    private static final int COL_N_TOTAL_FEE = 13;
+    private static final int COL_O_NET_PAYABLE = 14;
+
+    /** 各データ行の直後に「(2.60％)」等の手数料率注記行があるテンプレート上の行番号。 */
+    private static final int[] FEE_RATE_NOTE_ROWS = {
+        18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 41, 43, 45, 47, 49, 79
+    };
+
+    private static final int ROW_GRAND_TOTAL = 107;
+    private static final int ROW_MEMO_TAX_FREE_TOTAL = 108;
+    private static final int ROW_MEMO_TAXABLE_TOTAL = 109;
+    private static final int ROW_MEMO_TAX_TOTAL = 110;
 
     private final JftdReportCompanyInfoRepository companyInfoRepository;
 
-    public SupportStatementXlsxWriter(JftdReportCompanyInfoRepository companyInfoRepository) {
+    private final String templateDir;
+
+    public SupportStatementXlsxWriter(
+            JftdReportCompanyInfoRepository companyInfoRepository,
+            @Value("${report.template.dir}") String templateDir) {
         this.companyInfoRepository = companyInfoRepository;
+        this.templateDir = templateDir;
     }
 
-    public byte[] write(List<ReportRow> rows) {
-        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("支払明細書");
-            Styles styles = new Styles(workbook);
+    /**
+     * @param paymentDate 「お支払日」欄に出力する日付。確定日時（振込CSV確定日）を
+     *                    そのまま使う運用とする（ユーザー確認済み）。
+     */
+    public byte[] write(List<ReportRow> rows, LocalDate paymentDate) {
+        Path templatePath = Path.of(templateDir, TEMPLATE_FILE_NAME);
+        try (InputStream template = Files.newInputStream(templatePath);
+                XSSFWorkbook workbook = new XSSFWorkbook(template)) {
+            workbook.setForceFormulaRecalculation(true);
+            Sheet sheet = workbook.getSheetAt(0);
             JftdReportCompanyInfo info = companyInfoRepository.findById(1).orElse(null);
 
-            int rowNum = writeLetterhead(sheet, styles, info);
-            rowNum = writeHeaderRow(sheet, styles, rowNum);
-            rowNum = writeDataRows(sheet, styles, rowNum, rows);
-
-            for (int col = 0; col <= 6; col++) {
-                sheet.autoSizeColumn(col);
-            }
+            int netPayableTotal = writeDataRows(sheet, rows);
+            writeLetterhead(sheet, info, paymentDate, netPayableTotal);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
@@ -62,79 +94,40 @@ public class SupportStatementXlsxWriter {
         }
     }
 
-    private int writeLetterhead(Sheet sheet, Styles styles, JftdReportCompanyInfo info) {
-        int r = 0;
-        Row issueDateRow = sheet.createRow(r++);
-        Cell issueDateCell = issueDateRow.createCell(5);
-        issueDateCell.setCellValue("発行日：" + LocalDate.now().format(DATE_FMT));
-
-        Row titleRow = sheet.createRow(r++);
-        Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("支 払 明 細 書");
-        titleCell.setCellStyle(styles.title);
-        r++;
+    private void writeLetterhead(
+            Sheet sheet, JftdReportCompanyInfo info, LocalDate paymentDate, int paymentAmountTotal) {
+        setCellValue(sheet, 2, 14, LocalDate.now());
+        setCellValue(sheet, 12, 2, paymentAmountTotal);
 
         if (info != null) {
-            Row recipientRow = sheet.createRow(r++);
-            recipientRow.createCell(0).setCellValue(
-                    info.getRecipientName() + " 御中（〒" + nullToEmpty(info.getRecipientZip()) + " "
-                    + nullToEmpty(info.getRecipientAddress()) + "）");
-            Row recipientInvoiceRow = sheet.createRow(r++);
-            recipientInvoiceRow.createCell(0).setCellValue(
-                    "登録番号：" + nullToEmpty(info.getRecipientInvoiceNo()));
+            setCellValue(sheet, 4, 1, "〒" + nullToEmpty(info.getRecipientZip()));
+            setCellValue(sheet, 5, 1, nullToEmpty(info.getRecipientAddress()));
+            setCellValue(sheet, 6, 1, nullToEmpty(info.getRecipientName()));
+            setCellValue(sheet, 7, 1, "登録番号：" + nullToEmpty(info.getRecipientInvoiceNo()));
 
-            Row senderRow = sheet.createRow(r++);
-            senderRow.createCell(0).setCellValue(
-                    info.getSenderName() + "（〒" + nullToEmpty(info.getSenderZip()) + " "
-                    + nullToEmpty(info.getSenderAddress()) + "）");
-            Row senderContactRow = sheet.createRow(r++);
-            senderContactRow.createCell(0).setCellValue(
-                    "登録番号：" + nullToEmpty(info.getSenderInvoiceNo())
-                    + "　TEL：" + nullToEmpty(info.getSenderTel())
-                    + "　FAX：" + nullToEmpty(info.getSenderFax())
-                    + "　担当：" + nullToEmpty(info.getSenderContact()));
-            r++;
+            setCellValue(sheet, 4, 11, "〒" + nullToEmpty(info.getSenderZip()));
+            setCellValue(sheet, 5, 11, nullToEmpty(info.getSenderAddress()));
+            setCellValue(sheet, 6, 11, nullToEmpty(info.getSenderName()));
+            setCellValue(sheet, 7, 11, "登録番号：" + nullToEmpty(info.getSenderInvoiceNo()));
+            setCellValue(sheet, 8, 11, "TEL：" + nullToEmpty(info.getSenderTel())
+                    + "　FAX：" + nullToEmpty(info.getSenderFax()));
+            setCellValue(sheet, 9, 11, "担当：" + nullToEmpty(info.getSenderContact()));
 
-            Row bankHeaderRow = sheet.createRow(r++);
-            String[] bankHeaders = {
-                "お支払条件", "ご指定金融機関", "支店名", "預金科目", "口座番号", "口座名義カナ"
-            };
-            for (int i = 0; i < bankHeaders.length; i++) {
-                Cell c = bankHeaderRow.createCell(i);
-                c.setCellValue(bankHeaders[i]);
-                c.setCellStyle(styles.header);
-            }
-            Row bankValueRow = sheet.createRow(r++);
-            bankValueRow.createCell(0).setCellValue("銀行振込");
-            bankValueRow.createCell(1).setCellValue(nullToEmpty(info.getBankName()));
-            bankValueRow.createCell(2).setCellValue(nullToEmpty(info.getBankBranchName()));
-            bankValueRow.createCell(3).setCellValue(nullToEmpty(info.getBankAccountType()));
-            bankValueRow.createCell(4).setCellValue(nullToEmpty(info.getBankAccountNumber()));
-            bankValueRow.createCell(5).setCellValue(nullToEmpty(info.getBankAccountHolderKana()));
-            r++;
+            setCellValue(sheet, 12, 4, nullToEmpty(info.getBankName()));
+            setCellValue(sheet, 12, 5, nullToEmpty(info.getBankBranchName()));
+            setCellValue(sheet, 12, 6, nullToEmpty(info.getBankAccountType()));
+            setCellValue(sheet, 12, 7, nullToEmpty(info.getBankAccountNumber()));
+            setCellValue(sheet, 12, 8, nullToEmpty(info.getBankAccountHolderKana()));
         }
-        return r;
+
+        setCellValue(sheet, 12, 1, paymentDate);
     }
 
-    private int writeHeaderRow(Sheet sheet, Styles styles, int rowNum) {
-        String[] headers = {
-            "決済種別", "件数", "(A)決済金額合計",
-            "(B)事業者手数料\n非課税", "(B)事業者手数料\n課税本体", "(B)事業者手数料\n消費税",
-            "事業者手数料差引後\n決済金額 (A)-(B)",
-            "(C)弊社手数料\n本体（未実装）", "(C)弊社手数料\n消費税（未実装）",
-            "手数料合計\n(B)+(C)", "差引振込額\n(A)-(B)-(C)"
-        };
-        Row headerRow = sheet.createRow(rowNum);
-        for (int i = 0; i < headers.length; i++) {
-            Cell cell = headerRow.createCell(i);
-            cell.setCellValue(headers[i]);
-            cell.setCellStyle(styles.header);
-        }
-        return rowNum + 1;
-    }
-
-    private int writeDataRows(Sheet sheet, Styles styles, int rowNum, List<ReportRow> rows) {
-        List<ReportLineDefinition> definitions = ReportLineDefinition.defaultOrder();
+    /**
+     * @return 総合計の差引振込額（お支払金額合計欄に転記する値）
+     */
+    private int writeDataRows(Sheet sheet, List<ReportRow> rows) {
+        List<ReportLineDefinition> definitions = ReportLineDefinition.supportStatementOrder();
         List<ResolvedReportLine> lines = ResolvedReportLine.resolveAll(definitions, rows);
 
         Totals subtotal = new Totals();
@@ -143,57 +136,106 @@ public class SupportStatementXlsxWriter {
         for (int i = 0; i < definitions.size(); i++) {
             ReportLineDefinition def = definitions.get(i);
             if (def.isSubtotalMarker()) {
-                writeTotalsRow(sheet, styles, rowNum++, "小計", subtotal);
+                writeTotalsRow(sheet, def.getRow(), subtotal);
                 grandTotal.add(subtotal);
                 subtotal = new Totals();
                 continue;
             }
             ResolvedReportLine line = lines.get(i);
-            writeDataRow(sheet, styles, rowNum++, line);
+            writeDataRow(sheet, def.getRow(), line);
             subtotal.addLine(line);
         }
 
-        writeTotalsRow(sheet, styles, rowNum++, "合計", grandTotal);
-        return rowNum;
+        writeTotalsRow(sheet, ROW_GRAND_TOTAL, grandTotal);
+        clearFeeRateNoteRows(sheet);
+
+        setCellValue(sheet, ROW_MEMO_TAX_FREE_TOTAL, COL_N_TOTAL_FEE, grandTotal.acquirerFeeTaxFree);
+        setCellValue(sheet, ROW_MEMO_TAXABLE_TOTAL, COL_N_TOTAL_FEE,
+                grandTotal.acquirerFeeBase + grandTotal.ourFeeBase);
+        setCellValue(sheet, ROW_MEMO_TAX_TOTAL, COL_N_TOTAL_FEE,
+                grandTotal.acquirerFeeTax + grandTotal.ourFeeTax);
+
+        int feeTotal = grandTotal.acquirerFeeTaxFree + grandTotal.acquirerFeeBase + grandTotal.acquirerFeeTax
+                + grandTotal.ourFeeBase + grandTotal.ourFeeTax;
+        return grandTotal.grossAmount - feeTotal;
     }
 
-    private void writeDataRow(Sheet sheet, Styles styles, int rowNum, ResolvedReportLine line) {
-        Row row = sheet.createRow(rowNum);
-        row.createCell(0).setCellValue(line.getLabel());
-        setAmount(row.createCell(1), line.getCount(), styles);
-        setAmount(row.createCell(2), line.getGrossAmount(), styles);
-        setAmount(row.createCell(3), line.getAcquirerFeeTaxFreeAmount(), styles);
-        setAmount(row.createCell(4), line.getAcquirerFeeBaseAmount(), styles);
-        setAmount(row.createCell(5), line.getAcquirerFeeTaxAmount(), styles);
-        setAmount(row.createCell(6), line.getAfterAcquirerFeeAmount(), styles);
-        setAmount(row.createCell(7), line.getOurFeeBaseAmount(), styles);
-        setAmount(row.createCell(8), line.getOurFeeTaxAmount(), styles);
-        setAmount(row.createCell(9), line.getTotalFeeAmount(), styles);
-        setAmount(row.createCell(10), line.getNetPayableAmount(), styles);
+    private void writeDataRow(Sheet sheet, int excelRow, ResolvedReportLine line) {
+        blankCell(sheet, excelRow, COL_C_PERIOD);
+        setCellValue(sheet, excelRow, COL_D_COUNT, line.getCount());
+        setCellValue(sheet, excelRow, COL_E_GROSS, line.getGrossAmount());
+        setCellValue(sheet, excelRow, COL_F_FEE_TAX_FREE, line.getAcquirerFeeTaxFreeAmount());
+        setCellValue(sheet, excelRow, COL_G_FEE_BASE, line.getAcquirerFeeBaseAmount());
+        setCellValue(sheet, excelRow, COL_H_FEE_TAX, line.getAcquirerFeeTaxAmount());
+        setCellValue(sheet, excelRow, COL_I_FEE_TOTAL, line.getAcquirerFeeTotal());
+        setCellValue(sheet, excelRow, COL_J_AFTER_FEE, line.getAfterAcquirerFeeAmount());
+        setCellValue(sheet, excelRow, COL_K_OUR_FEE_BASE, line.getOurFeeBaseAmount());
+        setCellValue(sheet, excelRow, COL_L_OUR_FEE_TAX, line.getOurFeeTaxAmount());
+        setCellValue(sheet, excelRow, COL_M_OUR_FEE_TOTAL, line.getOurFeeTotal());
+        setCellValue(sheet, excelRow, COL_N_TOTAL_FEE, line.getTotalFeeAmount());
+        setCellValue(sheet, excelRow, COL_O_NET_PAYABLE, line.getNetPayableAmount());
     }
 
-    private void writeTotalsRow(Sheet sheet, Styles styles, int rowNum, String label, Totals totals) {
-        Row row = sheet.createRow(rowNum);
-        Cell labelCell = row.createCell(0);
-        labelCell.setCellValue(label);
-        labelCell.setCellStyle(styles.header);
-        setAmount(row.createCell(2), totals.grossAmount, styles);
-        setAmount(row.createCell(3), totals.acquirerFeeTaxFree, styles);
-        setAmount(row.createCell(4), totals.acquirerFeeBase, styles);
-        setAmount(row.createCell(5), totals.acquirerFeeTax, styles);
-        setAmount(row.createCell(6), totals.grossAmount - totals.acquirerFeeTaxFree
-                - totals.acquirerFeeBase - totals.acquirerFeeTax, styles);
-        setAmount(row.createCell(7), totals.ourFeeBase, styles);
-        setAmount(row.createCell(8), totals.ourFeeTax, styles);
-        int feeTotal = totals.acquirerFeeTaxFree + totals.acquirerFeeBase + totals.acquirerFeeTax
-                + totals.ourFeeBase + totals.ourFeeTax;
-        setAmount(row.createCell(9), feeTotal, styles);
-        setAmount(row.createCell(10), totals.grossAmount - feeTotal, styles);
+    private void writeTotalsRow(Sheet sheet, int excelRow, Totals totals) {
+        setCellValue(sheet, excelRow, COL_E_GROSS, totals.grossAmount);
+        setCellValue(sheet, excelRow, COL_I_FEE_TOTAL,
+                totals.acquirerFeeTaxFree + totals.acquirerFeeBase + totals.acquirerFeeTax);
+        setCellValue(sheet, excelRow, COL_J_AFTER_FEE, totals.grossAmount
+                - totals.acquirerFeeTaxFree - totals.acquirerFeeBase - totals.acquirerFeeTax);
+        int ourFeeTotal = totals.ourFeeBase + totals.ourFeeTax;
+        setCellValue(sheet, excelRow, COL_M_OUR_FEE_TOTAL, ourFeeTotal);
+        int feeTotal = totals.acquirerFeeTaxFree + totals.acquirerFeeBase + totals.acquirerFeeTax + ourFeeTotal;
+        setCellValue(sheet, excelRow, COL_N_TOTAL_FEE, feeTotal);
+        setCellValue(sheet, excelRow, COL_O_NET_PAYABLE, totals.grossAmount - feeTotal);
     }
 
-    private void setAmount(Cell cell, int value, Styles styles) {
+    /**
+     * テンプレートのサンプルデータに含まれる手数料率の注記（「(2.60％)」等）は、
+     * 実データに基づく値ではなく手入力のサンプル値であり、かつI列側は決済事業者の
+     * 契約レートを都度参照しないと正しい値を再現できない。誤った値をそのまま残すと
+     * 実際の集計結果と矛盾するため、空欄にクリアする。
+     */
+    private void clearFeeRateNoteRows(Sheet sheet) {
+        for (int excelRow : FEE_RATE_NOTE_ROWS) {
+            blankCell(sheet, excelRow, COL_I_FEE_TOTAL);
+            blankCell(sheet, excelRow, COL_M_OUR_FEE_TOTAL);
+        }
+    }
+
+    private void blankCell(Sheet sheet, int excelRow, int col) {
+        Cell cell = getCell(sheet, excelRow, col);
+        if (cell != null) {
+            cell.setBlank();
+        }
+    }
+
+    private void setCellValue(Sheet sheet, int excelRow, int col, int value) {
+        Cell cell = getOrCreateCell(sheet, excelRow, col);
         cell.setCellValue(value);
-        cell.setCellStyle(styles.amount);
+    }
+
+    private void setCellValue(Sheet sheet, int excelRow, int col, String value) {
+        Cell cell = getOrCreateCell(sheet, excelRow, col);
+        cell.setCellValue(value);
+    }
+
+    private void setCellValue(Sheet sheet, int excelRow, int col, LocalDate value) {
+        Cell cell = getOrCreateCell(sheet, excelRow, col);
+        cell.setCellValue(value);
+    }
+
+    private Cell getCell(Sheet sheet, int excelRow, int col) {
+        Row row = sheet.getRow(excelRow - 1);
+        return row != null ? row.getCell(col) : null;
+    }
+
+    private Cell getOrCreateCell(Sheet sheet, int excelRow, int col) {
+        Row row = sheet.getRow(excelRow - 1);
+        if (row == null) {
+            row = sheet.createRow(excelRow - 1);
+        }
+        Cell cell = row.getCell(col);
+        return cell != null ? cell : row.createCell(col);
     }
 
     private String nullToEmpty(String s) {
@@ -225,35 +267,6 @@ public class SupportStatementXlsxWriter {
             acquirerFeeTax += other.acquirerFeeTax;
             ourFeeBase += other.ourFeeBase;
             ourFeeTax += other.ourFeeTax;
-        }
-    }
-
-    /** ワークブック内で使い回すセルスタイル。 */
-    private static final class Styles {
-        private final CellStyle title;
-        private final CellStyle header;
-        private final CellStyle amount;
-
-        Styles(XSSFWorkbook workbook) {
-            Font titleFont = workbook.createFont();
-            titleFont.setBold(true);
-            titleFont.setFontHeightInPoints((short) 16);
-            title = workbook.createCellStyle();
-            title.setFont(titleFont);
-            title.setAlignment(HorizontalAlignment.CENTER);
-
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            header = workbook.createCellStyle();
-            header.setFont(headerFont);
-            header.setBorderBottom(BorderStyle.THIN);
-            header.setBorderTop(BorderStyle.THIN);
-            header.setWrapText(true);
-
-            DataFormat format = workbook.createDataFormat();
-            amount = workbook.createCellStyle();
-            amount.setDataFormat(format.getFormat("#,##0"));
-            amount.setBorderBottom(BorderStyle.HAIR);
         }
     }
 

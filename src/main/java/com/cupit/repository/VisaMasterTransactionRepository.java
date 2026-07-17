@@ -17,7 +17,7 @@ public interface VisaMasterTransactionRepository extends JpaRepository<VisaMaste
      * 必ずfee_amount_1列の値を使うこと（fee_rateは実績値の参考表示以上の意味を持たない）。
      */
     @Query("SELECT d.tradeCode AS tradeCode, d.batchId AS batchId, SUM(d.salesAmount) AS totalSalesAmount, "
-            + "SUM(d.feeAmount1) AS totalFeeAmount1 "
+            + "SUM(d.feeAmount1) AS totalFeeAmount1, COUNT(d) AS transactionCount "
             + "FROM VisaMasterTransaction d WHERE d.batchId IN :batchIds "
             + "GROUP BY d.tradeCode, d.batchId")
     List<VisaMasterAggregate> sumByTradeCode(@Param("batchIds") List<Integer> batchIds);
@@ -33,6 +33,8 @@ public interface VisaMasterTransactionRepository extends JpaRepository<VisaMaste
         Long getTotalSalesAmount();
 
         Long getTotalFeeAmount1();
+
+        Long getTransactionCount();
 
     }
 

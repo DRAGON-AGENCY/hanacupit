@@ -36,4 +36,37 @@ public interface SteraCreditSalesDetailRepository extends JpaRepository<SteraCre
 
     }
 
+    /**
+     * stera terminal精算情報照会(SMCC)画面用。取引コード単位に合算する
+     * {@link #sumByTradeCodeCardBrandAndTransactionType}と異なり、merchant_id
+     * （利用加盟店番号）単位の明細をそのまま表示するための集計。実データ上、
+     * 1取引コードに複数のmerchant_idが存在し、merchant_idごとにstore_name（屋号）も
+     * 異なる（読み取り機の種類ごとに別のmerchant_idが割り当てられているため）。
+     */
+    @Query("SELECT d.tradeCode AS tradeCode, d.merchantId AS merchantId, d.storeName AS storeName, "
+            + "d.cardBrand AS cardBrand, d.transactionType AS transactionType, d.batchId AS batchId, "
+            + "SUM(d.billingAmount) AS totalBillingAmount "
+            + "FROM SteraCreditSalesDetail d WHERE d.batchId IN :batchIds "
+            + "GROUP BY d.tradeCode, d.merchantId, d.storeName, d.cardBrand, d.transactionType, d.batchId")
+    List<SteraCreditStoreGroupAggregate> sumByMerchantCardBrandAndTransactionType(
+            @Param("batchIds") List<Integer> batchIds);
+
+    interface SteraCreditStoreGroupAggregate {
+
+        String getTradeCode();
+
+        String getMerchantId();
+
+        String getStoreName();
+
+        String getCardBrand();
+
+        String getTransactionType();
+
+        Integer getBatchId();
+
+        Long getTotalBillingAmount();
+
+    }
+
 }

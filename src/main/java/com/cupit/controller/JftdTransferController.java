@@ -16,8 +16,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.cupit.dto.JftdTransferPreviewResponse;
 import com.cupit.dto.TransferConfirmResponse;
+import com.cupit.dto.TransferTargetFile;
 import com.cupit.interceptor.AuthenticationInterceptor;
+import com.cupit.model.ImportBatch;
 import com.cupit.model.JftdTransferDetail;
 import com.cupit.repository.JftdTransferDetailRepository;
 import com.cupit.service.JftdReportDataService;
@@ -25,6 +28,7 @@ import com.cupit.service.JftdTransferCalculationService;
 import com.cupit.service.JftdTransferConfirmService;
 import com.cupit.service.settlement.ReportRow;
 import com.cupit.service.settlement.SalesReportXlsxWriter;
+import com.cupit.service.settlement.SupportStatementData;
 import com.cupit.service.settlement.SupportStatementXlsxWriter;
 import com.cupit.service.settlement.TransferCsvWriter;
 import com.cupit.service.settlement.TransferLineItem;
@@ -72,9 +76,19 @@ public class JftdTransferController {
      */
     @PostMapping(value = "/jftd_transfer/preview", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public ResponseEntity<List<ReportRow>> preview() {
+    public ResponseEntity<JftdTransferPreviewResponse> preview() {
         List<TransferLineItem> lineItems = calculationService.calculateAllLineItems();
-        return ResponseEntity.ok(reportDataService.summarize(lineItems));
+        List<ReportRow> summary = reportDataService.summarize(lineItems);
+        List<TransferTargetFile> targetFiles = calculationService.findTargetImportBatches().stream()
+                .map(this::toTargetFile)
+                .toList();
+        return ResponseEntity.ok(new JftdTransferPreviewResponse(summary, targetFiles));
+    }
+
+    private TransferTargetFile toTargetFile(ImportBatch batch) {
+        return new TransferTargetFile(
+                batch.getBatchId(), batch.getPaymentType(), batch.getFileName(), batch.getCutoffDate(),
+                batch.getRecordCount() != null ? batch.getRecordCount() : 0);
     }
 
     /**
@@ -130,11 +144,11 @@ public class JftdTransferController {
      */
     @GetMapping("/jftd_transfer/report/statement")
     public ResponseEntity<byte[]> downloadStatement(@RequestParam("ids") List<Integer> importBatchIds) {
-        List<ReportRow> rows = reportDataService.getReportRows(importBatchIds);
-        if (rows.isEmpty()) {
+        SupportStatementData data = reportDataService.getSupportStatementData(importBatchIds);
+        if (data.rows().isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        byte[] xlsxBytes = supportStatementXlsxWriter.write(rows);
+        byte[] xlsxBytes = supportStatementXlsxWriter.write(data.rows(), data.paymentDate());
         return fileResponse(xlsxBytes, XLSX_MEDIA_TYPE, "支払明細書_" + nowTimestamp() + ".xlsx");
     }
 

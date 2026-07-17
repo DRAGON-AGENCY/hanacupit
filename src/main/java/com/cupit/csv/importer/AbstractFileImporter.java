@@ -22,6 +22,8 @@ public abstract class AbstractFileImporter implements FileImporter {
 
     private static final DateTimeFormatter FMT_YYYYMMDD   = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter FMT_YYYY_MM_DD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter FMT_YYYY_SLASH_MM_SLASH_DD =
+            DateTimeFormatter.ofPattern("yyyy/MM/dd");
 
     /**
      * ファイルの先頭バイトでエンコーディングを判定する。
@@ -220,6 +222,81 @@ public abstract class AbstractFileImporter implements FileImporter {
         } catch (DateTimeParseException e) {
             addError(errors, rowNum, colName,
                     "日付変換エラー（YYYY-MM-DD形式）。値: 「" + v + "」");
+            return null;
+        }
+    }
+
+    // ──────────────────────────────────────────────────────
+    // エラー収集あり（NULL許容列用、blankはnullを返す）
+    // ──────────────────────────────────────────────────────
+
+    protected Short parseShortChecked(
+            String s, int rowNum, String colName, List<CsvValidationError> errors) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        String v = s.trim();
+        try {
+            return Short.parseShort(v);
+        } catch (NumberFormatException e) {
+            addError(errors, rowNum, colName, "数値変換エラー。値: 「" + v + "」");
+            return null;
+        }
+    }
+
+    protected Integer parseIntegerChecked(
+            String s, int rowNum, String colName, List<CsvValidationError> errors) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        String v = s.trim();
+        try {
+            return Integer.parseInt(v);
+        } catch (NumberFormatException e) {
+            addError(errors, rowNum, colName, "数値変換エラー。値: 「" + v + "」");
+            return null;
+        }
+    }
+
+    protected Long parseLongChecked(
+            String s, int rowNum, String colName, List<CsvValidationError> errors) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        String v = s.trim();
+        try {
+            return Long.parseLong(v);
+        } catch (NumberFormatException e) {
+            addError(errors, rowNum, colName, "数値変換エラー。値: 「" + v + "」");
+            return null;
+        }
+    }
+
+    protected BigDecimal parseBigDecimalChecked(
+            String s, int rowNum, String colName, List<CsvValidationError> errors) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        String v = s.trim();
+        try {
+            return new BigDecimal(v);
+        } catch (NumberFormatException e) {
+            addError(errors, rowNum, colName, "小数変換エラー。値: 「" + v + "」");
+            return null;
+        }
+    }
+
+    protected LocalDate parseDateSlashChecked(
+            String s, int rowNum, String colName, List<CsvValidationError> errors) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        String v = s.trim();
+        try {
+            return LocalDate.parse(v, FMT_YYYY_SLASH_MM_SLASH_DD);
+        } catch (DateTimeParseException e) {
+            addError(errors, rowNum, colName,
+                    "日付変換エラー（YYYY/MM/DD形式）。値: 「" + v + "」");
             return null;
         }
     }

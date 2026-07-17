@@ -1,5 +1,6 @@
 package com.cupit.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,6 +17,12 @@ public interface ImportBatchRepository extends JpaRepository<ImportBatch, Intege
     List<ImportBatch> findByPaymentTypeAndTransferBatchIdIsNull(String paymentType);
 
     List<ImportBatch> findByTransferBatchIdIn(List<Integer> transferBatchIds);
+
+    /**
+     * 精算情報照会（PAYGATE Station等）用。確定済み・未確定を問わず、指定した
+     * 決済種別・締め日のインポートバッチをすべて返す（CSV作成の「未処理分のみ」制約とは異なる）。
+     */
+    List<ImportBatch> findByPaymentTypeAndCutoffDate(String paymentType, LocalDate cutoffDate);
 
     /**
      * 指定した決済種別の未処理バッチ（transfer_batch_id IS NULL）を排他ロックして返す。

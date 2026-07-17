@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" th:content="${csrfToken}" content="">
 <title>加盟会員店マスターデータ 登録・更新 | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,21 +21,23 @@
     --bg-page: #ffffff;
     --bg-card: #ffffff;
     --bg-form: #eef3fa;
-    --bg-label: #ede8db;
-    --bg-label-soft: #f5f2eb;
     --bg-white: #ffffff;
     --bg-notice: #fbeed5;
     --bg-notice-border: #f1d9a0;
+    --bg-ok: #edf7ed;
+    --bg-ng: #fdf0f0;
     --border-color: #e8e4da;
     --border-input: #d8d4c8;
     --border-form: #cddef2;
     --border-table: #e5e2d8;
+    --border-ok: #a5d6a7;
+    --border-ng: #f5c6cb;
     --text-main: #2a2a2a;
-    --text-sub: #4a4a4a;
     --text-label: #5a5a5a;
     --text-muted: #8a8a8a;
-    --text-subtle: #9a9a9a;
     --text-notice: #8a5a1a;
+    --text-ok: #2e7d32;
+    --text-ng: #b71c1c;
     --accent-blue: #3a6db5;
     --accent-blue-light: #e3edfb;
     --accent-blue-border: #aecbeb;
@@ -48,7 +51,6 @@
     --fs-xs: 14px;
     --fs-sm: 15px;
     --fs-base: 16px;
-    --fs-md: 18px;
     --fs-lg: 22px;
 
     /* === レイアウトトークン === */
@@ -166,7 +168,7 @@
   .file-input:focus {
     outline: none;
     border-color: var(--accent-blue);
-    box-shadow: 0 0 0 2px rgba(61, 107, 58, 0.15);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
   }
 
   .btn {
@@ -183,6 +185,8 @@
     white-space: nowrap;
   }
 
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
   .btn-browse {
     background-color: var(--bg-white);
     border-color: var(--border-input);
@@ -190,7 +194,7 @@
     padding: 8px 22px;
   }
 
-  .btn-browse:hover { background-color: #faf8f2; }
+  .btn-browse:hover:not(:disabled) { background-color: #faf8f2; }
 
   .form-actions {
     display: flex;
@@ -214,7 +218,62 @@
     font-weight: 500;
   }
 
-  .btn-upload:hover { background-color: #d3e2f7; }
+  .btn-upload:hover:not(:disabled) { background-color: #d3e2f7; }
+
+  .btn-clear-result {
+    background-color: var(--bg-white);
+    border-color: var(--border-input);
+    color: var(--text-main);
+  }
+  .btn-clear-result:hover:not(:disabled) { background-color: #faf8f2; }
+
+  /* チェック・インポート結果 */
+  .check-result {
+    display: none;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+
+  .check-result.ok { display: block; background-color: var(--bg-ok); border-color: var(--border-ok); }
+  .check-result.ng { display: block; background-color: var(--bg-ng); border-color: var(--border-ng); }
+
+  .check-result-title {
+    font-size: var(--fs-base); font-weight: 700; margin-bottom: 4px;
+  }
+
+  .check-result.ok .check-result-title { color: var(--text-ok); }
+  .check-result.ng .check-result-title { color: var(--text-ng); }
+
+  .check-result-summary { font-size: var(--fs-sm); color: var(--text-main); }
+
+  .error-table-wrapper {
+    margin-top: 10px;
+    border: 1px solid var(--border-ng);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .error-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+  .error-table th, .error-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border-table); }
+  .error-table th { background-color: #fdeaea; color: var(--text-ng); font-weight: 600; }
+  .error-table tr:last-child td { border-bottom: none; }
+
+  .error-limit-note {
+    font-size: var(--fs-xs); color: var(--text-ng);
+    padding: 6px 12px; background-color: #fdf4f4;
+  }
+
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--accent-blue-border);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* 注意書きボックス */
   .notice-box {
@@ -307,19 +366,42 @@
 
     <div class="form-box">
       <div class="form-field">
-        <label class="form-label" for="file-input">ファイル</label>
+        <label class="form-label" for="file-display">ファイル（CSV）</label>
         <div class="file-input-row">
-          <input type="text" id="file-input" class="file-input" value="member_master_20260418.csv" readonly />
-          <button class="btn btn-browse" type="button">参照</button>
+          <input type="text" id="file-display" class="file-input"
+              placeholder="ファイルを選択してください" readonly />
+          <button class="btn btn-browse" type="button" id="btn-browse">参照</button>
+          <input type="file" id="file-hidden" accept=".csv" style="display:none">
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn btn-download" type="button">
+        <button class="btn btn-download" type="button" id="btn-download">
           <span>⬇</span><span>ダウンロード</span>
         </button>
-        <button class="btn btn-upload" type="button">
-          <span>⬆</span><span>アップロード</span>
+        <button class="btn btn-upload" type="button" id="btn-upload" disabled>
+          <span id="upload-icon">&#11014;</span>
+          <span id="upload-label">アップロード</span>
         </button>
+        <button class="btn btn-clear-result" type="button" id="btn-clear-result">画面クリア</button>
+      </div>
+    </div>
+
+    <!-- フォーマットチェック・インポート結果 -->
+    <div id="check-result" class="check-result">
+      <div class="check-result-title" id="result-title"></div>
+      <div class="check-result-summary" id="result-summary"></div>
+      <div class="error-table-wrapper" id="error-table-wrapper" style="display:none">
+        <table class="error-table">
+          <thead>
+            <tr>
+              <th>行番号</th><th>列名</th><th>エラー内容</th>
+            </tr>
+          </thead>
+          <tbody id="error-table-body"></tbody>
+        </table>
+        <p class="error-limit-note" id="error-limit-note" style="display:none">
+          ※ 表示件数上限に達しました。残りのエラーは省略されています。
+        </p>
       </div>
     </div>
 
@@ -329,26 +411,292 @@
         <span>アップロード時のご注意</span>
       </div>
       <ol class="notice-list">
-        <li>ダウンロードしたファイルのフォーマット・列構成を変更せずに編集してください。</li>
-        <li>アップロード後、データは即座に反映されます。誤ったデータをアップロードした場合は、事前にダウンロードした元のファイルから復旧してください。</li>
+        <li>「ダウンロード」ボタンで現在登録されている全件を CSV 出力できます。列構成はアップロード用フォーマットと同じため、そのまま編集して再アップロードできます。</li>
+        <li>インプットファイルは「加盟会員店マスターデータ」を CSV 形式で保存したファイルです。</li>
+        <li>ファイル選択後、フォーマットチェックが自動で実行されます。エラーがない場合にアップロードボタンが有効になります。</li>
+        <li>アップロードすると、CSVに含まれる取引コードは<strong>新規登録または上書き更新</strong>されます。CSVに含まれない取引コードの既存データは削除されません。</li>
+        <li>1行目は内容によらず常にヘッダー行として扱われます（列名はチェックされません）。1行目からデータとして取り込みたい場合でも、必ずヘッダー行を追加してください。</li>
+        <li>列数が不正な行、取引コードが未入力の行、CSV内で取引コードが重複している行、日付・数値の変換に失敗した項目を含む行はその行だけ登録されず、正常な行のみ登録されます。エラーが発生した行はすべて一覧に表示されます。</li>
+        <li>店舗名・住所・電話番号・代表者氏名等の主要項目には、各決済会社（JCB・SMCC）の申込フォーマットで求められる必須・文字数の要件チェックも行われます。要件を満たさない項目を含む行もその行だけ登録されません。</li>
         <li>対応文字コードは <strong>UTF-8（BOM付き）</strong> または <strong>Shift-JIS（MS932）</strong> です。それ以外の文字コードはエラーになります。</li>
-        <li>文字コードエラーが表示された場合は、Excelでファイルを開き「名前を付けて保存」→ファイル形式で「CSV UTF-8（コンマ区切り）(*.csv)」を選択して保存し直してください。</li>
+        <li>文字コードエラーが表示された場合は、Excel でファイルを開き「名前を付けて保存」→ファイル形式で「CSV UTF-8（コンマ区切り）(*.csv)」を選択して保存し直してください。</li>
       </ol>
     </div>
   </div>
 
   <script>
-    document.querySelector('.btn-browse').addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv';
-      input.onchange = e => {
-        if (e.target.files[0]) {
-          document.getElementById('file-input').value = e.target.files[0].name;
+    var EXPECTED_COLUMN_COUNT = 255;
+
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    var fileDisplay   = document.getElementById('file-display');
+    var fileHidden    = document.getElementById('file-hidden');
+    var btnBrowse     = document.getElementById('btn-browse');
+    var btnUpload     = document.getElementById('btn-upload');
+    var checkResult   = document.getElementById('check-result');
+    var resultTitle   = document.getElementById('result-title');
+    var resultSummary = document.getElementById('result-summary');
+    var errorWrapper  = document.getElementById('error-table-wrapper');
+    var errorBody     = document.getElementById('error-table-body');
+    var errorLimitNote = document.getElementById('error-limit-note');
+    var btnClearResult = document.getElementById('btn-clear-result');
+    var btnDownload   = document.getElementById('btn-download');
+    var selectedFile  = null;
+
+    btnDownload.addEventListener('click', function () {
+      window.location.href = '/member_master/download';
+    });
+
+    btnBrowse.addEventListener('click', function () { fileHidden.click(); });
+
+    fileHidden.addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file) { return; }
+      selectedFile = file;
+      fileDisplay.value = file.name;
+      runFrontendCheck(file);
+    });
+
+    btnClearResult.addEventListener('click', resetFileAndResult);
+
+    function resetFileAndResult() {
+      selectedFile = null;
+      fileHidden.value = '';
+      fileDisplay.value = '';
+      hideResult();
+      btnUpload.disabled = true;
+    }
+
+    function hideResult() {
+      checkResult.className = 'check-result';
+    }
+
+    function showOk(message) {
+      checkResult.className = 'check-result ok';
+      resultTitle.textContent = '✓ フォーマットチェック OK';
+      resultSummary.textContent = message;
+      errorWrapper.style.display = 'none';
+      btnUpload.disabled = false;
+    }
+
+    function showNg(message, errors, title) {
+      checkResult.className = 'check-result ng';
+      resultTitle.textContent = title || '✗ フォーマットチェック NG';
+      resultSummary.textContent = message;
+      if (errors && errors.length > 0) {
+        errorBody.innerHTML = '';
+        errors.forEach(function (err) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + (err.rowNumber || '-') + '</td>'
+              + '<td>' + escapeHtml(err.columnName || '') + '</td>'
+              + '<td>' + escapeHtml(err.message) + '</td>';
+          errorBody.appendChild(tr);
+        });
+        errorWrapper.style.display = '';
+      } else {
+        errorWrapper.style.display = 'none';
+      }
+      btnUpload.disabled = true;
+    }
+
+    function runFrontendCheck(file) {
+      hideResult();
+      btnUpload.disabled = true;
+
+      var ext = file.name.split('.').pop().toLowerCase();
+      if (ext !== 'csv') {
+        showNg('ファイルの拡張子が不正です。期待: .csv、実際: .' + ext,
+            [{ rowNumber: 0, columnName: '', message: '正しい CSV ファイルを選択してください。' }]);
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          var buffer = e.target.result;
+          var bytes = new Uint8Array(buffer);
+          var charset;
+
+          if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+            charset = 'utf-8';
+          } else if (bytes.length >= 2
+              && ((bytes[0] === 0xFF && bytes[1] === 0xFE)
+                  || (bytes[0] === 0xFE && bytes[1] === 0xFF))) {
+            showNg('ファイルの文字コードがサポートされていません（UTF-16）。', [
+              { rowNumber: '-', columnName: '文字コード',
+                message: 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
+            ]);
+            return;
+          } else if (isUtf8WithoutBom(bytes)) {
+            // BOMは無いが非ASCIIを含み、かつ全体が厳密UTF-8として妥当＝UTF-8（BOMなし）。
+            // Shift-JIS(MS932)の日本語バイト列はほぼ厳密UTF-8にならないため確実に判別でき、
+            // 列数が偶然一致するファイルでもBOMなしを取りこぼさない。
+            showNg('ファイルがUTF-8（BOMなし）形式で保存されています。', [
+              { rowNumber: '-', columnName: '文字コード',
+                message: 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。' }
+            ]);
+            return;
+          } else {
+            charset = 'shift-jis';
+          }
+
+          var text = new TextDecoder(charset).decode(buffer);
+          var firstLine = text.replace(/^﻿/, '').split('\n')[0].replace(/\r$/, '');
+          var firstFields = parseCsvLine(firstLine);
+
+          if (firstFields.length !== EXPECTED_COLUMN_COUNT) {
+            if (charset === 'shift-jis') {
+              var utf8First = parseCsvLine(
+                  new TextDecoder('utf-8').decode(buffer).replace(/^﻿/, '').split('\n')[0].replace(/\r$/, ''));
+              if (utf8First.length === EXPECTED_COLUMN_COUNT) {
+                showNg('ファイルがUTF-8（BOMなし）形式で保存されています。', [
+                  { rowNumber: '-', columnName: '文字コード',
+                    message: 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。' }
+                ]);
+                return;
+              }
+            }
+            showNg('1行目の列数が不正です。期待: ' + EXPECTED_COLUMN_COUNT + '列、実際: '
+                + firstFields.length + '列', [
+              { rowNumber: 1, columnName: '',
+                message: '「加盟会員店マスターデータ」CSVのフォーマットを確認してください。' }
+            ]);
+            return;
+          }
+
+          /* 1行目は内容によらず常にヘッダー行として扱う（列名はチェックしない） */
+          showOk('ヘッダー行・255列 OK。アップロードして全行を検証します。');
+        } catch (err) {
+          showNg('ファイルの読み込みに失敗しました: ' + err.message, []);
         }
       };
-      input.click();
+      reader.readAsArrayBuffer(file);
+    }
+
+    /* =============================================
+       アップロードボタン（サーバー登録）
+    ============================================= */
+    btnUpload.addEventListener('click', function () {
+      if (!selectedFile) { return; }
+
+      var uploadIcon  = document.getElementById('upload-icon');
+      var uploadLabel = document.getElementById('upload-label');
+      btnUpload.disabled = true;
+      btnBrowse.disabled = true;
+      uploadIcon.innerHTML = '<span class="spinner"></span>';
+      uploadLabel.textContent = '登録中…';
+
+      var formData = new FormData();
+      formData.append('file', selectedFile);
+
+      fetch('/member_master/upload', {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('unauthenticated'));
+          }
+          return res.json();
+        })
+        .then(function (data) { showImportResult(data); })
+        .catch(function (err) {
+          if (err.message === 'unauthenticated') { return; }
+          showNg('通信エラーが発生しました: ' + err.message, [], '✗ 通信エラー');
+          btnUpload.disabled = false;
+        })
+        .finally(function () {
+          uploadIcon.innerHTML = '&#11014;';
+          uploadLabel.textContent = 'アップロード';
+          btnBrowse.disabled = false;
+        });
     });
+
+    function showImportResult(data) {
+      if (data.success) {
+        checkResult.className = 'check-result ok';
+        resultTitle.textContent = '✓ インポート完了';
+        resultSummary.textContent = '登録件数: ' + data.importedCount + ' 件（バッチID: ' + data.batchId + '）';
+        errorWrapper.style.display = 'none';
+        errorLimitNote.style.display = 'none';
+        btnUpload.disabled = true;
+      } else {
+        checkResult.className = 'check-result ng';
+        resultTitle.textContent = '✗ インポートエラー';
+        resultSummary.textContent = data.errorMessage || 'エラーが発生しました。';
+        if (data.errors && data.errors.length > 0) {
+          errorBody.innerHTML = '';
+          data.errors.forEach(function (err) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + (err.rowNumber || '-') + '</td>'
+                + '<td>' + escapeHtml(err.columnName || '') + '</td>'
+                + '<td>' + escapeHtml(err.message) + '</td>';
+            errorBody.appendChild(tr);
+          });
+          errorWrapper.style.display = '';
+          errorLimitNote.style.display = data.errorLimitReached ? '' : 'none';
+        } else {
+          errorWrapper.style.display = 'none';
+        }
+        btnUpload.disabled = false;
+      }
+    }
+
+    /* BOMが無いファイルがUTF-8（BOMなし）かどうかを判定する。
+       非ASCIIバイトを含み、かつ全体が厳密なUTF-8として妥当なら真を返す。
+       Shift-JIS(MS932)の日本語バイト列はほぼ厳密UTF-8として妥当にならないため、
+       ヘッダー名や列数に依存せずUTF-8（BOMなし）を判別できる。 */
+    function isUtf8WithoutBom(bytes) {
+      var hasNonAscii = false;
+      for (var i = 0; i < bytes.length; i++) {
+        if (bytes[i] >= 0x80) {
+          hasNonAscii = true;
+          break;
+        }
+      }
+      if (!hasNonAscii) {
+        return false;
+      }
+      try {
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    /* RFC 4180 準拠の CSV 1行パーサー */
+    function parseCsvLine(line) {
+      var fields = [];
+      var i = 0;
+      while (i <= line.length) {
+        if (i < line.length && line[i] === '"') {
+          i++;
+          var sb = '';
+          while (i < line.length) {
+            if (line[i] === '"') {
+              if (i + 1 < line.length && line[i + 1] === '"') { sb += '"'; i += 2; }
+              else { i++; break; }
+            } else { sb += line[i++]; }
+          }
+          fields.push(sb);
+          if (i < line.length && line[i] === ',') { i++; } else { break; }
+        } else {
+          var start = i;
+          while (i < line.length && line[i] !== ',') { i++; }
+          fields.push(line.substring(start, i));
+          if (i < line.length) { i++; } else { break; }
+        }
+      }
+      return fields;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
   </script>
 </body>
 </html>

@@ -68,6 +68,9 @@ public class JftdSettlementController {
      *
      * @param file        アップロードファイル
      * @param paymentType 決済種類の表示名
+     * @param cutoffDate  締め日（yyyy-MM-dd）。JFTD側5決済会社の精算ファイルの日付列だけ
+     *                    では精算対象期間を一意に判定できないため、画面で明示入力させた
+     *                    値をそのままバッチに記録する
      * @param replace     同じ決済種別でエラーを含んだまま未確定のバッチが既に存在する場合に、
      *                    それを削除して置き換えることに同意しているかどうか
      * @param session     HTTPセッション（ログインユーザー取得用）
@@ -80,6 +83,7 @@ public class JftdSettlementController {
     public ResponseEntity<ImportResponse> importFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("paymentType") String paymentType,
+            @RequestParam("cutoffDate") String cutoffDate,
             @RequestParam(value = "replace", defaultValue = "false") boolean replace,
             HttpSession session) {
         try {
@@ -87,7 +91,7 @@ public class JftdSettlementController {
                     AuthenticationInterceptor.SESSION_ATTRIBUTE_LOGIN_USER);
             String memberNo = (loginUserAttr != null) ? loginUserAttr.toString() : "UNKNOWN";
             ImportResponse response = jftdSettlementService.importFile(
-                    file, paymentType, memberNo, replace);
+                    file, paymentType, cutoffDate, memberNo, replace);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()

@@ -5,9 +5,12 @@ import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -20,55 +23,77 @@ import com.cupit.model.JftdReportCompanyInfo;
 import com.cupit.repository.JftdReportCompanyInfoRepository;
 
 /**
- * SupportStatementXlsxWriter のテスト。生成したxlsxを実際に読み戻し、
- * 会社・振込先情報（レターヘッド）と、ReportLineDefinitionの並び順どおりの明細行・
- * 各グループの小計・末尾の合計行が正しく出力されることを検証する。
+ * SupportStatementXlsxWriter のテスト。サンプル帳票（サンプル_支払明細書.xlsx）を
+ * そのままテンプレートとして使う方式のため、テンプレート上の固定行番号（Excel表記、
+ * 1始まり）に実際の値が書き込まれること・期間列や手数料率注記セルが空欄に
+ * クリアされることを、生成したxlsxを読み戻して検証する。
  */
 @ExtendWith(MockitoExtension.class)
 class SupportStatementXlsxWriterTest {
+
+    /** application.propertiesのreport.template.dir既定値と同じ外部テンプレートフォルダ。 */
+    private static final String TEMPLATE_DIR =
+            "C:/work/20260401_花キューピット/09_帳票テンプレート";
+
+    /** Excel 1始まり行番号 → POI 0始まり行インデックスへの変換。 */
+    private static Row rowAt(Sheet sheet, int excelRow) {
+        return sheet.getRow(excelRow - 1);
+    }
 
     @Mock
     private JftdReportCompanyInfoRepository companyInfoRepository;
 
     @Test
-    void writeWithoutCompanyInfoProducesRowsInDefinedOrderWithSubtotalsAndTotal() throws IOException {
+    void writeFillsValueCellsAtFixedTemplateRowsAndClearsPeriodAndFeeRateNoteCells() throws IOException {
         when(companyInfoRepository.findById(1)).thenReturn(Optional.empty());
-        SupportStatementXlsxWriter writer = new SupportStatementXlsxWriter(companyInfoRepository);
+        SupportStatementXlsxWriter writer =
+                new SupportStatementXlsxWriter(companyInfoRepository, TEMPLATE_DIR);
         List<ReportRow> rows = List.of(
                 new ReportRow("住信SBI", "Visa/Master", 1, 59080, 1760, 0, 0, 57320, 0, 0),
                 new ReportRow("JCB", "【ＪＣＢカード】", 2, 183500, 4592, 0, 0, 178908, 0, 0));
 
-        byte[] xlsxBytes = writer.write(rows);
+        byte[] xlsxBytes = writer.write(rows, LocalDate.of(2026, 1, 5));
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(xlsxBytes))) {
-            Sheet sheet = workbook.getSheet("支払明細書");
+            Sheet sheet = workbook.getSheetAt(0);
 
-            Row headerRow = sheet.getRow(3);
-            assertThat(headerRow.getCell(0).getStringCellValue()).isEqualTo("決済種別");
+            Row visaMasterRow = rowAt(sheet, 17);
+            assertThat(visaMasterRow.getCell(1).getStringCellValue()).isEqualTo("Visa/Master Card");
+            assertThat(visaMasterRow.getCell(3).getNumericCellValue()).isEqualTo(1);
+            assertThat(visaMasterRow.getCell(4).getNumericCellValue()).isEqualTo(59080);
+            assertThat(visaMasterRow.getCell(8).getNumericCellValue()).isEqualTo(1760);
+            assertThat(visaMasterRow.getCell(9).getNumericCellValue()).isEqualTo(57320);
+            assertThat(visaMasterRow.getCell(14).getNumericCellValue()).isEqualTo(57320);
 
-            Row sbiRow = sheet.getRow(4);
-            assertThat(sbiRow.getCell(0).getStringCellValue()).isEqualTo("Visa/Master Card");
-            assertThat(sbiRow.getCell(2).getNumericCellValue()).isEqualTo(59080);
-            assertThat(sbiRow.getCell(6).getNumericCellValue()).isEqualTo(57320);
+            Row jcbRow = rowAt(sheet, 27);
+            assertThat(jcbRow.getCell(1).getStringCellValue()).isEqualTo("JCB");
+            assertThat(jcbRow.getCell(4).getNumericCellValue()).isEqualTo(183500);
+            assertThat(jcbRow.getCell(9).getNumericCellValue()).isEqualTo(178908);
 
-            Row jcbRow = sheet.getRow(9);
-            assertThat(jcbRow.getCell(0).getStringCellValue()).isEqualTo("JCB");
-            assertThat(jcbRow.getCell(2).getNumericCellValue()).isEqualTo(183500);
+            Row group1Subtotal = rowAt(sheet, 39);
+            assertThat(group1Subtotal.getCell(4).getNumericCellValue()).isEqualTo(242580);
+            assertThat(group1Subtotal.getCell(9).getNumericCellValue()).isEqualTo(236228);
 
-            Row firstSubtotalRow = sheet.getRow(15);
-            assertThat(firstSubtotalRow.getCell(0).getStringCellValue()).isEqualTo("小計");
-            assertThat(firstSubtotalRow.getCell(2).getNumericCellValue()).isEqualTo(242580);
-            assertThat(firstSubtotalRow.getCell(6).getNumericCellValue()).isEqualTo(236228);
+            Row grandTotal = rowAt(sheet, 107);
+            assertThat(grandTotal.getCell(4).getNumericCellValue()).isEqualTo(242580);
+            assertThat(grandTotal.getCell(14).getNumericCellValue()).isEqualTo(236228);
 
-            Row lastRow = sheet.getRow(sheet.getLastRowNum());
-            assertThat(lastRow.getCell(0).getStringCellValue()).isEqualTo("合計");
-            assertThat(lastRow.getCell(2).getNumericCellValue()).isEqualTo(242580);
-            assertThat(lastRow.getCell(6).getNumericCellValue()).isEqualTo(236228);
+            Row memoRow = rowAt(sheet, 108);
+            assertThat(memoRow.getCell(13).getNumericCellValue()).isEqualTo(6352);
+
+            // 集計期間列（C）はサンプル値を残さず空欄にクリアする
+            Cell periodCell = visaMasterRow.getCell(2);
+            assertThat(periodCell == null || periodCell.getCellType() == CellType.BLANK).isTrue();
+
+            // 手数料率の注記セル（I18/M18）はサンプルの固定値を残さず空欄にクリアする
+            Row feeRateNoteRow = rowAt(sheet, 18);
+            Cell feeRateNoteCell = feeRateNoteRow.getCell(8);
+            assertThat(feeRateNoteCell == null || feeRateNoteCell.getCellType() == CellType.BLANK).isTrue();
         }
     }
 
     @Test
-    void writeWithCompanyInfoProducesLetterheadSection() throws IOException {
+    void writeFillsLetterheadFromCompanyInfoAndPaymentDate() throws IOException {
         JftdReportCompanyInfo info = new JftdReportCompanyInfo();
         info.setRecipientName("一般社団法人ＪＦＴＤ");
         info.setRecipientZip("140-8709");
@@ -87,24 +112,28 @@ class SupportStatementXlsxWriterTest {
         info.setBankAccountNumber("2498314");
         info.setBankAccountHolderKana("ｲｯﾊﾟﾝｼｬﾀﾞﾝﾎｳｼﾞﾝｼﾞｪｲｴﾌﾃｨｰﾃﾞｰｳﾝﾖｳ");
         when(companyInfoRepository.findById(1)).thenReturn(Optional.of(info));
-        SupportStatementXlsxWriter writer = new SupportStatementXlsxWriter(companyInfoRepository);
+        SupportStatementXlsxWriter writer =
+                new SupportStatementXlsxWriter(companyInfoRepository, TEMPLATE_DIR);
 
-        byte[] xlsxBytes = writer.write(List.of());
+        byte[] xlsxBytes = writer.write(List.of(), LocalDate.of(2026, 1, 5));
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(xlsxBytes))) {
-            Sheet sheet = workbook.getSheet("支払明細書");
+            Sheet sheet = workbook.getSheetAt(0);
 
-            assertThat(sheet.getRow(1).getCell(0).getStringCellValue()).isEqualTo("支 払 明 細 書");
-            assertThat(sheet.getRow(3).getCell(0).getStringCellValue())
-                    .contains("一般社団法人ＪＦＴＤ").contains("140-8709");
-            assertThat(sheet.getRow(5).getCell(0).getStringCellValue())
-                    .contains("花キューピット株式会社");
-            Row bankValueRow = sheet.getRow(9);
-            assertThat(bankValueRow.getCell(1).getStringCellValue()).isEqualTo("みずほ銀行");
-            assertThat(bankValueRow.getCell(4).getStringCellValue()).isEqualTo("2498314");
+            assertThat(rowAt(sheet, 4).getCell(1).getStringCellValue()).contains("140-8709");
+            assertThat(rowAt(sheet, 5).getCell(1).getStringCellValue()).contains("日本フラワー会館");
+            assertThat(rowAt(sheet, 6).getCell(1).getStringCellValue()).isEqualTo("一般社団法人ＪＦＴＤ");
+            assertThat(rowAt(sheet, 7).getCell(1).getStringCellValue()).contains("T8010705001607");
 
-            Row headerRow = sheet.getRow(11);
-            assertThat(headerRow.getCell(0).getStringCellValue()).isEqualTo("決済種別");
+            assertThat(rowAt(sheet, 6).getCell(11).getStringCellValue()).isEqualTo("花キューピット株式会社");
+            assertThat(rowAt(sheet, 8).getCell(11).getStringCellValue())
+                    .contains("03-5436-8736").contains("03-3470-8701");
+
+            Row bankValueRow = rowAt(sheet, 12);
+            assertThat(bankValueRow.getCell(4).getStringCellValue()).isEqualTo("みずほ銀行");
+            assertThat(bankValueRow.getCell(7).getStringCellValue()).isEqualTo("2498314");
+            assertThat(bankValueRow.getCell(1).getLocalDateTimeCellValue().toLocalDate())
+                    .isEqualTo(LocalDate.of(2026, 1, 5));
         }
     }
 

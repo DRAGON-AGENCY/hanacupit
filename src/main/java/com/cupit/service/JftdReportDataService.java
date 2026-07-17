@@ -1,5 +1,7 @@
 package com.cupit.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +22,7 @@ import com.cupit.repository.JftdTransferBatchRepository;
 import com.cupit.repository.JftdTransferDetailRepository;
 import com.cupit.repository.SettlementItemCodeRepository;
 import com.cupit.service.settlement.ReportRow;
+import com.cupit.service.settlement.SupportStatementData;
 import com.cupit.service.settlement.TransferLineItem;
 
 /**
@@ -99,13 +102,44 @@ public class JftdReportDataService {
      */
     public List<ReportRow> getReportRows(List<Integer> importBatchIds) {
         List<JftdTransferDetail> details = transferDetailRepository.findByImportBatchIdIn(importBatchIds);
-        List<TransferLineItem> lineItems = details.stream()
+        return summarize(toLineItems(details));
+    }
+
+    /**
+     * 支払明細書の書き出しに使う集計行に加えて、「お支払日」欄に出力する日付
+     * （選択されたファイルが属する確定バッチのうち、最も新しい確定日時の日付部分）を
+     * まとめて返す。複数の確定バッチにまたがるファイルが選択された場合は、
+     * 最も新しい確定日時を採用する（ユーザー確認済みの運用）。
+     */
+    public SupportStatementData getSupportStatementData(List<Integer> importBatchIds) {
+        List<JftdTransferDetail> details = transferDetailRepository.findByImportBatchIdIn(importBatchIds);
+        List<ReportRow> rows = summarize(toLineItems(details));
+        LocalDate paymentDate = resolvePaymentDate(details);
+        return new SupportStatementData(rows, paymentDate);
+    }
+
+    private List<TransferLineItem> toLineItems(List<JftdTransferDetail> details) {
+        return details.stream()
                 .map(d -> new TransferLineItem(
                         d.getTradeCode(), d.getItemCode(), d.getQuantity(), d.getAmount(),
                         d.getGrossAmount(), d.getAcquirerFeeTaxFree(),
                         d.getAcquirerFeeBase(), d.getAcquirerFeeTax(), d.getImportBatchId()))
                 .toList();
-        return summarize(lineItems);
+    }
+
+    private LocalDate resolvePaymentDate(List<JftdTransferDetail> details) {
+        List<Integer> transferBatchIds = details.stream()
+                .map(JftdTransferDetail::getTransferBatchId)
+                .distinct()
+                .toList();
+        if (transferBatchIds.isEmpty()) {
+            return LocalDate.now();
+        }
+        return transferBatchRepository.findAllById(transferBatchIds).stream()
+                .map(JftdTransferBatch::getCreatedAt)
+                .map(LocalDateTime::toLocalDate)
+                .max(LocalDate::compareTo)
+                .orElse(LocalDate.now());
     }
 
     /**

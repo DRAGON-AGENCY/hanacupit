@@ -7,9 +7,12 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.cupit.exception.MemberInfoNotFoundException;
 import com.cupit.interceptor.AuthenticationInterceptor;
 import com.cupit.model.Employee;
 import com.cupit.model.MemberInfo;
+import com.cupit.model.SteraStore;
+import com.cupit.repository.SteraStoreRepository;
 import com.cupit.service.EmployeeService;
 import com.cupit.service.JftdReportDataService;
 import com.cupit.service.MemberInfoService;
@@ -19,6 +22,7 @@ public class MenuController {
 
     private static final String DEFAULT_TRADE_CODE = "01-001";
     private static final String ATTRIBUTE_NAME_INFO = "info";
+    private static final String ATTRIBUTE_NAME_STORE = "store";
     private static final String ATTRIBUTE_NAME_EMPLOYEES = "employees";
     private static final String ATTRIBUTE_NAME_TRANSFER_BATCHES = "transferBatches";
     private static final String ATTRIBUTE_NAME_AUTHORITY_CODE = "authorityCode";
@@ -51,14 +55,17 @@ public class MenuController {
     private final MemberInfoService memberInfoService;
     private final EmployeeService employeeService;
     private final JftdReportDataService jftdReportDataService;
+    private final SteraStoreRepository steraStoreRepository;
 
     public MenuController(
             MemberInfoService memberInfoService,
             EmployeeService employeeService,
-            JftdReportDataService jftdReportDataService) {
+            JftdReportDataService jftdReportDataService,
+            SteraStoreRepository steraStoreRepository) {
         this.memberInfoService = memberInfoService;
         this.employeeService = employeeService;
         this.jftdReportDataService = jftdReportDataService;
+        this.steraStoreRepository = steraStoreRepository;
     }
 
     @GetMapping({"/", "/login"})
@@ -77,7 +84,12 @@ public class MenuController {
                     required = false,
                     defaultValue = DEFAULT_TRADE_CODE) String tradeCode,
             Model model) {
-        MemberInfo memberInfo = memberInfoService.findByTradeCode(tradeCode);
+        MemberInfo memberInfo = null;
+        try {
+            memberInfo = memberInfoService.findByTradeCode(tradeCode);
+        } catch (MemberInfoNotFoundException e) {
+            // 該当する会員情報が無い場合は画面側で「見つかりません」メッセージを表示する
+        }
         model.addAttribute(ATTRIBUTE_NAME_INFO, memberInfo);
         return VIEW_NAME_MEMBER_INFO;
     }
@@ -88,7 +100,13 @@ public class MenuController {
     }
 
     @GetMapping("/store_terminal_smcc")
-    public String storeTerminalSmcc() {
+    public String storeTerminalSmcc(
+            @RequestParam(name = "tradeCode",
+                    required = false,
+                    defaultValue = DEFAULT_TRADE_CODE) String tradeCode,
+            Model model) {
+        SteraStore store = steraStoreRepository.findByTradeCode(tradeCode).orElse(null);
+        model.addAttribute(ATTRIBUTE_NAME_STORE, store);
         return VIEW_NAME_STORE_TERMINAL_SMCC;
     }
 

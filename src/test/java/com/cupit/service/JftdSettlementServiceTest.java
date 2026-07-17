@@ -7,11 +7,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.security.MessageDigest;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -37,6 +39,7 @@ import com.cupit.testsupport.CsvFiles;
 class JftdSettlementServiceTest {
 
     private static final String JCB = "JCB";
+    private static final String CUTOFF_DATE = "2025-11-30";
 
     @Mock
     private FileImporterFactory fileImporterFactory;
@@ -56,9 +59,28 @@ class JftdSettlementServiceTest {
 
     @Test
     void importFileReturnsErrorWhenFileIsNull() throws Exception {
-        ImportResponse response = service.importFile(null, JCB, "user001", false);
+        ImportResponse response = service.importFile(null, JCB, CUTOFF_DATE, "user001", false);
 
         assertThat(response.isSuccess()).isFalse();
+        verify(importBatchRepository, never()).save(any());
+    }
+
+    @Test
+    void importFileRejectsBlankCutoffDateWithoutRegistering() throws Exception {
+        ImportResponse response = service.importFile(validJcbFile(), JCB, "", "user001", false);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getErrorMessage()).contains("締め日を入力してください");
+        verify(importBatchRepository, never()).save(any());
+    }
+
+    @Test
+    void importFileRejectsInvalidCutoffDateWithoutRegistering() throws Exception {
+        ImportResponse response =
+                service.importFile(validJcbFile(), JCB, "not-a-date", "user001", false);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getErrorMessage()).contains("締め日の形式が不正です");
         verify(importBatchRepository, never()).save(any());
     }
 
@@ -74,12 +96,16 @@ class JftdSettlementServiceTest {
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(3, 3, List.of()));
 
-        ImportResponse response = service.importFile(validJcbFile(), JCB, "user001", false);
+        ImportResponse response = service.importFile(validJcbFile(), JCB, CUTOFF_DATE, "user001", false);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getImportedCount()).isEqualTo(3);
         assertThat(saved.getRecordCount()).isEqualTo(3);
         assertThat(saved.getErrorCount()).isZero();
+
+        ArgumentCaptor<ImportBatch> batchCaptor = ArgumentCaptor.forClass(ImportBatch.class);
+        verify(importBatchRepository, org.mockito.Mockito.times(2)).save(batchCaptor.capture());
+        assertThat(batchCaptor.getAllValues().get(0).getCutoffDate()).isEqualTo(LocalDate.parse(CUTOFF_DATE));
     }
 
     @Test
@@ -88,7 +114,7 @@ class JftdSettlementServiceTest {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(JCB))
                 .thenReturn(List.of(batch(70, 2, null)));
 
-        ImportResponse response = service.importFile(validJcbFile(), JCB, "user001", false);
+        ImportResponse response = service.importFile(validJcbFile(), JCB, CUTOFF_DATE, "user001", false);
 
         assertThat(response.getReplaceConfirmation()).isNotNull();
         assertThat(response.getReplaceConfirmation().getExistingBatchId()).isEqualTo(70);
@@ -107,7 +133,7 @@ class JftdSettlementServiceTest {
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(3, 3, List.of()));
 
-        ImportResponse response = service.importFile(validJcbFile(), JCB, "user001", true);
+        ImportResponse response = service.importFile(validJcbFile(), JCB, CUTOFF_DATE, "user001", true);
 
         verify(importer).deleteBatchData(70);
         verify(importBatchRepository).delete(existing);
@@ -127,7 +153,7 @@ class JftdSettlementServiceTest {
         when(importBatchRepository.save(any())).thenReturn(saved);
         when(importer.importFile(any(), any())).thenReturn(new ImportResult(3, 3, List.of()));
 
-        ImportResponse response = service.importFile(validJcbFile(), JCB, "user001", false);
+        ImportResponse response = service.importFile(validJcbFile(), JCB, CUTOFF_DATE, "user001", false);
 
         assertThat(response.getReplaceConfirmation()).isNull();
         assertThat(response.isSuccess()).isTrue();
@@ -142,7 +168,7 @@ class JftdSettlementServiceTest {
         when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(JCB))
                 .thenReturn(List.of(existing));
 
-        ImportResponse response = service.importFile(validJcbFile(), JCB, "user001", false);
+        ImportResponse response = service.importFile(validJcbFile(), JCB, CUTOFF_DATE, "user001", false);
 
         assertThat(response.getReplaceConfirmation()).isNotNull();
         assertThat(response.getReplaceConfirmation().getExistingBatchId()).isEqualTo(72);

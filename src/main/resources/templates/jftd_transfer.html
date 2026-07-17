@@ -202,6 +202,93 @@
   body::-webkit-scrollbar-thumb { background: #c9c4b4; border: 3px solid #ffffff; border-radius: 8px; }
   body::-webkit-scrollbar-thumb:hover { background: #aea892; }
 
+  /* 確定前の対象データ確認モーダル */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background-color: rgba(30, 30, 30, 0.45);
+    align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal-box {
+    background-color: var(--bg-white);
+    border-radius: 10px;
+    width: min(880px, 92vw);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  }
+
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .modal-title { font-size: var(--fs-md); font-weight: 700; color: var(--text-main); }
+
+  .modal-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 20px; line-height: 1; color: var(--text-muted); padding: 2px 6px;
+  }
+
+  .modal-close:hover { color: var(--text-main); }
+
+  .modal-body { padding: 16px 22px; overflow-y: auto; }
+
+  .modal-warning {
+    display: none;
+    background-color: var(--bg-notice);
+    border: 1px solid var(--bg-notice-border);
+    color: var(--text-notice);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: var(--fs-sm);
+    margin-bottom: 14px;
+  }
+
+  .modal-warning.show { display: block; }
+
+  .modal-table-wrapper { max-height: 46vh; overflow-y: auto; border: 1px solid var(--border-table); border-radius: 6px; }
+
+  .modal-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
+
+  .modal-table th, .modal-table td {
+    padding: 8px 12px; border-bottom: 1px solid var(--border-table);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .modal-table th {
+    position: sticky; top: 0;
+    background-color: var(--bg-form); color: var(--text-label);
+    text-align: left; font-weight: 600;
+  }
+
+  .modal-table td.col-cutoff, .modal-table td.col-count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  .modal-footer {
+    display: flex; justify-content: flex-end; gap: 12px;
+    padding: 14px 22px; border-top: 1px solid var(--border-color);
+  }
+
+  .btn-modal-cancel {
+    padding: 8px 18px; border-radius: 6px; font-size: var(--fs-base); cursor: pointer;
+    background-color: var(--bg-white); border: 1px solid var(--border-input); color: var(--text-sub);
+  }
+
+  .btn-modal-cancel:hover { background-color: #f3f1ea; }
+
+  .btn-modal-confirm {
+    padding: 8px 18px; border-radius: 6px; font-size: var(--fs-base); cursor: pointer;
+    background-color: var(--accent-blue); border: 1px solid var(--accent-blue); color: #ffffff; font-weight: 600;
+  }
+
+  .btn-modal-confirm:hover { background-color: #2f5c99; }
+
   @media (max-width: 640px) {
     .container { padding: 20px 16px 24px; }
     .action-grid { grid-template-columns: 1fr; }
@@ -256,15 +343,130 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="preview-modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="preview-modal-title">CSV作成対象データの確認</span>
+        <button class="modal-close" type="button" id="preview-modal-close" aria-label="閉じる">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-warning" id="preview-modal-warning"></div>
+        <div class="modal-table-wrapper">
+          <table class="modal-table">
+            <colgroup>
+              <col style="width: 34%">
+              <col style="width: 22%">
+              <col style="width: 22%">
+              <col style="width: 22%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>ファイル名</th>
+                <th>決済種類</th>
+                <th>締め日</th>
+                <th>件数</th>
+              </tr>
+            </thead>
+            <tbody id="preview-modal-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" type="button" id="preview-modal-cancel">キャンセル</button>
+        <button class="btn-modal-confirm" type="button" id="preview-modal-confirm">この内容で確定する</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    /* =============================================
+       確定前の対象データ確認モーダル
+       JFTD・その他どちらの「CSV作成」ボタンから開いた場合も、このモーダル1つを
+       共有する（同時に両方開くことはない＝ボタン押下は排他のため）。
+    ============================================= */
+    var modalOverlay    = document.getElementById('preview-modal-overlay');
+    var modalWarning     = document.getElementById('preview-modal-warning');
+    var modalTableBody   = document.getElementById('preview-modal-table-body');
+    var modalCancelBtn   = document.getElementById('preview-modal-cancel');
+    var modalCloseBtn    = document.getElementById('preview-modal-close');
+    var modalConfirmBtn  = document.getElementById('preview-modal-confirm');
+
+    /* モーダル表示中に押された「CSV作成」ボタン側の続き（確定処理／キャンセル時の
+       ボタン再有効化）を保持する。キャンセル時のみpendingCancelActionを呼ぶため、
+       確定時はここをクリアしてから呼び出す。 */
+    var pendingConfirmAction = null;
+    var pendingCancelAction  = null;
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function openPreviewModal(targetFiles, onConfirm, onCancel) {
+      modalTableBody.innerHTML = '';
+      targetFiles.forEach(function (file) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + escapeHtml(file.fileName) + '</td>' +
+          '<td>' + escapeHtml(file.paymentType) + '</td>' +
+          '<td class="col-cutoff">' + (file.cutoffDate ? escapeHtml(file.cutoffDate) : '-') + '</td>' +
+          '<td class="col-count">' + file.recordCount + '件</td>';
+        modalTableBody.appendChild(tr);
+      });
+
+      /* 締め日が複数種類含まれる場合は警告する（stera terminal側で異なる精算対象期間の
+         データが1回の確定操作で混ざってしまう問題への対応）。JFTD側は締め日を
+         持たない（常にnull）ため、この警告は事実上その他CSV作成でのみ発生する。 */
+      var distinctCutoffDates = Array.from(new Set(
+        targetFiles.map(function (f) { return f.cutoffDate; }).filter(function (d) { return !!d; })
+      ));
+      if (distinctCutoffDates.length > 1) {
+        modalWarning.textContent = '複数の締め日（' + distinctCutoffDates.join('、')
+          + '）のデータが混在しています。意図した範囲か内容をよくご確認のうえ確定してください。';
+        modalWarning.classList.add('show');
+      } else {
+        modalWarning.classList.remove('show');
+        modalWarning.textContent = '';
+      }
+
+      pendingConfirmAction = onConfirm;
+      pendingCancelAction = onCancel;
+      modalOverlay.classList.add('open');
+    }
+
+    function closePreviewModalAndCancel() {
+      modalOverlay.classList.remove('open');
+      var onCancel = pendingCancelAction;
+      pendingConfirmAction = null;
+      pendingCancelAction = null;
+      if (onCancel) { onCancel(); }
+    }
+
+    modalCancelBtn.addEventListener('click', closePreviewModalAndCancel);
+    modalCloseBtn.addEventListener('click', closePreviewModalAndCancel);
+    modalOverlay.addEventListener('click', function (e) {
+      if (e.target === modalOverlay) { closePreviewModalAndCancel(); }
+    });
+
+    modalConfirmBtn.addEventListener('click', function () {
+      var onConfirm = pendingConfirmAction;
+      pendingConfirmAction = null;
+      pendingCancelAction = null;
+      modalOverlay.classList.remove('open');
+      if (onConfirm) { onConfirm(); }
+    });
 
     /* 確定（初回のみ）→ CSVダウンロードURLへ遷移してブラウザのダウンロードを発火させる。
        2回目以降（同じ画面でもう一度「CSV作成」を押した場合）は確定済みの
        transferBatchIdをそのまま使い、再確定はしない。confirm()は対象データが
        0件でも空のバッチを黙って作成してしまうため、確定前に必ずpreviewで
-       対象データの有無を確認する（画面には表示しない、0件時にボタン操作を
-       止めるためだけの内部チェック）。
+       対象データの有無・内容を確認する（今回追加したモーダルで対象ファイル一覧を表示し、
+       ユーザーが内容を見てから確定できるようにする）。
        確定前（batchIdがnullの間）はボタンを無効化し、連打や通信の遅延による
        二重クリックでconfirmが2回呼ばれることを防ぐ（サーバー側でも排他ロックにより
        二重確定を防いでいるが、UI側でも不要な二重リクエスト自体を出さないようにする）。
@@ -291,17 +493,16 @@
             }
             return res.json();
           })
-          .then(function (rows) {
-            if (!rows || rows.length === 0) {
+          .then(function (data) {
+            var targetFiles = (data && data.targetFiles) || [];
+            if (targetFiles.length === 0) {
               alert('まだ振込CSVに含めていない未処理のデータがありません。');
               button.disabled = false;
               return;
             }
-            if (!window.confirm('確定すると対象データは今後の集計対象から除外されます。よろしいですか？')) {
+            openPreviewModal(targetFiles, confirmAndDownloadCsv, function () {
               button.disabled = false;
-              return;
-            }
-            confirmAndDownloadCsv();
+            });
           })
           .catch(function (err) {
             button.disabled = false;

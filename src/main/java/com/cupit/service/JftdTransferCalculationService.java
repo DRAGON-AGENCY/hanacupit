@@ -359,9 +359,28 @@ public class JftdTransferCalculationService {
     }
 
     private List<Integer> unprocessedBatchIds(String paymentType) {
-        return importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(paymentType).stream()
+        return unprocessedBatches(paymentType).stream()
                 .map(ImportBatch::getBatchId)
                 .toList();
+    }
+
+    private List<ImportBatch> unprocessedBatches(String paymentType) {
+        return importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(paymentType);
+    }
+
+    /**
+     * 5社すべての未確定インポートバッチをまとめて返す。統合振込CSV作成のプレビュー画面で、
+     * 確定前に「どのファイルが対象になるか」をユーザーに提示するために使う
+     * （集計対象の決定ロジック自体には影響しない）。
+     */
+    public List<ImportBatch> findTargetImportBatches() {
+        List<ImportBatch> all = new ArrayList<>();
+        all.addAll(unprocessedBatches(PAYMENT_TYPE_JCB));
+        all.addAll(unprocessedBatches(PAYMENT_TYPE_SUMAREJO));
+        all.addAll(unprocessedBatches(PAYMENT_TYPE_NETSTAR));
+        all.addAll(unprocessedBatches(PAYMENT_TYPE_RAKUTENPAY));
+        all.addAll(unprocessedBatches(PAYMENT_TYPE_VISA_MASTER));
+        return all;
     }
 
     private SettlementFeeRate findFeeRate(String paymentCompany, String cardBrand) {

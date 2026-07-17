@@ -13,8 +13,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.cupit.dto.SteraTransferPreviewResponse;
 import com.cupit.dto.TransferConfirmResponse;
+import com.cupit.dto.TransferTargetFile;
 import com.cupit.interceptor.AuthenticationInterceptor;
+import com.cupit.model.ImportBatch;
 import com.cupit.model.SteraTransferDetail;
 import com.cupit.repository.SteraTransferDetailRepository;
 import com.cupit.service.SteraTransferCalculationService;
@@ -53,8 +56,18 @@ public class SteraTransferController {
      */
     @PostMapping(value = "/stera_transfer/preview", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public ResponseEntity<List<SteraTransferLineItem>> preview() {
-        return ResponseEntity.ok(calculationService.calculateAllLineItems());
+    public ResponseEntity<SteraTransferPreviewResponse> preview() {
+        List<SteraTransferLineItem> lineItems = calculationService.calculateAllLineItems();
+        List<TransferTargetFile> targetFiles = calculationService.findTargetImportBatches().stream()
+                .map(this::toTargetFile)
+                .toList();
+        return ResponseEntity.ok(new SteraTransferPreviewResponse(lineItems, targetFiles));
+    }
+
+    private TransferTargetFile toTargetFile(ImportBatch batch) {
+        return new TransferTargetFile(
+                batch.getBatchId(), batch.getPaymentType(), batch.getFileName(), batch.getCutoffDate(),
+                batch.getRecordCount() != null ? batch.getRecordCount() : 0);
     }
 
     /**

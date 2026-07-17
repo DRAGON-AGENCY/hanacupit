@@ -156,7 +156,7 @@
     letter-spacing: 0.02em;
   }
 
-  .cashless-month-input {
+  .cashless-date-input {
     padding: 6px 12px;
     border: 1px solid var(--border-input);
     border-radius: 6px;
@@ -166,7 +166,7 @@
     color: var(--text-main);
   }
 
-  .cashless-month-input:focus {
+  .cashless-date-input:focus {
     outline: none;
     border-color: var(--accent-blue);
     box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
@@ -423,10 +423,11 @@
 
     <h2 class="section-title">キャッシュレス決済売上報告書</h2>
     <div class="cashless-card" id="cashless-card">
-      <p class="cashless-card-desc">対象年月と振込日区分を選択して帳票をダウンロードします（準備中）。</p>
+      <p class="cashless-card-desc">締め日と振込日区分を選択して帳票をダウンロードします（準備中）。</p>
       <div class="cashless-card-controls">
-        <label for="cashless-year-month">対象年月</label>
-        <input type="month" id="cashless-year-month" class="cashless-month-input">
+        <label for="cashless-cutoff-date">締め日</label>
+        <input type="date" id="cashless-cutoff-date" class="cashless-date-input"
+               min="2000-01-01" max="2099-12-31">
         <label for="cashless-cycle-select">振込日区分</label>
         <select id="cashless-cycle-select" class="per-page-select">
           <option value="5" selected>5日払い</option>
@@ -715,10 +716,19 @@
     })();
 
     /* キャッシュレス決済売上報告書はUIのみ（バックエンド未実装）。
-       集計対象・手数料の商流等が確定するまでの暫定案内を表示する。 */
+       集計対象・手数料の商流等が確定するまでの暫定案内を表示する。
+       締め日は年4桁・月2桁・日2桁（YYYY-MM-DD）の形式のみ受け付ける。ネイティブのdate inputが
+       未対応のブラウザにフォールバックした場合の保険も兼ねる。 */
     (function () {
       var downloadCashlessBtn = document.getElementById('btn-download-cashless');
+      var cutoffDateInput = document.getElementById('cashless-cutoff-date');
+      var CUTOFF_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
       downloadCashlessBtn.addEventListener('click', function () {
+        if (!CUTOFF_DATE_PATTERN.test(cutoffDateInput.value) || !cutoffDateInput.checkValidity()) {
+          alert('締め日を正しく入力してください。');
+          return;
+        }
         alert('キャッシュレス決済売上報告書は近日実装予定です。');
       });
     })();

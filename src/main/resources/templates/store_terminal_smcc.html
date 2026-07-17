@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -335,6 +335,16 @@
     letter-spacing: 0.02em;
   }
 
+  .no-data-message {
+    color: #8a1a1a;
+    background: #fdeaea;
+    border: 1px solid #e9b0b0;
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: var(--fs-sm);
+    margin-bottom: 14px;
+  }
+
   @media (max-width: 720px) {
     body {
       padding: 16px 8px;
@@ -380,75 +390,82 @@
     <!-- タイトル -->
     <h1 class="page-title">店舗・端末・SMCC加盟店番号情報照会</h1>
 
+    <!-- store_terminal_smcc.html は現時点でStera店舗情報タブ（m_stera_store）のみ実データに
+         対応済み。Stera端末情報（m_stera_terminal）・SMCC加盟店番号情報（m_smcc_merchant_no）
+         タブは今回のスコープ外のため、引き続き静的モックアップのまま。 -->
+    <div class="no-data-message" th:if="${store == null}">
+      取引コード「<span th:text="${param.tradeCode != null ? param.tradeCode[0] : ''}"></span>」に該当するStera店舗情報が見つかりません。
+    </div>
+
     <!-- 店舗名情報テーブル -->
-    <table class="info-table">
+    <table class="info-table" th:if="${store != null}">
       <tr>
         <th>店舗名</th>
         <td>
           <div class="store-name-cell">
-            <span>笠原花店</span>
-            <span class="tag-member">正会員店</span>
+            <span th:text="${store.storeName}"></span>
+            <span class="tag-member" th:text="${store.memberType}"></span>
           </div>
         </td>
       </tr>
       <tr>
         <th>店舗名カナ</th>
-        <td>カサハラハナテン</td>
+        <td th:text="${store.storeNameKana}"></td>
       </tr>
     </table>
 
     <!-- タブナビゲーション -->
-    <div class="tabs" role="tablist">
+    <div class="tabs" role="tablist" th:if="${store != null}">
       <button class="tab active" role="tab" data-tab="stera-shop" aria-selected="true">Stera店舗情報</button>
       <button class="tab" role="tab" data-tab="stera-terminal" aria-selected="false">Stera端末情報</button>
       <button class="tab" role="tab" data-tab="smcc" aria-selected="false">SMCC加盟店番号情報</button>
     </div>
 
-    <!-- Stera店舗情報 -->
-    <div class="tab-panel active" data-panel="stera-shop" role="tabpanel">
+    <!-- Stera店舗情報（m_stera_store、実データ対応済み） -->
+    <div class="tab-panel active" data-panel="stera-shop" role="tabpanel" th:if="${store != null}">
       <div class="section-subtitle">Stera店舗情報</div>
       <div class="data-table-wrapper">
         <table class="data-table">
-          <tr><th>レコード番号</th><td>3</td></tr>
-          <tr><th>交通系社局</th><td>ICOCA</td></tr>
-          <tr><th>Edy ID</th><td>59501804</td></tr>
-          <tr><th>ｄポイント 加盟店コード（6桁）</th><td>—</td></tr>
-          <tr><th>ｄポイント 店舗コード（12桁）</th><td>—</td></tr>
-          <tr><th>ｄポイント 支部コード</th><td>—</td></tr>
-          <tr><th>hana cupid管理番号</th><td>52-015</td></tr>
-          <tr><th>届出支店コード</th><td>52-015000</td></tr>
+          <tr><th>レコード番号</th><td th:text="${store.recordNo}"></td></tr>
+          <tr><th>交通系社局</th><td th:text="${store.transitCompany}"></td></tr>
+          <tr><th>Edy ID</th><td th:text="${store.edyId}"></td></tr>
+          <tr><th>ｄポイント 加盟店コード（6桁）</th><td th:text="${store.dPointMerchantCode ?: '—'}"></td></tr>
+          <tr><th>ｄポイント 店舗コード（12桁）</th><td th:text="${store.dPointStoreCode ?: '—'}"></td></tr>
+          <tr><th>ｄポイント 支部コード</th><td th:text="${store.dPointBranchCode ?: '—'}"></td></tr>
+          <tr><th>hana cupid管理番号</th><td th:text="${store.tradeCode}"></td></tr>
+          <tr><th>届出支店コード</th><td th:text="${store.branchCode}"></td></tr>
           <tr>
             <th>会員種別</th>
-            <td><span class="tag-inline">正会員店</span></td>
+            <td><span class="tag-inline" th:text="${store.memberType ?: '—'}"></span></td>
           </tr>
-          <tr><th>店舗名</th><td class="jp">いなば生花店</td></tr>
-          <tr><th>店舗名カナ</th><td class="jp">ｲﾅﾊﾞｾｲｶﾃﾝ</td></tr>
-          <tr><th>店舗名（英字）</th><td>INABASEIKATEN</td></tr>
-          <tr><th>店舗郵便番号</th><td>9200337</td></tr>
-          <tr><th>店舗住所（漢字）</th><td class="jp">石川県金沢市金石西１－６－１６</td></tr>
-          <tr><th>店舗住所（カナ）</th><td class="jp">ｲｼｶﾜｹﾝｶﾅｻﾞﾜｼｶﾅｲﾜﾆｼ1-6-16</td></tr>
-          <tr><th>店舗電話番号</th><td>076-268-4187</td></tr>
-          <tr><th>メールアドレス</th><td>jun0760422@yahoo.co.jp</td></tr>
-          <tr><th>緯度</th><td>—</td></tr>
-          <tr><th>経度</th><td>—</td></tr>
-          <tr><th>金融機関名</th><td class="jp">ゆうちょ銀行</td></tr>
-          <tr><th>金融機関コード</th><td>9900</td></tr>
-          <tr><th>支店名</th><td class="jp">三一八</td></tr>
-          <tr><th>支店コード</th><td>318</td></tr>
-          <tr><th>口座種別</th><td class="jp">1:普通</td></tr>
-          <tr><th>口座番号</th><td>0570284</td></tr>
-          <tr><th>口座名義（カナ）</th><td class="jp">ユウゲンガイシャ　イナバセイカテン</td></tr>
-          <tr><th class="th-compact">JCB(JCB/Amex/Diners/Discover)利用状況</th><td class="jp">済</td></tr>
-          <tr><th>JCB利用開始日</th><td>2022/09/20</td></tr>
-          <tr><th>dポイント利用状況</th><td class="jp">未</td></tr>
-          <tr><th>dポイント利用開始日</th><td>—</td></tr>
-          <tr><th>備考（条件等）</th><td class="jp">—</td></tr>
+          <tr><th>店舗名</th><td class="jp" th:text="${store.storeName}"></td></tr>
+          <tr><th>店舗名カナ</th><td class="jp" th:text="${store.storeNameKana}"></td></tr>
+          <tr><th>店舗名（英字）</th><td th:text="${store.storeNameEn}"></td></tr>
+          <tr><th>店舗郵便番号</th><td th:text="${store.storeZip}"></td></tr>
+          <tr><th>店舗住所（漢字）</th><td class="jp" th:text="${store.storeAddress}"></td></tr>
+          <tr><th>店舗住所（カナ）</th><td class="jp" th:text="${store.storeAddressKana}"></td></tr>
+          <tr><th>店舗電話番号</th><td th:text="${store.storeTel}"></td></tr>
+          <tr><th>メールアドレス</th><td th:text="${store.email}"></td></tr>
+          <tr><th>緯度</th><td th:text="${store.latitude ?: '—'}"></td></tr>
+          <tr><th>経度</th><td th:text="${store.longitude ?: '—'}"></td></tr>
+          <tr><th>金融機関名</th><td class="jp" th:text="${store.bankName}"></td></tr>
+          <tr><th>金融機関コード</th><td th:text="${store.bankCode}"></td></tr>
+          <tr><th>支店名</th><td class="jp" th:text="${store.branchName}"></td></tr>
+          <tr><th>支店コード</th><td th:text="${store.bankBranchCode}"></td></tr>
+          <tr><th>口座種別</th><td class="jp" th:text="${store.accountType}"></td></tr>
+          <tr><th>口座番号</th><td th:text="${store.accountNo}"></td></tr>
+          <tr><th>口座名義（カナ）</th><td class="jp" th:text="${store.accountHolderKana}"></td></tr>
+          <tr><th class="th-compact">JCB(JCB/Amex/Diners/Discover)利用状況</th><td class="jp" th:text="${store.jcbStatus}"></td></tr>
+          <tr><th>JCB利用開始日</th><td th:text="${store.jcbStartDate ?: '—'}"></td></tr>
+          <tr><th>dポイント利用状況</th><td class="jp" th:text="${store.dPointStatus}"></td></tr>
+          <tr><th>dポイント利用開始日</th><td th:text="${store.dPointStartDate ?: '—'}"></td></tr>
+          <tr><th>備考（条件等）</th><td class="jp" th:text="${store.remarks ?: '—'}"></td></tr>
         </table>
       </div>
     </div>
 
-    <!-- Stera端末情報 -->
-    <div class="tab-panel" data-panel="stera-terminal" role="tabpanel">
+    <!-- Stera端末情報（m_stera_terminal、今回のスコープ外のため引き続き静的モックアップ） -->
+    <div class="tab-panel" data-panel="stera-terminal" role="tabpanel" th:if="${store != null}">
       <div class="section-subtitle">Stera端末情報</div>
       <div class="data-table-wrapper">
         <table class="data-table">
@@ -464,8 +481,8 @@
       </div>
     </div>
 
-    <!-- SMCC加盟店番号情報 -->
-    <div class="tab-panel" data-panel="smcc" role="tabpanel">
+    <!-- SMCC加盟店番号情報（m_smcc_merchant_no、今回のスコープ外のため引き続き静的モックアップ） -->
+    <div class="tab-panel" data-panel="smcc" role="tabpanel" th:if="${store != null}">
       <div class="section-subtitle">SMCC加盟店番号情報</div>
       <div class="data-table-wrapper">
         <table class="data-table">

@@ -153,6 +153,8 @@
     display: flex; justify-content: space-between; align-items: flex-end; gap: 20px;
   }
 
+  .form-fields-group { display: flex; align-items: flex-end; gap: 10px; }
+
   .button-group { display: flex; align-items: center; gap: 10px; }
 
   .btn {
@@ -296,18 +298,25 @@
       </div>
 
       <div class="form-row-with-action">
-        <div class="form-field" style="margin-bottom:0">
-          <label class="form-label">決済種類</label>
-          <div class="custom-select" id="payment-type-select">
-            <div class="select-display">
-              <span id="payment-type-value">JCB</span>
-            </div>
-            <div class="select-options">
-              <div class="select-option selected" data-value="JCB">JCB</div>
-              <div class="select-option" data-value="スマレジ">スマレジ</div>
-              <div class="select-option" data-value="ネットスターズ">ネットスターズ</div>
-              <div class="select-option" data-value="楽天ペイ">楽天ペイ</div>
-              <div class="select-option" data-value="住信SBI">住信SBI</div>
+        <div class="form-fields-group">
+          <div class="form-field" style="margin-bottom:0">
+            <label class="form-label" for="cutoff-date">締め日</label>
+            <input type="date" id="cutoff-date" class="text-input" min="2000-01-01" max="2099-12-31" />
+          </div>
+
+          <div class="form-field" style="margin-bottom:0">
+            <label class="form-label">決済種類</label>
+            <div class="custom-select" id="payment-type-select">
+              <div class="select-display">
+                <span id="payment-type-value">JCB</span>
+              </div>
+              <div class="select-options">
+                <div class="select-option selected" data-value="JCB">JCB</div>
+                <div class="select-option" data-value="スマレジ">スマレジ</div>
+                <div class="select-option" data-value="ネットスターズ">ネットスターズ</div>
+                <div class="select-option" data-value="楽天ペイ">楽天ペイ</div>
+                <div class="select-option" data-value="住信SBI">住信SBI</div>
+              </div>
             </div>
           </div>
         </div>
@@ -349,6 +358,7 @@
       </div>
       <ol class="notice-list">
         <li>各決済会社から受領した精算ファイルを参照ボタンから選択してください。</li>
+        <li>締め日を正しく入力してください（未入力の場合はアップロードできません）。</li>
         <li>ファイル選択後、フォーマットチェックが自動で実行されます。エラーがない場合にアップロードボタンが有効になります。</li>
         <li>アップロード後、内容を確認してください。誤った内容の場合はファイルを差し替えて再アップロードしてください。</li>
         <li>取引コードが特定できない行やデータ形式が不正な行はその行だけ登録されず、正常な行のみ登録されます。エラーが発生した行はすべて一覧に表示されます。</li>
@@ -401,6 +411,7 @@
     const optionEls       = selectEl.querySelectorAll('.select-option');
     const fileHidden      = document.getElementById('file-hidden');
     const fileDisplay     = document.getElementById('file-display');
+    const cutoffDateInput = document.getElementById('cutoff-date');
     const btnBrowse       = document.getElementById('btn-browse');
     const btnUpload       = document.getElementById('btn-upload');
     const checkResult     = document.getElementById('check-result');
@@ -416,6 +427,23 @@
 
     let selectedFile = null;
     let currentPaymentType = DEFAULT_PAYMENT_TYPE;
+    let formatCheckPassed = false;
+
+    /* 締め日は年4桁・月2桁・日2桁（YYYY-MM-DD）の形式のみ受け付ける。
+       ネイティブのdate inputが未対応のブラウザにフォールバックした場合の保険も兼ねる。 */
+    const CUTOFF_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+    function isCutoffDateValid() {
+      return CUTOFF_DATE_PATTERN.test(cutoffDateInput.value) && cutoffDateInput.checkValidity();
+    }
+
+    /* アップロードボタンは「フォーマットチェックOK」かつ「締め日入力済み（正しい形式）」の
+       両方が揃って初めて有効化する */
+    function updateUploadButtonState() {
+      btnUpload.disabled = !(formatCheckPassed && isCutoffDateValid());
+    }
+
+    cutoffDateInput.addEventListener('input', updateUploadButtonState);
 
     /* =============================================
        カスタムドロップダウン
@@ -433,9 +461,11 @@
         currentPaymentType = opt.dataset.value;
         selectEl.classList.remove('open');
 
-        // 決済種類変更でファイルとチェック結果をリセット
+        // 決済種類変更でファイル・チェック結果・締め日をリセット
         resetFileAndResult();
         updateFileAccept();
+        cutoffDateInput.value = '';
+        updateUploadButtonState();
       });
     });
 
@@ -469,7 +499,8 @@
       fileHidden.value = '';
       fileDisplay.value = '';
       hideResult();
-      btnUpload.disabled = true;
+      formatCheckPassed = false;
+      updateUploadButtonState();
     }
 
     /* 決済種類の選択を初期値（先頭のJCB）に戻す */
@@ -486,6 +517,8 @@
     btnClearResult.addEventListener('click', function () {
       resetFileAndResult();
       resetPaymentTypeSelection();
+      cutoffDateInput.value = '';
+      updateUploadButtonState();
     });
 
     function hideResult() {
@@ -497,7 +530,8 @@
       resultTitle.textContent = '✓ フォーマットチェック OK';
       resultSummary.textContent = message;
       errorWrapper.style.display = 'none';
-      btnUpload.disabled = false;
+      formatCheckPassed = true;
+      updateUploadButtonState();
     }
 
     function showNg(message, errors, title) {
@@ -517,7 +551,8 @@
       } else {
         errorWrapper.style.display = 'none';
       }
-      btnUpload.disabled = true;
+      formatCheckPassed = false;
+      updateUploadButtonState();
     }
 
     function escapeHtml(str) {
@@ -801,6 +836,7 @@
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('paymentType', currentPaymentType);
+      formData.append('cutoffDate', cutoffDateInput.value);
       formData.append('replace', replace ? 'true' : 'false');
 
       fetch('/jftd_settlement/import', {
@@ -830,7 +866,7 @@
             }
             uploadIcon.innerHTML = '&#11014;';
             uploadLabel.textContent = 'アップロード';
-            btnUpload.disabled = false;
+            updateUploadButtonState();
             return;
           }
           uploadIcon.innerHTML = '&#11014;';
@@ -842,7 +878,6 @@
           uploadLabel.textContent = 'アップロード';
           if (err.message === 'unauthenticated') { return; }
           showNg('通信エラーが発生しました: ' + err.message, [], '✗ 通信エラー');
-          btnUpload.disabled = false;
         });
     }
 

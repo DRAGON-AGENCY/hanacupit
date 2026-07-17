@@ -6,24 +6,35 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
 /**
- * SalesReportXlsxWriter のテスト。生成したxlsxを実際に読み戻し、
- * ReportLineDefinitionの並び順どおりに行が出力され、未実装の決済種別は0円の
- * プレースホルダー行、各グループの末尾に小計行、末尾に合計行が出力されることを検証する。
+ * SalesReportXlsxWriter のテスト。サンプル帳票（サンプル_売上報告書.xlsx）を
+ * そのままテンプレートとして使う方式のため、テンプレート上の固定行番号（Excel表記、
+ * 1始まり）に実際の値が書き込まれること、期間列が空欄にクリアされること、
+ * 未実装の決済種別は0円のプレースホルダー行になることを、生成したxlsxを
+ * 読み戻して検証する。合計行（30行目）はテンプレート側のSUM式に委ねるため、
+ * Java側では値を書き込まない。
  */
 class SalesReportXlsxWriterTest {
 
-    private static final int HEADER_ROW = 3;
-    private static final int FIRST_DATA_ROW = 4;
+    /** application.propertiesのreport.template.dir既定値と同じ外部テンプレートフォルダ。 */
+    private static final String TEMPLATE_DIR =
+            "C:/work/20260401_花キューピット/09_帳票テンプレート";
+
+    /** Excel 1始まり行番号 → POI 0始まり行インデックスへの変換。 */
+    private static Row rowAt(Sheet sheet, int excelRow) {
+        return sheet.getRow(excelRow - 1);
+    }
 
     @Test
-    void writeProducesRowsInDefinedOrderWithSubtotalsAndTotal() throws IOException {
-        SalesReportXlsxWriter writer = new SalesReportXlsxWriter();
+    void writeFillsValueCellsAtFixedTemplateRowsAndClearsPeriodColumn() throws IOException {
+        SalesReportXlsxWriter writer = new SalesReportXlsxWriter(TEMPLATE_DIR);
         List<ReportRow> rows = List.of(
                 new ReportRow("住信SBI", "Visa/Master", 1, 59080, 1760, 0, 0, 57320, 0, 0),
                 new ReportRow("JCB", "【ＪＣＢカード】", 2, 183500, 4592, 0, 0, 178908, 0, 0));
@@ -31,47 +42,38 @@ class SalesReportXlsxWriterTest {
         byte[] xlsxBytes = writer.write(rows);
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(xlsxBytes))) {
-            Sheet sheet = workbook.getSheet("売上報告書");
+            Sheet sheet = workbook.getSheetAt(0);
 
-            Row sbiRow = sheet.getRow(FIRST_DATA_ROW);
-            assertThat(sbiRow.getCell(0).getStringCellValue()).isEqualTo("Visa/Master Card");
-            assertThat(sbiRow.getCell(1).getNumericCellValue()).isEqualTo(1);
-            assertThat(sbiRow.getCell(2).getNumericCellValue()).isEqualTo(59080);
-            assertThat(sbiRow.getCell(3).getNumericCellValue()).isEqualTo(1760);
-            assertThat(sbiRow.getCell(6).getNumericCellValue()).isEqualTo(57320);
+            Row visaMasterRow = rowAt(sheet, 7);
+            assertThat(visaMasterRow.getCell(2).getStringCellValue()).isEqualTo("Visa/Master Card");
+            assertThat(visaMasterRow.getCell(3).getNumericCellValue()).isEqualTo(59080);
+            assertThat(visaMasterRow.getCell(4).getNumericCellValue()).isEqualTo(1);
+            assertThat(visaMasterRow.getCell(5).getNumericCellValue()).isEqualTo(1760);
+            assertThat(visaMasterRow.getCell(11).getNumericCellValue()).isEqualTo(57320);
 
-            int jcbRowNum = FIRST_DATA_ROW + 5;
-            Row jcbRow = sheet.getRow(jcbRowNum);
-            assertThat(jcbRow.getCell(0).getStringCellValue()).isEqualTo("JCB");
-            assertThat(jcbRow.getCell(2).getNumericCellValue()).isEqualTo(183500);
+            Row jcbRow = rowAt(sheet, 12);
+            assertThat(jcbRow.getCell(2).getStringCellValue()).isEqualTo("JCB");
+            assertThat(jcbRow.getCell(3).getNumericCellValue()).isEqualTo(183500);
+            assertThat(jcbRow.getCell(11).getNumericCellValue()).isEqualTo(178908);
 
-            int firstSubtotalRowNum = FIRST_DATA_ROW + 11;
-            Row firstSubtotalRow = sheet.getRow(firstSubtotalRowNum);
-            assertThat(firstSubtotalRow.getCell(0).getStringCellValue()).isEqualTo("小計");
-            assertThat(firstSubtotalRow.getCell(2).getNumericCellValue()).isEqualTo(242580);
-            assertThat(firstSubtotalRow.getCell(6).getNumericCellValue()).isEqualTo(236228);
-
-            Row lastRow = sheet.getRow(sheet.getLastRowNum());
-            assertThat(lastRow.getCell(0).getStringCellValue()).isEqualTo("合計");
-            assertThat(lastRow.getCell(2).getNumericCellValue()).isEqualTo(242580);
-            assertThat(lastRow.getCell(6).getNumericCellValue()).isEqualTo(236228);
+            // 集計期間列（B）はサンプル値を残さず空欄にクリアする
+            Cell periodCell = visaMasterRow.getCell(1);
+            assertThat(periodCell == null || periodCell.getCellType() == CellType.BLANK).isTrue();
         }
     }
 
     @Test
     void writeProducesZeroValuePlaceholderForUnimplementedPaymentType() throws IOException {
-        SalesReportXlsxWriter writer = new SalesReportXlsxWriter();
+        SalesReportXlsxWriter writer = new SalesReportXlsxWriter(TEMPLATE_DIR);
 
         byte[] xlsxBytes = writer.write(List.of());
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(xlsxBytes))) {
-            Sheet sheet = workbook.getSheet("売上報告書");
-            Row headerRow = sheet.getRow(HEADER_ROW);
-            assertThat(headerRow.getCell(0).getStringCellValue()).isEqualTo("決済種別");
+            Sheet sheet = workbook.getSheetAt(0);
 
-            Row steraRow = sheet.getRow(sheet.getLastRowNum() - 2);
-            assertThat(steraRow.getCell(0).getStringCellValue()).isEqualTo("stera 領収書アプリ");
-            assertThat(steraRow.getCell(2).getNumericCellValue()).isEqualTo(0);
+            Row businessCommissionRow = rowAt(sheet, 29);
+            assertThat(businessCommissionRow.getCell(2).getStringCellValue()).isEqualTo("業務委託料");
+            assertThat(businessCommissionRow.getCell(3).getNumericCellValue()).isEqualTo(0);
         }
     }
 

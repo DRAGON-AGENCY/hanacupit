@@ -302,7 +302,7 @@
         <div class="form-fields-group">
           <div class="form-field" style="margin-bottom:0">
             <label class="form-label" for="cutoff-date">締め日</label>
-            <input type="date" id="cutoff-date" class="text-input" />
+            <input type="date" id="cutoff-date" class="text-input" min="2000-01-01" max="2099-12-31" />
           </div>
 
           <div class="form-field" style="margin-bottom:0">
@@ -423,10 +423,18 @@
     let currentPaymentType = DEFAULT_PAYMENT_TYPE;
     let formatCheckPassed = false;
 
-    /* アップロードボタンは「フォーマットチェックOK」かつ「締め日入力済み」の
+    /* 締め日は年4桁・月2桁・日2桁（YYYY-MM-DD）の形式のみ受け付ける。
+       ネイティブのdate inputが未対応のブラウザにフォールバックした場合の保険も兼ねる。 */
+    const CUTOFF_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+    function isCutoffDateValid() {
+      return CUTOFF_DATE_PATTERN.test(cutoffDateInput.value) && cutoffDateInput.checkValidity();
+    }
+
+    /* アップロードボタンは「フォーマットチェックOK」かつ「締め日入力済み（正しい形式）」の
        両方が揃って初めて有効化する */
     function updateUploadButtonState() {
-      btnUpload.disabled = !(formatCheckPassed && cutoffDateInput.value);
+      btnUpload.disabled = !(formatCheckPassed && isCutoffDateValid());
     }
 
     cutoffDateInput.addEventListener('input', updateUploadButtonState);
@@ -447,9 +455,11 @@
         currentPaymentType = opt.dataset.value;
         selectEl.classList.remove('open');
 
-        // 決済種類変更でファイルとチェック結果をリセット
+        // 決済種類変更でファイル・チェック結果・締め日をリセット
         resetFileAndResult();
         updateFileAccept();
+        cutoffDateInput.value = '';
+        updateUploadButtonState();
       });
     });
 

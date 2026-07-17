@@ -17,101 +17,279 @@ CREATE TABLE IF NOT EXISTS m_employee (
 );
 
 -- 会員情報テーブル
-CREATE TABLE IF NOT EXISTS m_member_info (
-    trade_code      VARCHAR(20)  NOT NULL,
-    store_name            VARCHAR(100),
-    store_name_kana       VARCHAR(100),
-    member_type           VARCHAR(20),
-    parent_store_code     VARCHAR(20),
-    parent_store_name     VARCHAR(100),
-    new_trade_code  VARCHAR(20),
-    prev_trade_code VARCHAR(20),
-    middle_code           VARCHAR(20),
-    block_code            VARCHAR(20),
-    join_date             VARCHAR(20),
-    corporation_flag      VARCHAR(20),
-    cooperative_flag      VARCHAR(20),
-    representative_name   VARCHAR(100),
-    representative_kana   VARCHAR(100),
-    postal_code           VARCHAR(20),
-    address               VARCHAR(200),
-    phone_number          VARCHAR(20),
-    create_date           DATE         NOT NULL DEFAULT CURRENT_DATE,
-    updated_date          DATE,
-    update_employee       VARCHAR(50),
+-- テーブル仕様書（花キューピット様_全テーブル定義書.xlsx 会員情報シート）の266列に
+-- 全面刷新（2026-07-17）。刷新時点でデータ0件のため DROP&CREATE で作り直す。
+-- 既にデータが投入された環境に対して再実行する場合は、事前に必ずバックアップを取ること。
+DROP TABLE IF EXISTS m_member_info;
+CREATE TABLE m_member_info (
+    trade_code                          VARCHAR(10) NOT NULL,
+    parent_store_code                   VARCHAR(10),
+    parent_store_name                   VARCHAR(100),
+    new_trade_code                      VARCHAR(10),
+    prev_trade_code                     VARCHAR(10),
+    mid_code                            SMALLINT,
+    block_code                          VARCHAR(10),
+    join_date                           DATE,
+    corp_assoc_flag                     VARCHAR(4),
+    cooperative_flag                    VARCHAR(4),
+    branch_supplement_period_from       DATE,
+    qualification_type                  VARCHAR(20),
+    branch_supplement_period_to         DATE,
+    store_name                          VARCHAR(100),
+    store_name_kana                     VARCHAR(100),
+    store_name_kana_short               VARCHAR(30),
+    store_name_short                    VARCHAR(30),
+    pref_code                           SMALLINT,
+    city_code                           INTEGER,
+    city_name                           VARCHAR(50),
+    addr_zip                            VARCHAR(7),
+    addr_pref                           VARCHAR(20),
+    addr_pref_kana                      VARCHAR(40),
+    addr_city                           VARCHAR(50),
+    addr_city_kana                      VARCHAR(100),
+    addr_town                           VARCHAR(50),
+    addr_town_kana                      VARCHAR(100),
+    addr_block                          VARCHAR(50),
+    addr_block_kana                     VARCHAR(100),
+    addr_building                       VARCHAR(100),
+    addr_building_kana                  VARCHAR(200),
+    addr_tel                            VARCHAR(20),
+    addr_fax                            VARCHAR(20),
+    mail_zip                            VARCHAR(7),
+    mail_address                        VARCHAR(200),
+    mail_tel                            VARCHAR(20),
+    business_hours_weekday              VARCHAR(100),
+    business_hours_weekday_note         TEXT,
+    business_hours_other                VARCHAR(100),
+    business_hours_other_note           TEXT,
+    regular_holiday                     VARCHAR(200),
+    handling_items                      TEXT,
+    closure_received_date               DATE,
+    closure_start_date                  DATE,
+    closure_end_date                    DATE,
+    closure_contact                     VARCHAR(100),
+    closure_reason                      TEXT,
+    closure_approver                    VARCHAR(100),
+    delivery_area_status                TEXT,
+    free_delivery_area_1                TEXT,
+    paid_delivery_area_1                TEXT,
+    free_delivery_area_2                TEXT,
+    paid_delivery_area_2                TEXT,
+    remarks                             TEXT,
+    account_holder_kana                 VARCHAR(100),
+    account_holder                      VARCHAR(50),
+    account_holder_birth                VARCHAR(8),
+    mgmt_type                           VARCHAR(20),
+    corp_legal_form                     VARCHAR(20),
+    corp_name                           VARCHAR(100),
+    corp_legal_form_kana                VARCHAR(40),
+    corp_name_kana                      VARCHAR(100),
+    corp_zip                            VARCHAR(8),
+    corp_pref                           VARCHAR(20),
+    corp_pref_kana                      VARCHAR(40),
+    corp_city                           VARCHAR(50),
+    corp_city_kana                      VARCHAR(100),
+    corp_town                           VARCHAR(50),
+    corp_town_kana                      VARCHAR(100),
+    corp_block                          VARCHAR(50),
+    corp_block_kana                     VARCHAR(100),
+    corp_building                       VARCHAR(100),
+    corp_building_kana                  VARCHAR(200),
+    rep_last_name_kana                  VARCHAR(50),
+    rep_first_name_kana                 VARCHAR(50),
+    rep_last_name                       VARCHAR(30),
+    rep_first_name                      VARCHAR(30),
+    rep_birth                           VARCHAR(8),
+    rep_position                        VARCHAR(30),
+    rep_zip                             VARCHAR(8),
+    rep_pref                            VARCHAR(20),
+    rep_pref_kana                       VARCHAR(40),
+    rep_city                            VARCHAR(50),
+    rep_city_kana                       VARCHAR(100),
+    rep_town                            VARCHAR(50),
+    rep_town_kana                       VARCHAR(100),
+    rep_block                           VARCHAR(50),
+    rep_block_kana                      VARCHAR(100),
+    rep_building                        VARCHAR(100),
+    rep_building_kana                   VARCHAR(200),
+    guarantor_name                      VARCHAR(50),
+    guarantor_zip                       VARCHAR(8),
+    guarantor_address                   VARCHAR(200),
+    capital_yen                         BIGINT,
+    app_regular_employee_count          INTEGER,
+    app_industry_1                      VARCHAR(50),
+    app_industry_1_ratio                NUMERIC(5,2),
+    app_industry_2                      VARCHAR(50),
+    app_industry_2_ratio                NUMERIC(5,2),
+    app_industry_3                      VARCHAR(50),
+    app_industry_3_ratio                NUMERIC(5,2),
+    officer_1_position                  VARCHAR(30),
+    officer_1_name                      VARCHAR(50),
+    officer_2_position                  VARCHAR(30),
+    officer_2_name                      VARCHAR(50),
+    new_code_apply_date                 VARCHAR(10),
+    code_change_notify_date_store       DATE,
+    code_change_notify_date_branch      DATE,
+    code_change_nationwide_notice_date  DATE,
+    corp_assoc_withdraw_type            VARCHAR(20),
+    corp_assoc_withdraw_proc_date       DATE,
+    corp_assoc_withdraw_received_date   DATE,
+    corp_assoc_withdraw_notify_date     DATE,
+    corp_assoc_withdraw_date            DATE,
+    corp_assoc_withdraw_reason          TEXT,
+    cooperative_withdraw_type           VARCHAR(20),
+    cooperative_withdraw_proc_date      DATE,
+    cooperative_withdraw_received_date  DATE,
+    cooperative_withdraw_notify_date    DATE,
+    cooperative_withdraw_date           DATE,
+    cooperative_withdraw_reason         TEXT,
+    branch_trade_start_date             DATE,
+    branch_deleted_flag                 VARCHAR(4),
+    branch_deleted_date                 DATE,
+    branch_deleted_reason               TEXT,
+    reason_category_input               VARCHAR(20),
+    trade_directory_status              VARCHAR(100),
+    other_return                        VARCHAR(100),
+    corp_assoc_withdraw_reason_type     VARCHAR(20),
+    cooperative_withdraw_reason_type    VARCHAR(20),
+    approval_no                         VARCHAR(20),
+    approval_doc_issue_date             DATE,
+    approval_approved_date              DATE,
+    contract_date                       DATE,
+    bank_transfer_date                  DATE,
+    entry_fee_invoice_date              DATE,
+    contract_received_date              DATE,
+    branch_report_send_date             DATE,
+    official_seal_request_date          DATE,
+    entry_fee_payment_date              DATE,
+    agency_tool_contact_date            DATE,
+    promotion_assoc_contact_date        DATE,
+    parent_corp_name                    VARCHAR(100),
+    parent_annual_sales_yen             BIGINT,
+    parent_founded_date                 VARCHAR(8),
+    parent_business_years               VARCHAR(20),
+    parent_store_count                  INTEGER,
+    parent_employee_count               INTEGER,
+    parent_main_business                TEXT,
+    parent_annual_purchase              BIGINT,
+    parent_operating_profit_yen         BIGINT,
+    parent_net_income_yen               BIGINT,
+    parent_fiscal_period_from           DATE,
+    parent_fiscal_period_to             DATE,
+    store_annual_sales_yen              BIGINT,
+    store_founded_date                  DATE,
+    store_business_years                VARCHAR(20),
+    store_count                         INTEGER,
+    store_employee_count                INTEGER,
+    store_main_business                 TEXT,
+    store_annual_purchase_yen           BIGINT,
+    store_operating_profit_yen          BIGINT,
+    store_net_income_yen                BIGINT,
+    store_fiscal_period_from            DATE,
+    store_fiscal_period_to              DATE,
+    sales_ratio_fresh_flower            BIGINT,
+    sales_ratio_potted_plant            SMALLINT,
+    sales_ratio_material                SMALLINT,
+    sales_ratio_other                   SMALLINT,
+    business_ratio_storefront           NUMERIC(5,2),
+    business_ratio_lesson               SMALLINT,
+    business_ratio_work                 SMALLINT,
+    business_ratio_other                SMALLINT,
+    store_area                          NUMERIC(10,2),
+    employee_count                      INTEGER,
+    employee_family_count               INTEGER,
+    delivery_vehicle_count              SMALLINT,
+    member_organization                 VARCHAR(100),
+    financial_statement_exists          VARCHAR(4),
+    market_purchase_cert_exists         VARCHAR(4),
+    store_floor_plan_exists             VARCHAR(4),
+    store_photo_exists                  VARCHAR(4),
+    name_photo_exists                   VARCHAR(4),
+    bank_account_exists                 VARCHAR(4),
+    branch_secretary                    VARCHAR(50),
+    branch_name                         VARCHAR(100),
+    director                            VARCHAR(50),
+    seal_cert_exists                    VARCHAR(4),
+    resident_record_exists              VARCHAR(4),
+    opening_date                        DATE,
+    application_received_date           DATE,
+    training_date                       DATE,
+    preliminary_review_result           VARCHAR(20),
+    board_review_result                 VARCHAR(20),
+    agency_branch_result                VARCHAR(20),
+    agency_approval_result              VARCHAR(20),
+    agency_payment_result               VARCHAR(20),
+    seal_original_exists                VARCHAR(4),
+    seal_copy_exists                    VARCHAR(4),
+    position_director                   VARCHAR(100),
+    position_auditor                    VARCHAR(50),
+    position_delegate                   VARCHAR(50),
+    position_branch_secretary           VARCHAR(50),
+    hq_position_1                       VARCHAR(50),
+    hq_position_2                       VARCHAR(50),
+    hq_position_3                       VARCHAR(50),
+    hq_position_4                       VARCHAR(50),
+    hq_position_5                       VARCHAR(50),
+    branch_position_1                   VARCHAR(50),
+    branch_position_2                   VARCHAR(50),
+    branch_position_3                   VARCHAR(50),
+    branch_position_4                   VARCHAR(50),
+    branch_position_5                   VARCHAR(50),
+    hq_dispatch_transport_fee_1         BIGINT,
+    hq_dispatch_transport_fee_2         BIGINT,
+    settlement_mail_zip                 VARCHAR(8),
+    settlement_mail_address             VARCHAR(200),
+    order_delivery_tel                  VARCHAR(20),
+    order_delivery_tel_2                VARCHAR(20),
+    member_trade_email                  VARCHAR(255),
+    order_contact_email                 VARCHAR(255),
+    office_contact_email                VARCHAR(255),
+    trade_stopped                       VARCHAR(100),
+    order_func_control_date             DATE,
+    delivery_func_control_date          DATE,
+    hcp_town_url                        VARCHAR(255),
+    recent_business_years               VARCHAR(20),
+    recent_employee_count               INTEGER,
+    recent_store_employee_count         INTEGER,
+    recent_main_business                TEXT,
+    recent_fiscal_period_from           DATE,
+    recent_fiscal_period_to             DATE,
+    recent_store_area                   VARCHAR(100),
+    recent_sales_ratio_fresh_flower     BIGINT,
+    recent_sales_ratio_potted_plant     BIGINT,
+    recent_sales_ratio_material         BIGINT,
+    recent_sales_ratio_other            BIGINT,
+    recent_business_ratio_storefront    NUMERIC(5,2),
+    recent_business_ratio_lesson        NUMERIC(5,2),
+    recent_business_ratio_work          NUMERIC(5,2),
+    recent_business_ratio_other         NUMERIC(5,2),
+    recent_sales                        BIGINT,
+    recent_purchase                     BIGINT,
+    recent_operating_profit             BIGINT,
+    recent_net_income                   BIGINT,
+    recent_delivery_vehicle_count       SMALLINT,
+    recent_store_location               TEXT,
+    recent_member_order_count_yearly    INTEGER,
+    recent_member_delivery_count_yearly INTEGER,
+    recent_member_order_amount_yearly   BIGINT,
+    recent_member_order_amount_yearly_2 BIGINT,
+    store_category                      VARCHAR(20),
+    latitude                            NUMERIC(10,7),
+    longitude                           NUMERIC(10,7),
+    hcp_town_status                     VARCHAR(20),
+    create_date                         DATE NOT NULL DEFAULT CURRENT_DATE,
+    updated_date                        DATE,
+    update_employee                     VARCHAR(50),
+    member_type                         VARCHAR(20),
+    middle_code                         VARCHAR(20),
+    corporation_flag                    VARCHAR(20),
+    representative_name                 VARCHAR(100),
+    representative_kana                 VARCHAR(100),
+    postal_code                         VARCHAR(20),
+    address                             VARCHAR(200),
+    phone_number                        VARCHAR(20),
     CONSTRAINT pk_m_member_info PRIMARY KEY (trade_code)
 );
-DO $$
-BEGIN
-    ALTER TABLE m_member_info RENAME COLUMN registered_date TO create_date;
-EXCEPTION WHEN undefined_column THEN NULL;
-END $$;
-DO $$
-BEGIN
-    ALTER TABLE m_member_info RENAME COLUMN updated_by TO update_employee;
-EXCEPTION WHEN undefined_column THEN NULL;
-END $$;
-DO $$
-BEGIN
-    ALTER TABLE m_member_info RENAME COLUMN transaction_code TO trade_code;
-EXCEPTION WHEN undefined_column THEN NULL;
-END $$;
-DO $$
-BEGIN
-    ALTER TABLE m_member_info RENAME COLUMN new_transaction_code TO new_trade_code;
-EXCEPTION WHEN undefined_column THEN NULL;
-END $$;
-DO $$
-BEGIN
-    ALTER TABLE m_member_info RENAME COLUMN prev_transaction_code TO prev_trade_code;
-EXCEPTION WHEN undefined_column THEN NULL;
-END $$;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS qualification_type          VARCHAR(20);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS branch_supplement_period_from DATE;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS branch_supplement_period_to   DATE;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS store_name_kana_short        VARCHAR(30);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS store_name_short             VARCHAR(30);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS pref_code                    SMALLINT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS city_code                    INTEGER;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS city_name                    VARCHAR(50);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_zip                     VARCHAR(7);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_pref                    VARCHAR(20);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_pref_kana               VARCHAR(40);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_city                    VARCHAR(50);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_city_kana               VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_town                    VARCHAR(50);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_town_kana               VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_block                   VARCHAR(50);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_block_kana              VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_building                VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_building_kana           VARCHAR(200);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_tel                     VARCHAR(20);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS addr_fax                     VARCHAR(20);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS mail_zip                     VARCHAR(7);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS mail_address                 VARCHAR(200);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS mail_tel                     VARCHAR(20);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS business_hours_weekday       VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS business_hours_weekday_note  TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS business_hours_other         VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS business_hours_other_note    TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS regular_holiday              VARCHAR(200);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS handling_items               TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS closure_received_date        DATE;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS closure_start_date           DATE;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS closure_end_date             DATE;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS closure_contact              VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS closure_reason               TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS closure_approver             VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS delivery_area_status         TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS free_delivery_area_1         TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS paid_delivery_area_1         TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS free_delivery_area_2         TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS paid_delivery_area_2         TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS remarks                      TEXT;
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS account_holder_kana          VARCHAR(100);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS account_holder               VARCHAR(50);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS account_holder_birth         VARCHAR(8);
-ALTER TABLE m_member_info ADD COLUMN IF NOT EXISTS mgmt_type                    VARCHAR(20);
 
 -- 取り込みバッチ管理
 CREATE TABLE IF NOT EXISTS m_import_batch (
@@ -501,6 +679,187 @@ CREATE TABLE IF NOT EXISTS m_paygate_store_mapping (
 CREATE INDEX IF NOT EXISTS idx_paygate_trade    ON m_paygate_store_mapping(trade_code);
 CREATE INDEX IF NOT EXISTS idx_paygate_terminal ON m_paygate_store_mapping(terminal_id);
 CREATE INDEX IF NOT EXISTS idx_paygate_sbi      ON m_paygate_store_mapping(sbi_merchant_id);
+
+-- 店舗データ（決済会社申込フォーマットのうち m_member_info では保持できない店舗単位の補足情報。
+-- JCB申込フォーマットの不可項目に対応。1取引コード=1行）
+CREATE TABLE IF NOT EXISTS m_shop_data (
+    trade_code                       VARCHAR(10) NOT NULL,
+    application_type_flag            VARCHAR(2),
+    store_name_alphabet              VARCHAR(25),
+    rep_address_kana                 VARCHAR(100),
+    jcb_merchant_number              VARCHAR(20),
+    corporate_number                 VARCHAR(13),
+    door_to_door_sales_flag          VARCHAR(4),
+    telemarketing_sales_flag         VARCHAR(4),
+    chain_sales_flag                 VARCHAR(4),
+    business_opportunity_sales_flag  VARCHAR(4),
+    continuous_service_flag          VARCHAR(4),
+    card_data_retention_status       VARCHAR(4),
+    pci_dss_compliance_status        VARCHAR(4),
+    non_retention_planned_month      VARCHAR(6),
+    pci_dss_compliance_planned_month VARCHAR(6),
+    terminal_ic_status               VARCHAR(4),
+    terminal_ic_planned_month        VARCHAR(6),
+    acquirer_unique_key              VARCHAR(50),
+    stera_terminal_id                VARCHAR(20),
+    linkage_date                     DATE,
+    existing_contract_flag           VARCHAR(4),
+    classification                   VARCHAR(20),
+    contract_source                  VARCHAR(50),
+    gift_contract_flag               VARCHAR(4),
+    edy_contract_flag                VARCHAR(4),
+    cancellation_confirmation        VARCHAR(20),
+    cancellation_process_status      VARCHAR(20),
+    registered_date                  DATE NOT NULL DEFAULT CURRENT_DATE,
+    updated_date                     DATE,
+    updated_by                       VARCHAR(50),
+    CONSTRAINT pk_m_shop_data PRIMARY KEY (trade_code)
+);
+
+-- 端末データ（決済会社申込フォーマットのうち m_member_info では保持できない端末申込単位の
+-- 補足情報。SMCC加盟店申込書の不可項目に対応。1取引コードに複数行を許容し、
+-- 取引コード単位の洗い替えで更新する）
+CREATE TABLE IF NOT EXISTS m_terminal_data (
+    record_no                             BIGSERIAL NOT NULL,
+    trade_code                            VARCHAR(10) NOT NULL,
+    application_category                  VARCHAR(20),
+    applicant_type                        VARCHAR(20),
+    application_or_cancellation_date      DATE,
+    service_start_desired_date            DATE,
+    service_end_date                      DATE,
+    brand_name_english                    VARCHAR(100),
+    representative_merchant_number        VARCHAR(8),
+    vm_merchant_number                    VARCHAR(8),
+    terminal_id                           VARCHAR(20),
+    closing_date_1                        VARCHAR(20),
+    payment_date_1                        VARCHAR(20),
+    closing_date_2                        VARCHAR(20),
+    payment_date_2                        VARCHAR(20),
+    settlement_cycle                      VARCHAR(20),
+    bank_code                             VARCHAR(4),
+    bank_name                             VARCHAR(50),
+    bank_name_kana                        VARCHAR(50),
+    branch_code                           VARCHAR(3),
+    branch_name                           VARCHAR(50),
+    branch_name_kana                      VARCHAR(50),
+    account_type                          VARCHAR(4),
+    account_number                        VARCHAR(7),
+    contact_last_name                     VARCHAR(30),
+    contact_first_name                    VARCHAR(30),
+    contact_last_name_kana                VARCHAR(30),
+    contact_first_name_kana               VARCHAR(30),
+    merchant_type                         VARCHAR(20),
+    franchise_flag                        VARCHAR(4),
+    paypay_fc_agreement_flag              VARCHAR(4),
+    store_count_applied                   INTEGER,
+    terminal_type                         VARCHAR(20),
+    corp_name_english                     VARCHAR(100),
+    industry_category_major               VARCHAR(50),
+    industry_category_minor               VARCHAR(50),
+    corporate_number                      VARCHAR(13),
+    rep_last_name_english                 VARCHAR(50),
+    rep_first_name_english                VARCHAR(50),
+    gender                                VARCHAR(4),
+    rep_addr_pref_kana                    VARCHAR(20),
+    rep_addr_city_kana                    VARCHAR(30),
+    rep_addr_town_kana                    VARCHAR(30),
+    rep_addr_block_kana                   VARCHAR(30),
+    rep_addr_building_kana                VARCHAR(50),
+    door_to_door_sales_flag               VARCHAR(4),
+    continuous_service_flag               VARCHAR(4),
+    telemarketing_sales_flag              VARCHAR(4),
+    chain_sales_flag                      VARCHAR(4),
+    business_opportunity_sales_flag       VARCHAR(4),
+    prepaid_transaction_flag              VARCHAR(4),
+    legal_violation_history_flag          VARCHAR(4),
+    fc_store_type                         VARCHAR(20),
+    representative_store_flag             VARCHAR(4),
+    store_industry_major                  VARCHAR(50),
+    store_industry_minor                  VARCHAR(50),
+    secondhand_dealer_license_number      VARCHAR(50),
+    store_name_english                    VARCHAR(50),
+    map_listing_flag                      VARCHAR(4),
+    map_listing_desired_date_dpay_rakuten DATE,
+    map_listing_desired_date_paypay_aupay DATE,
+    store_image_listing_flag              VARCHAR(4),
+    store_image_url                       VARCHAR(255),
+    store_introduction                    TEXT,
+    fee_rate_rakuten_pay                  NUMERIC(5,2),
+    fee_rate_line_pay                     NUMERIC(5,2),
+    fee_rate_paypay                       NUMERIC(5,2),
+    fee_rate_d_barai                      NUMERIC(5,2),
+    fee_rate_au_pay                       NUMERIC(5,2),
+    fee_rate_merpay                       NUMERIC(5,2),
+    fee_rate_yucho_pay                    NUMERIC(5,2),
+    fee_rate_aeon_pay                     NUMERIC(5,2),
+    atokara_rate                          NUMERIC(5,2),
+    fee_rate_mdr_1                        NUMERIC(5,2),
+    fee_rate_mdr_3                        NUMERIC(5,2),
+    fee_rate_mdr_4                        NUMERIC(5,2),
+    fee_rate_installment_5                NUMERIC(5,2),
+    fee_rate_installment_6                NUMERIC(5,2),
+    fee_rate_installment_10               NUMERIC(5,2),
+    fee_rate_installment_12               NUMERIC(5,2),
+    fee_rate_installment_15               NUMERIC(5,2),
+    fee_rate_installment_18               NUMERIC(5,2),
+    fee_rate_installment_20               NUMERIC(5,2),
+    fee_rate_installment_24               NUMERIC(5,2),
+    fee_rate_installment_30               NUMERIC(5,2),
+    fee_rate_installment_36               NUMERIC(5,2),
+    fee_rate_wesmo                        NUMERIC(5,2),
+    fee_rate_bank_pay                     NUMERIC(5,2),
+    fee_rate_wechat                       NUMERIC(5,2),
+    fee_rate_alipay                       NUMERIC(5,2),
+    fee_rate_unionpay_qr                  NUMERIC(5,2),
+    change_notes                          TEXT,
+    smcc_department                       VARCHAR(50),
+    smcc_contact_name                     VARCHAR(50),
+    smart_code_flag                       VARCHAR(4),
+    mkp_flag                              VARCHAR(4),
+    registered_date                       DATE NOT NULL DEFAULT CURRENT_DATE,
+    updated_date                          DATE,
+    updated_by                            VARCHAR(50),
+    CONSTRAINT pk_m_terminal_data PRIMARY KEY (record_no)
+);
+CREATE INDEX IF NOT EXISTS idx_terminal_data_trade ON m_terminal_data(trade_code);
+
+-- 加盟店番号データ（決済会社申込フォーマットのうち m_member_info では保持できない
+-- 決済ブランド別加盟店番号等の補足情報。SMCC店舗情報一覧の不可項目に対応。
+-- 1取引コードに複数行を許容し、取引コード単位の洗い替えで更新する）
+CREATE TABLE IF NOT EXISTS m_merchant_number_data (
+    record_no                   BIGSERIAL NOT NULL,
+    trade_code                  VARCHAR(10) NOT NULL,
+    terminal_count              INTEGER,
+    line_type                   VARCHAR(10),
+    store_contact_name          VARCHAR(50),
+    store_contact_tel           VARCHAR(20),
+    pos_connection_flag         VARCHAR(4),
+    pos_maker_name              VARCHAR(50),
+    pos_vendor_contact_name     VARCHAR(50),
+    pos_vendor_contact_tel      VARCHAR(20),
+    d_point_enabled_flag        VARCHAR(4),
+    d_point_merchant_code       VARCHAR(10),
+    d_point_store_code          VARCHAR(15),
+    d_point_branch_code         VARCHAR(10),
+    visa_master_merchant_number VARCHAR(20),
+    nanaco_merchant_number      VARCHAR(20),
+    id_merchant_number          VARCHAR(20),
+    transit_merchant_number     VARCHAR(20),
+    unionpay_merchant_number    VARCHAR(20),
+    waon_merchant_number        VARCHAR(20),
+    edy_merchant_number         VARCHAR(20),
+    nfc_merchant_number         VARCHAR(20),
+    transit_operator            VARCHAR(50),
+    edy_id                      VARCHAR(20),
+    stera_terminal_number       VARCHAR(20),
+    jcb_connection_flag         VARCHAR(4),
+    smart_code_connection_flag  VARCHAR(4),
+    registered_date             DATE NOT NULL DEFAULT CURRENT_DATE,
+    updated_date                DATE,
+    updated_by                  VARCHAR(50),
+    CONSTRAINT pk_m_merchant_number_data PRIMARY KEY (record_no)
+);
+CREATE INDEX IF NOT EXISTS idx_merchant_number_data_trade ON m_merchant_number_data(trade_code);
 
 -- 統合振込バッチ（JFTD統合振込CSV作成の確定単位のヘッダー）
 CREATE TABLE IF NOT EXISTS m_jftd_transfer_batch (
@@ -930,6 +1289,9 @@ ALTER TABLE m_netstar_sales_summary     OWNER TO hanacupit;
 ALTER TABLE m_rakuten_pay_transaction   OWNER TO hanacupit;
 ALTER TABLE m_terminal_monthly_fee      OWNER TO hanacupit;
 ALTER TABLE m_paygate_store_mapping     OWNER TO hanacupit;
+ALTER TABLE m_shop_data                OWNER TO hanacupit;
+ALTER TABLE m_terminal_data             OWNER TO hanacupit;
+ALTER TABLE m_merchant_number_data      OWNER TO hanacupit;
 ALTER TABLE m_jftd_transfer_batch       OWNER TO hanacupit;
 ALTER TABLE m_jftd_transfer_detail      OWNER TO hanacupit;
 ALTER TABLE m_settlement_item_code      OWNER TO hanacupit;

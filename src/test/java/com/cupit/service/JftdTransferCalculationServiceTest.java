@@ -548,6 +548,11 @@ class JftdTransferCalculationServiceTest {
             public Long getTotalAmount() {
                 return 22550L;
             }
+
+            @Override
+            public Long getTransactionCount() {
+                return 1L;
+            }
         };
         when(rakutenPayTransactionRepository.sumByTradeCode(List.of(RAKUTENPAY_BATCH_ID)))
                 .thenReturn(List.of(aggregate));
@@ -581,6 +586,11 @@ class JftdTransferCalculationServiceTest {
             @Override
             public Long getTotalAmount() {
                 return 58280L;
+            }
+
+            @Override
+            public Long getTransactionCount() {
+                return 23L;
             }
         };
         when(rakutenPayTransactionRepository.sumByTradeCode(List.of(RAKUTENPAY_BATCH_ID)))
@@ -626,6 +636,22 @@ class JftdTransferCalculationServiceTest {
         assertThat(result.get(0).getAmount()).isEqualTo(1064196);
     }
 
+    @Test
+    void findTargetImportBatchesReturnsUnprocessedBatchesFromAllFivePaymentTypes() {
+        // 統合振込CSV作成のプレビュー画面で「対象ファイル一覧」として表示するための
+        // メソッド。5社分の未確定バッチをまとめて返すことを確認する。
+        givenUnprocessedBatch("JCB", JCB_BATCH_ID);
+        givenUnprocessedBatch("スマレジ", SUMAREJO_BATCH_ID);
+        givenUnprocessedBatch("ネットスターズ", NETSTAR_BATCH_ID);
+        givenUnprocessedBatch("楽天ペイ", RAKUTENPAY_BATCH_ID);
+        givenUnprocessedBatch("住信SBI", VISA_MASTER_BATCH_ID);
+
+        List<ImportBatch> result = service.findTargetImportBatches();
+
+        assertThat(result).extracting(ImportBatch::getBatchId).containsExactlyInAnyOrder(
+                JCB_BATCH_ID, SUMAREJO_BATCH_ID, NETSTAR_BATCH_ID, RAKUTENPAY_BATCH_ID, VISA_MASTER_BATCH_ID);
+    }
+
     private VisaMasterAggregate fixedVisaMasterAggregate(
             String tradeCode, long totalSalesAmount, long totalFeeAmount1) {
         return new VisaMasterAggregate() {
@@ -647,6 +673,11 @@ class JftdTransferCalculationServiceTest {
             @Override
             public Long getTotalFeeAmount1() {
                 return totalFeeAmount1;
+            }
+
+            @Override
+            public Long getTransactionCount() {
+                return 1L;
             }
         };
     }

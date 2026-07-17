@@ -23,9 +23,9 @@
     --bg-summary: #f5f0e0;
     --bg-label: #ede8db;
     --bg-label-soft: #f5f2eb;
-    --bg-label-group: #efe9d8;
     --bg-white: #ffffff;
     --bg-total: #e6f0fb;
+    --bg-hover: #faf8f2;
     --border-color: #e8e4da;
     --border-input: #d8d4c8;
     --border-table: #e5e2d8;
@@ -94,32 +94,6 @@
     flex-direction: column;
   }
 
-  .header-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 6px;
-  }
-
-  .btn-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background-color: var(--bg-white);
-    border: 1px solid var(--border-input);
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-size: var(--fs-base);
-    color: var(--text-main);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: inherit;
-  }
-
-  .btn-back:hover {
-    background-color: #faf8f2;
-    border-color: #c4bfae;
-  }
-
   .page-title {
     font-size: var(--fs-lg);
     font-weight: 700;
@@ -130,6 +104,7 @@
     letter-spacing: 0.01em;
   }
 
+  /* 絞込みエリア */
   .search-box {
     background-color: var(--bg-search);
     border: 1px solid #dde5f0;
@@ -155,18 +130,33 @@
     letter-spacing: 0.03em;
   }
 
-  .search-input {
+  .search-input, .search-select {
     padding: 8px 12px;
     border: 1px solid var(--border-input);
     border-radius: 6px;
     background-color: var(--bg-white);
     font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: inherit;
+    min-width: 170px;
+  }
+
+  .search-input {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     width: 180px;
   }
 
-  .search-input:focus {
+  .search-select {
+    width: 200px;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%23888' stroke-width='1.5' d='M3 5l3 3 3-3'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  .search-input:focus, .search-select:focus {
     outline: none;
     border-color: var(--accent-blue);
     box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
@@ -175,6 +165,7 @@
   .search-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
   }
 
   .btn {
@@ -190,6 +181,8 @@
     border: 1px solid transparent;
   }
 
+  .btn:disabled { opacity: 0.45; cursor: default; }
+
   .btn-search {
     background-color: var(--accent-blue-light);
     border-color: var(--accent-blue-border);
@@ -197,7 +190,9 @@
     font-weight: 500;
   }
 
-  .btn-search:hover { background-color: #d5e4f6; }
+  .btn-search:hover:not(:disabled) {
+    background-color: #d5e4f6;
+  }
 
   .btn-clear {
     background-color: var(--bg-white);
@@ -205,8 +200,11 @@
     color: var(--text-main);
   }
 
-  .btn-clear:hover { background-color: #faf8f2; }
+  .btn-clear:hover {
+    background-color: #faf8f2;
+  }
 
+  /* サマリーカード */
   .summary-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -246,29 +244,135 @@
     font-family: var(--font-jp);
   }
 
-  .section-header {
+  /* 結果ヘッダー（件数サマリー・表示件数セレクト） */
+  .result-header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
     margin-bottom: 6px;
   }
 
-  .section-title {
-    font-size: var(--fs-md);
-    font-weight: 700;
-    color: var(--text-main);
+  .result-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-left: 2px;
     letter-spacing: 0.02em;
   }
 
-  .section-count {
-    font-size: var(--fs-sm);
-    color: var(--text-subtle);
+  .per-page-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
+
+  .per-page-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-select {
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    font-family: var(--font-base);
+    font-size: var(--fs-xs);
+    color: var(--text-main);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .per-page-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* ページネーション */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .page-numbers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .page-btn:hover:not(:disabled):not(.is-active) {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .page-number.is-active {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .page-ellipsis {
+    min-width: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+  }
+
+  .msg-error {
+    color: #8a1a1a;
+    background: #fdeaea;
+    border: 1px solid #e9b0b0;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: var(--fs-sm);
+    margin-bottom: 12px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--accent-blue-border);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ページ全体のカスタムスクロールバー */
   body::-webkit-scrollbar {
     width: 14px;
-    height: 14px;
   }
 
   body::-webkit-scrollbar-track {
@@ -286,6 +390,7 @@
     background: #aea892;
   }
 
+  /* データテーブル */
   .data-table-wrapper {
     background-color: var(--bg-white);
     border: 1px solid var(--border-table);
@@ -314,15 +419,19 @@
     border-radius: 8px;
   }
 
+  .data-scroll::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
   .data-table {
     width: 100%;
     border-collapse: collapse;
     font-size: var(--fs-base);
     table-layout: fixed;
-  }
-
-  .data-table-footer {
-    border-top: 1px solid #c7d9ef;
+    /* 列幅の合計 = 1700px。支店コード・店舗名・カード名・お支払方法・支払区分は
+       全角文字を含む実データ（例:支店コード「２１８１－５００－５１－０００３４」）の
+       実際の文字数を収容できる幅にしている。 */
+    min-width: 1700px;
   }
 
   .data-table thead th {
@@ -342,23 +451,9 @@
     border-right: none;
   }
 
+  .data-table thead th:first-child,
   .data-table thead th.text-left {
     text-align: left;
-  }
-
-  .data-table thead th.group {
-    text-align: left;
-    background-color: #FFDCE4;
-    border-bottom: 1px solid var(--border-table);
-    border-left: 1px solid var(--border-table);
-  }
-
-  .data-table thead tr:nth-child(2) th {
-    border-left: 1px solid var(--border-table);
-  }
-
-  .data-table thead tr:nth-child(2) th:first-child {
-    border-left: none;
   }
 
   .data-table tbody td {
@@ -371,6 +466,8 @@
     font-size: var(--fs-base);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .data-table tbody tr:last-child td {
@@ -381,63 +478,50 @@
     border-right: none;
   }
 
-  .data-table tbody td.text-left,
-  .data-table tbody td.jp {
+  .data-table tbody td.text-left {
     text-align: left;
   }
 
   .data-table tbody td.jp {
     font-family: var(--font-jp);
     font-variant-numeric: normal;
-    white-space: normal;
-    word-break: break-all;
-    overflow-wrap: anywhere;
   }
 
-  .data-table tbody td.muted {
-    color: var(--text-subtle);
+  .data-table tbody tr:hover td {
+    background-color: var(--bg-hover);
   }
 
-  .data-table tr.total-row td {
-    background-color: var(--bg-total);
-    color: var(--accent-blue-total);
-    font-weight: 600;
-    border-top: none;
-    border-bottom: none;
-    padding: 11px 14px;
-    text-align: right;
-    border-right: 1px solid var(--border-table);
-    white-space: nowrap;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .data-table tr.total-row td:last-child {
-    border-right: none;
-  }
-
-  .data-table tr.total-row td.label {
+  .data-table tbody td.empty-cell {
+    text-align: center;
+    color: var(--text-muted);
     font-family: var(--font-jp);
-    font-weight: 700;
-    text-align: right;
-    padding-right: 20px;
-    letter-spacing: 0.02em;
-  }
-
-  .data-table tr.total-row td.muted {
-    color: var(--text-subtle);
+    padding: 28px 16px;
+    white-space: normal;
   }
 
   @media (max-width: 900px) {
-    body { padding: 16px 8px; }
-    .container { padding: 20px 16px 24px; }
-    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    body {
+      padding: 16px 8px;
+    }
+    .container {
+      padding: 20px 16px 24px;
+    }
+    .summary-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (max-width: 520px) {
-    .summary-grid { grid-template-columns: 1fr; }
-    .search-input { width: 100%; }
-    .search-field { width: 100%; }
+    .summary-grid {
+      grid-template-columns: 1fr;
+    }
+    .search-input, .search-select {
+      width: 100%;
+      min-width: 0;
+    }
+    .search-field {
+      width: 100%;
+    }
   }
 </style>
 </head>
@@ -445,27 +529,49 @@
   <div class="container">
     <h1 class="page-title">stera terminal精算情報 (JCB) 照会</h1>
 
+    <!-- 絞込みエリア -->
     <div class="search-box">
       <div class="search-field">
-        <label class="search-label" for="target-month">対象月</label>
-        <input type="text" id="target-month" class="search-input" value="2026/05" />
+        <label class="search-label" for="cutoff-date">締め日</label>
+        <input type="date" id="cutoff-date" class="search-input" min="2000-01-01" max="2099-12-31" />
+      </div>
+      <div class="search-field">
+        <label class="search-label" for="card-name">カード名</label>
+        <select id="card-name" class="search-select">
+          <option>すべて</option>
+        </select>
+      </div>
+      <div class="search-field">
+        <label class="search-label" for="payment-method">お支払方法</label>
+        <select id="payment-method" class="search-select">
+          <option>すべて</option>
+        </select>
+      </div>
+      <div class="search-field">
+        <label class="search-label" for="payment-type">支払区分</label>
+        <select id="payment-type" class="search-select">
+          <option>すべて</option>
+        </select>
       </div>
       <div class="search-actions">
-        <button class="btn btn-search" type="button">
-          <span>🔍</span><span>検索</span>
+        <button class="btn btn-search" type="button" id="btn-search">
+          <span>&#128269;</span><span>絞込み</span>
         </button>
-        <button class="btn btn-clear" type="button">クリア</button>
+        <button class="btn btn-clear" type="button" id="btn-clear">クリア</button>
       </div>
     </div>
 
+    <div id="msg-area"></div>
+
+    <!-- サマリーカード -->
     <div class="summary-grid">
       <div class="summary-card">
-        <div class="summary-label">合計 総計</div>
-        <div class="summary-value"><span id="sum-total">—</span><span class="summary-unit">円</span></div>
+        <div class="summary-label">合計 売上金額</div>
+        <div class="summary-value"><span id="sum-sales">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 仕入手数料</div>
-        <div class="summary-value"><span id="sum-purchase-fee">—</span><span class="summary-unit">円</span></div>
+        <div class="summary-value"><span id="sum-acquirer-fee">—</span><span class="summary-unit">円</span></div>
       </div>
       <div class="summary-card">
         <div class="summary-label">合計 当社手数料</div>
@@ -477,96 +583,340 @@
       </div>
     </div>
 
-    <div class="section-header">
-      <span class="section-title">精算明細</span>
-      <span class="section-count" id="section-count" style="display:none">全 7 件</span>
+    <!-- 精算明細 -->
+    <div class="result-header">
+      <span class="result-summary" id="result-summary"></span>
+      <div class="per-page-control">
+        <label class="per-page-label" for="per-page-select">表示件数</label>
+        <select id="per-page-select" class="per-page-select">
+          <option value="10" selected>10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+        </select>
+      </div>
     </div>
 
     <div class="data-table-wrapper">
       <div class="data-scroll">
         <table class="data-table">
           <colgroup>
-            <col style="width: 7%">
-            <col style="width: 8%">
-            <col style="width: 13%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 8%">
-            <col style="width: 8%">
-            <col style="width: 7%">
-            <col style="width: 7%">
+            <col style="width: 100px">
+            <col style="width: 300px">
+            <col style="width: 260px">
+            <col style="width: 160px">
+            <col style="width: 130px">
+            <col style="width: 120px">
+            <col style="width: 110px">
+            <col style="width: 130px">
+            <col style="width: 130px">
+            <col style="width: 130px">
+            <col style="width: 130px">
           </colgroup>
           <thead>
             <tr>
-              <th rowspan="2" class="text-left">取引コード</th>
-              <th rowspan="2" class="text-left">支店コード</th>
-              <th rowspan="2" class="text-left">店舗名</th>
-              <th colspan="4" class="group">クレジット (円)</th>
-              <th colspan="2" class="group">QUICPay (円)</th>
-              <th rowspan="2">総計<br>(円)</th>
-              <th rowspan="2">仕入手数料<br>(円)</th>
-              <th rowspan="2">当社手数料<br>(円)</th>
-              <th rowspan="2">精算金額<br>(円)</th>
-            </tr>
-            <tr>
-              <th>1回払い</th>
-              <th>2回払い</th>
-              <th>リボ<br>ビング</th>
-              <th>分割払い</th>
-              <th>1回払い</th>
-              <th>2回払い</th>
+              <th class="text-left">取引コード</th>
+              <th class="text-left">支店コード</th>
+              <th class="text-left">店舗名</th>
+              <th class="text-left">カード名</th>
+              <th class="text-left">お支払方法</th>
+              <th class="text-left">支払区分</th>
+              <th class="text-left">締め日</th>
+              <th>売上金額 (円)</th>
+              <th>仕入手数料 (円)</th>
+              <th>当社手数料 (円)</th>
+              <th>精算金額 (円)</th>
             </tr>
           </thead>
-          <tbody id="detail-body">
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tbody id="data-tbody">
+            <tr>
+              <td class="empty-cell" colspan="11"><span class="spinner"></span> 読み込み中…</td>
+            </tr>
           </tbody>
         </table>
       </div>
     </div>
+
+    <div class="pagination" id="pagination" style="display:none">
+      <button class="page-btn" type="button" id="btn-prev" aria-label="前のページ">‹</button>
+      <div class="page-numbers" id="page-numbers"></div>
+      <button class="page-btn" type="button" id="btn-next" aria-label="次のページ">›</button>
+    </div>
   </div>
 
   <script>
-    const EMPTY_ROWS = '<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(10);
-    const DATA_ROWS = [
-      '<tr><td class="text-left">01-020</td><td class="text-left">01-020000</td><td class="jp">フラワーブティック エハラ</td><td>2,090</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td>2,090</td><td>57</td><td>4</td><td>2,029</td></tr>',
-      '<tr><td class="text-left">01-030</td><td class="text-left">01-030000</td><td class="jp">東京花屋</td><td>6,390</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td>6,390</td><td>176</td><td>13</td><td>6,201</td></tr>',
-      '<tr><td class="text-left">01-047</td><td class="text-left">01-047000</td><td class="jp">フラワーショップ花太郎</td><td>126,006</td><td class="muted">—</td><td class="muted">—</td><td>11,000</td><td class="muted">—</td><td class="muted">—</td><td>137,006</td><td>3,768</td><td>274</td><td>132,964</td></tr>',
-      '<tr><td class="text-left">02-044</td><td class="text-left">02-044000</td><td class="jp">尾田新生園</td><td>4,400</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td>3,300</td><td class="muted">—</td><td>7,700</td><td>212</td><td>16</td><td>7,472</td></tr>',
-      '<tr><td class="text-left">02-044</td><td class="text-left">02-044001</td><td class="jp">尾田新生園 フラワーショップおだいっきゅう店</td><td>8,130</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td>3,500</td><td class="muted">—</td><td>11,630</td><td>320</td><td>23</td><td>11,287</td></tr>',
-      '<tr><td class="text-left">02-044</td><td class="text-left">02-044003</td><td class="jp">尾田新生園 花キッチン</td><td>5,890</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td>3,400</td><td class="muted">—</td><td>9,290</td><td>256</td><td>19</td><td>9,015</td></tr>'
-    ].join('');
+    const ALL_VALUE = 'すべて';
 
-    document.querySelector('.btn-search').addEventListener('click', () => {
-      document.getElementById('sum-total').textContent = '174,106';
-      document.getElementById('sum-purchase-fee').textContent = '4,789';
-      document.getElementById('sum-company-fee').textContent = '349';
-      document.getElementById('sum-settlement').textContent = '168,968';
-      document.getElementById('detail-body').innerHTML = DATA_ROWS;
-      document.getElementById('section-count').style.display = '';
+    const cutoffDateInput  = document.getElementById('cutoff-date');
+    const cardNameSelect   = document.getElementById('card-name');
+    const paymentMethodSel = document.getElementById('payment-method');
+    const paymentTypeSel   = document.getElementById('payment-type');
+    const btnFilter        = document.getElementById('btn-search');
+    const btnClear         = document.getElementById('btn-clear');
+    const msgArea          = document.getElementById('msg-area');
+
+    var allData = [];
+    var filteredData = [];
+    var currentPage = 1;
+    var perPage = 10;
+
+    var tbodyEl      = document.getElementById('data-tbody');
+    var summaryEl    = document.getElementById('result-summary');
+    var pageNumsEl   = document.getElementById('page-numbers');
+    var paginationEl = document.getElementById('pagination');
+    var btnPrev      = document.getElementById('btn-prev');
+    var btnNext      = document.getElementById('btn-next');
+    var perPageSel   = document.getElementById('per-page-select');
+
+    function totalPages() {
+      return Math.max(1, Math.ceil(filteredData.length / perPage));
+    }
+
+    function buildPageItems(cur, total) {
+      var items = [];
+      if (total <= 7) {
+        for (var i = 1; i <= total; i++) { items.push(i); }
+        return items;
+      }
+      items.push(1);
+      var left  = Math.max(2, cur - 1);
+      var right = Math.min(total - 1, cur + 1);
+      if (left > 2)        { items.push('...'); }
+      for (var p = left; p <= right; p++) { items.push(p); }
+      if (right < total - 1) { items.push('...'); }
+      items.push(total);
+      return items;
+    }
+
+    function formatNumber(n) {
+      return (n || 0).toLocaleString('ja-JP');
+    }
+
+    function buildRow(row) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="text-left">'    + esc(row.tradeCode)               + '</td>' +
+        '<td class="text-left jp">'    + esc(row.storeNumber)          + '</td>' +
+        '<td class="text-left jp">' + esc(row.storeName)               + '</td>' +
+        '<td class="text-left jp">' + esc(row.cardName)                + '</td>' +
+        '<td class="text-left jp">' + esc(row.paymentMethod)           + '</td>' +
+        '<td class="text-left jp">' + esc(row.paymentType)             + '</td>' +
+        '<td class="text-left">'    + esc(row.cutoffDate || '')        + '</td>' +
+        '<td>'                      + formatNumber(row.salesAmount)    + '</td>' +
+        '<td>'                      + formatNumber(row.acquirerFee)    + '</td>' +
+        '<td>'                      + formatNumber(row.companyFee)     + '</td>' +
+        '<td>'                      + formatNumber(row.settlementAmount) + '</td>';
+      return tr;
+    }
+
+    function render() {
+      var total = filteredData.length;
+      var pages = totalPages();
+      if (currentPage > pages) { currentPage = pages; }
+
+      var start = (currentPage - 1) * perPage;
+      var end   = Math.min(start + perPage, total);
+
+      tbodyEl.innerHTML = '';
+      if (total === 0) {
+        var emptyTr = document.createElement('tr');
+        emptyTr.innerHTML = '<td class="empty-cell" colspan="11">該当するデータがありません。</td>';
+        tbodyEl.appendChild(emptyTr);
+        summaryEl.textContent = '0 件';
+        paginationEl.style.display = 'none';
+      } else {
+        for (var i = start; i < end; i++) {
+          tbodyEl.appendChild(buildRow(filteredData[i]));
+        }
+        summaryEl.textContent = (start + 1) + '–' + end + ' / ' + total + ' 件';
+        paginationEl.style.display = '';
+      }
+
+      pageNumsEl.innerHTML = '';
+      buildPageItems(currentPage, pages).forEach(function (item) {
+        if (item === '...') {
+          var sp = document.createElement('span');
+          sp.className = 'page-ellipsis';
+          sp.textContent = '…';
+          pageNumsEl.appendChild(sp);
+          return;
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'page-btn page-number' + (item === currentPage ? ' is-active' : '');
+        btn.textContent = item;
+        btn.addEventListener('click', function () {
+          currentPage = item;
+          render();
+        });
+        pageNumsEl.appendChild(btn);
+      });
+
+      btnPrev.disabled = (currentPage === 1);
+      btnNext.disabled = (currentPage === pages);
+    }
+
+    function updateSummaryCards() {
+      var totals = filteredData.reduce(function (acc, row) {
+        acc.sales      += row.salesAmount || 0;
+        acc.acquirer   += row.acquirerFee || 0;
+        acc.company    += row.companyFee || 0;
+        acc.settlement += row.settlementAmount || 0;
+        return acc;
+      }, { sales: 0, acquirer: 0, company: 0, settlement: 0 });
+      document.getElementById('sum-sales').textContent        = formatNumber(totals.sales);
+      document.getElementById('sum-acquirer-fee').textContent = formatNumber(totals.acquirer);
+      document.getElementById('sum-company-fee').textContent  = formatNumber(totals.company);
+      document.getElementById('sum-settlement').textContent   = formatNumber(totals.settlement);
+    }
+
+    function esc(val) {
+      if (val == null) { return ''; }
+      return String(val)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    /* カード名・お支払方法・支払区分プルダウンは、取得済みデータに実際に存在する値から
+       動的に構築する（「すべて」を先頭に固定）。ハードコードの一覧は持たない。
+       カード名→お支払方法→支払区分の順に絞り込み対象を段階的に狭める。 */
+    function populateCardNameOptions() {
+      var current = cardNameSelect.value || ALL_VALUE;
+      var names = Array.from(new Set(allData.map(function (r) { return r.cardName; })))
+          .filter(Boolean).sort();
+      cardNameSelect.innerHTML = '';
+      addOption(cardNameSelect, ALL_VALUE);
+      names.forEach(function (n) { addOption(cardNameSelect, n); });
+      cardNameSelect.value = names.includes(current) || current === ALL_VALUE ? current : ALL_VALUE;
+    }
+
+    function populatePaymentMethodOptions() {
+      var current = paymentMethodSel.value || ALL_VALUE;
+      var cardName = cardNameSelect.value;
+      var methods = Array.from(new Set(
+          allData
+              .filter(function (r) { return cardName === ALL_VALUE || r.cardName === cardName; })
+              .map(function (r) { return r.paymentMethod; })
+              .filter(Boolean)
+      )).sort();
+      paymentMethodSel.innerHTML = '';
+      addOption(paymentMethodSel, ALL_VALUE);
+      methods.forEach(function (m) { addOption(paymentMethodSel, m); });
+      paymentMethodSel.value = methods.includes(current) || current === ALL_VALUE ? current : ALL_VALUE;
+    }
+
+    function populatePaymentTypeOptions() {
+      var current = paymentTypeSel.value || ALL_VALUE;
+      var cardName = cardNameSelect.value;
+      var paymentMethod = paymentMethodSel.value;
+      var types = Array.from(new Set(
+          allData
+              .filter(function (r) {
+                return (cardName === ALL_VALUE || r.cardName === cardName)
+                    && (paymentMethod === ALL_VALUE || r.paymentMethod === paymentMethod);
+              })
+              .map(function (r) { return r.paymentType; })
+              .filter(Boolean)
+      )).sort();
+      paymentTypeSel.innerHTML = '';
+      addOption(paymentTypeSel, ALL_VALUE);
+      types.forEach(function (t) { addOption(paymentTypeSel, t); });
+      paymentTypeSel.value = types.includes(current) || current === ALL_VALUE ? current : ALL_VALUE;
+    }
+
+    function addOption(selectEl, value) {
+      var option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      selectEl.appendChild(option);
+    }
+
+    cardNameSelect.addEventListener('change', function () {
+      populatePaymentMethodOptions();
+      populatePaymentTypeOptions();
+    });
+    paymentMethodSel.addEventListener('change', populatePaymentTypeOptions);
+
+    function applyFilter() {
+      var cutoffDate    = cutoffDateInput.value;
+      var cardName      = cardNameSelect.value;
+      var paymentMethod = paymentMethodSel.value;
+      var paymentType   = paymentTypeSel.value;
+
+      filteredData = allData.filter(function (row) {
+        if (cutoffDate && row.cutoffDate !== cutoffDate) { return false; }
+        if (cardName !== ALL_VALUE && row.cardName !== cardName) { return false; }
+        if (paymentMethod !== ALL_VALUE && row.paymentMethod !== paymentMethod) { return false; }
+        if (paymentType !== ALL_VALUE && row.paymentType !== paymentType) { return false; }
+        return true;
+      });
+      currentPage = 1;
+      render();
+      updateSummaryCards();
+    }
+
+    function loadAll() {
+      msgArea.innerHTML = '';
+      tbodyEl.innerHTML =
+        '<tr><td class="empty-cell" colspan="11"><span class="spinner"></span> 読み込み中…</td></tr>';
+      summaryEl.textContent = '';
+
+      fetch('/stera_jcb_search', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('unauthenticated'));
+          }
+          if (!res.ok) { throw new Error('HTTP ' + res.status); }
+          return res.json();
+        })
+        .then(function (data) {
+          allData = data || [];
+          populateCardNameOptions();
+          populatePaymentMethodOptions();
+          populatePaymentTypeOptions();
+          applyFilter();
+        })
+        .catch(function (err) {
+          if (err && err.message === 'unauthenticated') { return; }
+          msgArea.innerHTML =
+            '<div class="msg-error">データの取得に失敗しました。再度お試しください。</div>';
+          tbodyEl.innerHTML = '<tr><td class="empty-cell" colspan="11">読み込みエラー</td></tr>';
+          summaryEl.textContent = '';
+        });
+    }
+
+    btnPrev.addEventListener('click', function () {
+      if (currentPage > 1) { currentPage--; render(); }
     });
 
-    document.querySelector('.btn-clear').addEventListener('click', () => {
-      document.getElementById('target-month').value = '';
-      document.getElementById('sum-total').textContent = '—';
-      document.getElementById('sum-purchase-fee').textContent = '—';
-      document.getElementById('sum-company-fee').textContent = '—';
-      document.getElementById('sum-settlement').textContent = '—';
-      document.getElementById('detail-body').innerHTML = EMPTY_ROWS;
-      document.getElementById('section-count').style.display = 'none';
+    btnNext.addEventListener('click', function () {
+      if (currentPage < totalPages()) { currentPage++; render(); }
     });
+
+    perPageSel.addEventListener('change', function () {
+      perPage = parseInt(perPageSel.value, 10);
+      currentPage = 1;
+      render();
+    });
+
+    btnFilter.addEventListener('click', applyFilter);
+
+    btnClear.addEventListener('click', function () {
+      cutoffDateInput.value = '';
+      cardNameSelect.value = ALL_VALUE;
+      populatePaymentMethodOptions();
+      populatePaymentTypeOptions();
+      applyFilter();
+    });
+
+    /* 初期ロード：全件を取得したうえで表示する */
+    loadAll();
   </script>
 </body>
 </html>
