@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" th:content="${csrfToken}" content="">
 <title>各決済会社所定申込フォーム作成 | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,16 +27,22 @@
     --bg-notice: #fbeed5;
     --bg-notice-border: #f1d9a0;
     --bg-option-hover: #e6f5dc;
+    --bg-ok: #edf7ed;
+    --bg-ng: #fdf0f0;
     --border-color: #e8e4da;
     --border-input: #d8d4c8;
     --border-form: #cddef2;
     --border-table: #e5e2d8;
+    --border-ok: #a5d6a7;
+    --border-ng: #f5c6cb;
     --text-main: #2a2a2a;
     --text-sub: #4a4a4a;
     --text-label: #5a5a5a;
     --text-muted: #8a8a8a;
     --text-subtle: #9a9a9a;
     --text-notice: #8a5a1a;
+    --text-ok: #2e7d32;
+    --text-ng: #b71c1c;
     --accent-blue: #3a6db5;
     --accent-blue-light: #e3edfb;
     --accent-blue-border: #aecbeb;
@@ -230,6 +237,8 @@
     white-space: nowrap;
   }
 
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
   .btn-browse {
     background-color: var(--bg-white);
     border-color: var(--border-input);
@@ -237,7 +246,7 @@
     padding: 8px 22px;
   }
 
-  .btn-browse:hover { background-color: #faf8f2; }
+  .btn-browse:hover:not(:disabled) { background-color: #faf8f2; }
 
   .btn-upload {
     background-color: var(--accent-blue-light);
@@ -246,7 +255,36 @@
     font-weight: 500;
   }
 
-  .btn-upload:hover { background-color: #d3e2f7; }
+  .btn-upload:hover:not(:disabled) { background-color: #d3e2f7; }
+
+  /* チェック・生成結果 */
+  .check-result {
+    display: none;
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+
+  .check-result.ok { display: block; background-color: var(--bg-ok); border-color: var(--border-ok); }
+  .check-result.ng { display: block; background-color: var(--bg-ng); border-color: var(--border-ng); }
+
+  .check-result-title { font-size: var(--fs-base); font-weight: 700; margin-bottom: 4px; }
+
+  .check-result.ok .check-result-title { color: var(--text-ok); }
+  .check-result.ng .check-result-title { color: var(--text-ng); }
+
+  .check-result-summary { font-size: var(--fs-sm); color: var(--text-main); }
+
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--accent-blue-border);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .notice-box {
     background-color: var(--bg-notice);
@@ -325,10 +363,12 @@
 
     <div class="form-box">
       <div class="form-field">
-        <label class="form-label" for="file-input">ファイル</label>
+        <label class="form-label" for="file-display">ファイル（INPUT CSV）</label>
         <div class="file-input-row">
-          <input type="text" id="file-input" class="file-input" value="member_master_20260418.csv" readonly />
-          <button class="btn btn-browse" type="button">参照</button>
+          <input type="text" id="file-display" class="file-input"
+              placeholder="ファイルを選択してください" readonly />
+          <button class="btn btn-browse" type="button" id="btn-browse">参照</button>
+          <input type="file" id="file-hidden" accept=".csv" style="display:none">
         </div>
       </div>
 
@@ -340,17 +380,23 @@
               <span id="destination-value">JCB</span>
             </div>
             <div class="select-options">
-              <div class="select-option selected" data-value="JCB">JCB</div>
-              <div class="select-option" data-value="SMCC_KAMEI">SMCC（加盟店申込書）</div>
-              <div class="select-option" data-value="SMCC_TENPO">SMCC（店舗・店子情報一覧）</div>
+              <div class="select-option selected" data-value="JCB" data-enum="JCB">JCB</div>
+              <div class="select-option" data-value="SMCC（加盟店申込書）" data-enum="SMCC_KAMEI">SMCC（加盟店申込書）</div>
+              <div class="select-option" data-value="SMCC（店舗・店子情報一覧）" data-enum="SMCC_TENPO">SMCC（店舗・店子情報一覧）</div>
             </div>
           </div>
         </div>
 
-        <button class="btn btn-upload" type="button">
-          <span>⬆</span><span>アップロード</span>
+        <button class="btn btn-upload" type="button" id="btn-upload" disabled>
+          <span id="upload-icon">⬆</span><span id="upload-label">アップロード</span>
         </button>
       </div>
+    </div>
+
+    <!-- フォーマットチェック・生成結果 -->
+    <div id="check-result" class="check-result">
+      <div class="check-result-title" id="result-title"></div>
+      <div class="check-result-summary" id="result-summary"></div>
     </div>
 
     <div class="notice-box">
@@ -359,8 +405,12 @@
         <span>申込フォーム作成時のご注意</span>
       </div>
       <ol class="notice-list">
-        <li>申請元となる会員店データファイル (CSV) を参照ボタンから選択してください。</li>
-        <li>申請先（JCB / SMCC（加盟店申込書）/ SMCC（店舗・店子情報一覧））に応じた所定フォーマットの申込フォームが自動生成されます。</li>
+        <li>申請元となるINPUTファイル (CSV) を参照ボタンから選択してください。データ種類（申請先）によらず同一レイアウトのCSVです。</li>
+        <li>申請先（JCB / SMCC（加盟店申込書）/ SMCC（店舗・店子情報一覧）) に応じた所定フォーマットの申込フォームが自動生成され、アップロード後すぐにダウンロードされます。</li>
+        <li>取引コード（JFTD取引コード）でm_member_info・m_paygate_store_mappingの情報と自動的に突き合わせます。INPUTファイルに無い項目でm_member_infoから取得できるものは自動転記されます。</li>
+        <li>1行目は内容によらず常にヘッダー行として扱われます（列名はチェックされません）。</li>
+        <li>取引コードが未入力の行、CSV内で取引コードが重複している行はその行だけ生成対象から除外され、正常な行のみで申込フォームが生成されます。</li>
+        <li>SMCC加盟店申込書のうち、契約条件により異なる料率・手数料等の一部項目はINPUTファイルに値があれば自動転記されますが、無ければ生成後のExcelに空欄で出力されます（担当者が手入力してください）。</li>
         <li>対応文字コードは <strong>UTF-8（BOM付き）</strong> または <strong>Shift-JIS（MS932）</strong> です。それ以外の文字コードはエラーになります。</li>
         <li>文字コードエラーが表示された場合は、Excelでファイルを開き「名前を付けて保存」→ファイル形式で「CSV UTF-8（コンマ区切り）(*.csv)」を選択して保存し直してください。</li>
       </ol>
@@ -368,42 +418,259 @@
   </div>
 
   <script>
-    // カスタムセレクトの挙動
-    const select = document.getElementById('destination-select');
-    const display = select.querySelector('.select-display');
-    const valueSpan = document.getElementById('destination-value');
-    const options = select.querySelectorAll('.select-option');
+    var EXPECTED_COLUMN_COUNT = 230;
 
-    display.addEventListener('click', (e) => {
+    var select = document.getElementById('destination-select');
+    var display = select.querySelector('.select-display');
+    var valueSpan = document.getElementById('destination-value');
+    var options = select.querySelectorAll('.select-option');
+    var currentDestination = 'JCB';
+
+    display.addEventListener('click', function (e) {
       e.stopPropagation();
       select.classList.toggle('open');
     });
 
-    options.forEach(opt => {
-      opt.addEventListener('click', () => {
-        options.forEach(o => o.classList.remove('selected'));
+    options.forEach(function (opt) {
+      opt.addEventListener('click', function () {
+        options.forEach(function (o) { o.classList.remove('selected'); });
         opt.classList.add('selected');
-        valueSpan.textContent = opt.textContent;
+        valueSpan.textContent = opt.dataset.value;
+        currentDestination = opt.dataset.enum;
         select.classList.remove('open');
       });
     });
 
-    document.addEventListener('click', () => {
+    document.addEventListener('click', function () {
       select.classList.remove('open');
     });
 
-    // 参照ボタン
-    document.querySelector('.btn-browse').addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv';
-      input.onchange = e => {
-        if (e.target.files[0]) {
-          document.getElementById('file-input').value = e.target.files[0].name;
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    var fileDisplay   = document.getElementById('file-display');
+    var fileHidden    = document.getElementById('file-hidden');
+    var btnBrowse     = document.getElementById('btn-browse');
+    var btnUpload     = document.getElementById('btn-upload');
+    var checkResult   = document.getElementById('check-result');
+    var resultTitle   = document.getElementById('result-title');
+    var resultSummary = document.getElementById('result-summary');
+    var selectedFile  = null;
+
+    btnBrowse.addEventListener('click', function () { fileHidden.click(); });
+
+    fileHidden.addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file) { return; }
+      selectedFile = file;
+      fileDisplay.value = file.name;
+      runFrontendCheck(file);
+    });
+
+    function hideResult() {
+      checkResult.className = 'check-result';
+    }
+
+    function showOk(message) {
+      checkResult.className = 'check-result ok';
+      resultTitle.textContent = '✓ フォーマットチェック OK';
+      resultSummary.textContent = message;
+      btnUpload.disabled = false;
+    }
+
+    function showNg(message, title) {
+      checkResult.className = 'check-result ng';
+      resultTitle.textContent = title || '✗ フォーマットチェック NG';
+      resultSummary.textContent = message;
+      btnUpload.disabled = true;
+    }
+
+    function runFrontendCheck(file) {
+      hideResult();
+      btnUpload.disabled = true;
+
+      var ext = file.name.split('.').pop().toLowerCase();
+      if (ext !== 'csv') {
+        showNg('ファイルの拡張子が不正です。期待: .csv、実際: .' + ext);
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          var buffer = e.target.result;
+          var bytes = new Uint8Array(buffer);
+          var charset;
+
+          if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+            charset = 'utf-8';
+          } else if (bytes.length >= 2
+              && ((bytes[0] === 0xFF && bytes[1] === 0xFE)
+                  || (bytes[0] === 0xFE && bytes[1] === 0xFF))) {
+            showNg('ファイルの文字コードがサポートされていません（UTF-16）。'
+                + 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。');
+            return;
+          } else if (isUtf8WithoutBom(bytes)) {
+            // BOMは無いが非ASCIIを含み、かつ全体が厳密UTF-8として妥当＝UTF-8（BOMなし）。
+            showNg('ファイルがUTF-8（BOMなし）形式で保存されています。'
+                + 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。');
+            return;
+          } else {
+            charset = 'shift-jis';
+          }
+
+          var text = new TextDecoder(charset).decode(buffer);
+          var firstLine = text.replace(/^﻿/, '').split('\n')[0].replace(/\r$/, '');
+          var firstFields = parseCsvLine(firstLine);
+
+          if (firstFields.length !== EXPECTED_COLUMN_COUNT) {
+            if (charset === 'shift-jis') {
+              var utf8First = parseCsvLine(
+                  new TextDecoder('utf-8').decode(buffer).replace(/^﻿/, '').split('\n')[0].replace(/\r$/, ''));
+              if (utf8First.length === EXPECTED_COLUMN_COUNT) {
+                showNg('ファイルがUTF-8（BOMなし）形式で保存されています。'
+                    + 'ExcelでCSVを開き「名前を付けて保存」→「CSV UTF-8（コンマ区切り）」を選択して保存し直してください。');
+                return;
+              }
+            }
+            showNg('1行目の列数が不正です。期待: ' + EXPECTED_COLUMN_COUNT + '列、実際: '
+                + firstFields.length + '列');
+            return;
+          }
+
+          /* 1行目は内容によらず常にヘッダー行として扱う（列名はチェックしない） */
+          showOk('ヘッダー行・' + EXPECTED_COLUMN_COUNT + '列 OK。アップロードして申込フォームを生成します。');
+        } catch (err) {
+          showNg('ファイルの読み込みに失敗しました: ' + err.message);
         }
       };
-      input.click();
+      reader.readAsArrayBuffer(file);
+    }
+
+    /* =============================================
+       アップロードボタン（サーバーで生成しダウンロード）
+    ============================================= */
+    btnUpload.addEventListener('click', function () {
+      if (!selectedFile) { return; }
+
+      var uploadIcon  = document.getElementById('upload-icon');
+      var uploadLabel = document.getElementById('upload-label');
+      btnUpload.disabled = true;
+      btnBrowse.disabled = true;
+      uploadIcon.innerHTML = '<span class="spinner"></span>';
+      uploadLabel.textContent = '生成中…';
+
+      var formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('destination', currentDestination);
+
+      fetch('/application_form/generate', {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('unauthenticated'));
+          }
+          var contentType = res.headers.get('Content-Type') || '';
+          if (contentType.indexOf('application/json') !== -1) {
+            return res.json().then(function (data) {
+              return Promise.reject(new Error(data.errorMessage || '生成に失敗しました。'));
+            });
+          }
+          if (!res.ok) {
+            return Promise.reject(new Error('生成に失敗しました（HTTP ' + res.status + '）。'));
+          }
+          var successCount = res.headers.get('X-Success-Count');
+          var totalRowCount = res.headers.get('X-Total-Row-Count');
+          var errorCount = res.headers.get('X-Error-Count');
+          var disposition = res.headers.get('Content-Disposition') || '';
+          var filenameMatch = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/);
+          var filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'application_form.xlsx';
+          return res.blob().then(function (blob) {
+            downloadBlob(blob, filename);
+            showGenerateResult(successCount, totalRowCount, errorCount);
+          });
+        })
+        .catch(function (err) {
+          if (err.message === 'unauthenticated') { return; }
+          showNg('通信エラーが発生しました: ' + err.message, '✗ 生成エラー');
+        })
+        .finally(function () {
+          uploadIcon.innerHTML = '⬆';
+          uploadLabel.textContent = 'アップロード';
+          btnBrowse.disabled = false;
+          btnUpload.disabled = !selectedFile;
+        });
     });
+
+    function downloadBlob(blob, filename) {
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
+
+    function showGenerateResult(successCount, totalRowCount, errorCount) {
+      checkResult.className = 'check-result ok';
+      resultTitle.textContent = '✓ 申込フォームを生成しました';
+      var summary = '生成件数: ' + (successCount || '-') + ' 件（データ行数: ' + (totalRowCount || '-') + '行）';
+      if (errorCount && parseInt(errorCount, 10) > 0) {
+        summary += '。取引コード未入力・重複などにより ' + errorCount + ' 行がスキップされました。';
+      }
+      resultSummary.textContent = summary;
+    }
+
+    /* BOMが無いファイルがUTF-8（BOMなし）かどうかを判定する。
+       非ASCIIバイトを含み、かつ全体が厳密なUTF-8として妥当なら真を返す。 */
+    function isUtf8WithoutBom(bytes) {
+      var hasNonAscii = false;
+      for (var i = 0; i < bytes.length; i++) {
+        if (bytes[i] >= 0x80) {
+          hasNonAscii = true;
+          break;
+        }
+      }
+      if (!hasNonAscii) {
+        return false;
+      }
+      try {
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    /* RFC 4180 準拠の CSV 1行パーサー */
+    function parseCsvLine(line) {
+      var fields = [];
+      var i = 0;
+      while (i <= line.length) {
+        if (i < line.length && line[i] === '"') {
+          i++;
+          var sb = '';
+          while (i < line.length) {
+            if (line[i] === '"') {
+              if (i + 1 < line.length && line[i + 1] === '"') { sb += '"'; i += 2; }
+              else { i++; break; }
+            } else { sb += line[i++]; }
+          }
+          fields.push(sb);
+          if (i < line.length && line[i] === ',') { i++; } else { break; }
+        } else {
+          var start = i;
+          while (i < line.length && line[i] !== ',') { i++; }
+          fields.push(line.substring(start, i));
+          if (i < line.length) { i++; } else { break; }
+        }
+      }
+      return fields;
+    }
   </script>
 </body>
 </html>
