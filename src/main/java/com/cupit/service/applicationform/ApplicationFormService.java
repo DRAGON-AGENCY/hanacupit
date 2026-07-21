@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -88,8 +89,7 @@ public class ApplicationFormService {
         ApplicationFormCsvParser.ParseResult parseResult = csvParser.parse(file);
         if (parseResult.getRecords().isEmpty()) {
             return ApplicationFormGenerateResult.error(
-                    "登録可能な行がありません。エラー件数: " + parseResult.getErrors().size()
-                    + "件（データ行数: " + parseResult.getTotalRowCount() + "行）。");
+                    buildNoRegistrableRowsMessage(parseResult.getErrors()));
         }
 
         List<ApplicationFormRowContext> rows = buildRowContexts(parseResult.getRecords());
@@ -143,6 +143,21 @@ public class ApplicationFormService {
         return error.getRowNumber() > 0
                 ? error.getRowNumber() + "行目: " + error.getMessage()
                 : error.getMessage();
+    }
+
+    /**
+     * 全行がエラーでスキップされた場合、件数だけの通知では原因が分からないため、
+     * 実際のエラー内容をそのまま返す（同じ内容のメッセージは1つにまとめる）。
+     */
+    private String buildNoRegistrableRowsMessage(List<CsvValidationError> errors) {
+        if (errors.isEmpty()) {
+            return "登録可能な行がありません。";
+        }
+        return errors.stream()
+                .map(CsvValidationError::getMessage)
+                .distinct()
+                .limit(5)
+                .collect(Collectors.joining(" "));
     }
 
 }

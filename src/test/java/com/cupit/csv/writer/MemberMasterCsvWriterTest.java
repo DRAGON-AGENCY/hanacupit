@@ -21,6 +21,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import com.cupit.csv.importer.ImportResult;
 import com.cupit.csv.importer.MemberInfoFileImporter;
+import com.cupit.csv.importer.MemberInfoRecordSaver;
 import com.cupit.csv.validator.PaymentCompanyFormatChecker;
 import com.cupit.model.ImportBatch;
 import com.cupit.model.MemberInfo;
@@ -41,12 +42,15 @@ class MemberMasterCsvWriterTest {
     @Mock
     private MemberInfoRepository memberInfoRepository;
 
+    @Mock
+    private MemberInfoRecordSaver memberInfoRecordSaver;
+
     private MemberInfoFileImporter importer;
 
     @BeforeEach
     void setUp() {
         importer = new MemberInfoFileImporter(
-                memberInfoRepository, new PaymentCompanyFormatChecker());
+                memberInfoRepository, memberInfoRecordSaver, new PaymentCompanyFormatChecker());
     }
 
     @Test
@@ -125,6 +129,15 @@ class MemberMasterCsvWriterTest {
         original.setAddrBlock("6丁目右6号");
         original.setAddrBlockKana("ロクチョウメミギロクゴウ");
         original.setAddrTel("0166-22-4276");
+        original.setCorpZip("0700032");
+        original.setCorpPref("北海道");
+        original.setCorpPrefKana("ホッカイドウ");
+        original.setCorpCity("旭川市");
+        original.setCorpCityKana("アサヒカワシ");
+        original.setCorpTown("二条通");
+        original.setCorpTownKana("ニジョウドオリ");
+        original.setCorpBlock("6丁目右6号");
+        original.setCorpBlockKana("ロクチョウメミギロクゴウ");
         original.setRepLastName("田中");
         original.setRepFirstName("一郎");
         original.setRepLastNameKana("タナカ");
@@ -143,9 +156,9 @@ class MemberMasterCsvWriterTest {
         assertThat(result.hasErrors()).isFalse();
         assertThat(result.getSuccessCount()).isEqualTo(1);
 
-        ArgumentCaptor<List<MemberInfo>> captor = ArgumentCaptor.forClass(List.class);
-        verify(memberInfoRepository).saveAll(captor.capture());
-        MemberInfo reimported = captor.getValue().get(0);
+        ArgumentCaptor<MemberInfo> captor = ArgumentCaptor.forClass(MemberInfo.class);
+        verify(memberInfoRecordSaver).save(captor.capture());
+        MemberInfo reimported = captor.getValue();
         assertThat(reimported.getTradeCode()).isEqualTo("01-001");
         assertThat(reimported.getStoreName()).isEqualTo("赤坂生花店");
         assertThat(reimported.getJoinDate()).isEqualTo(LocalDate.of(1960, 8, 16));

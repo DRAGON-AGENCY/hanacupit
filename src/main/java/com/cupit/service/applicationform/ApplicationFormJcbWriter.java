@@ -216,6 +216,7 @@ public class ApplicationFormJcbWriter {
                 XSSFWorkbook workbook = new XSSFWorkbook(template)) {
             Sheet sheet = workbook.getSheet(SHEET_NAME);
 
+            clearSampleData(sheet);
             for (int i = 0; i < rows.size(); i++) {
                 writeDataRow(sheet, DATA_START_ROW + i, rows.get(i));
             }
@@ -225,6 +226,32 @@ public class ApplicationFormJcbWriter {
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException("ApplicationFormJcbWriter: 出力Excelの作成に失敗しました。", e);
+        }
+    }
+
+    /**
+     * テンプレートの「入力例」行（7〜9行目等）に埋め込まれたサンプルデータが、
+     * 実データを書き込まなかった行・列にそのまま残って出力に混入しないよう、
+     * データ開始行以降・マッピング対象の全列を空にする。
+     */
+    private void clearSampleData(Sheet sheet) {
+        int lastRow = sheet.getLastRowNum() + 1;
+        for (int excelRow = DATA_START_ROW; excelRow <= lastRow; excelRow++) {
+            clearCellValue(sheet, excelRow, 1); // 「項目名」列。マッピング対象外だが「入力例：01：新規出店」等の文言が入っている
+            for (ApplicationFormFieldMapping mapping : MAPPINGS) {
+                clearCellValue(sheet, excelRow, mapping.getExcelCol());
+            }
+        }
+    }
+
+    private void clearCellValue(Sheet sheet, int excelRow, int col) {
+        Row row = sheet.getRow(excelRow - 1);
+        if (row == null) {
+            return;
+        }
+        Cell cell = row.getCell(col - 1);
+        if (cell != null) {
+            cell.setBlank();
         }
     }
 

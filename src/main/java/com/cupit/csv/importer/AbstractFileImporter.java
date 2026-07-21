@@ -46,7 +46,7 @@ public abstract class AbstractFileImporter implements FileImporter {
                         || ((bom[0] & 0xFF) == 0xFE && (bom[1] & 0xFF) == 0xFF))) {
                 throw new IllegalArgumentException(
                         "ファイルの文字コードがサポートされていません（UTF-16）。"
-                        + "UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。");
+                        + "INPUTファイルをUTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。");
             }
         }
         return Charset.forName("MS932");

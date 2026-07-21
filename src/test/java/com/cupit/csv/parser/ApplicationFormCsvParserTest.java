@@ -67,6 +67,52 @@ class ApplicationFormCsvParserTest {
         assertThat(result.getErrors()).anyMatch(e -> e.getMessage().contains("列数が不正です"));
     }
 
+    @Test
+    void skipsRowWithInvalidDateValue() throws Exception {
+        MockMultipartFile file = csvFile(rowWithField(75, "not-a-date"));
+
+        ApplicationFormCsvParser.ParseResult result = parser.parse(file);
+
+        assertThat(result.getRecords()).isEmpty();
+        assertThat(result.getErrors()).anyMatch(e -> e.getMessage().contains("日付変換エラー"));
+    }
+
+    @Test
+    void skipsRowWithInvalidIntegerValue() throws Exception {
+        MockMultipartFile file = csvFile(rowWithField(142, "abc"));
+
+        ApplicationFormCsvParser.ParseResult result = parser.parse(file);
+
+        assertThat(result.getRecords()).isEmpty();
+        assertThat(result.getErrors()).anyMatch(e -> e.getMessage().contains("数値変換エラー"));
+    }
+
+    @Test
+    void skipsRowWithInvalidDecimalValue() throws Exception {
+        MockMultipartFile file = csvFile(rowWithField(110, "abc"));
+
+        ApplicationFormCsvParser.ParseResult result = parser.parse(file);
+
+        assertThat(result.getRecords()).isEmpty();
+        assertThat(result.getErrors()).anyMatch(e -> e.getMessage().contains("小数変換エラー"));
+    }
+
+    @Test
+    void skipsBlankLineWithoutCountingItAsError() throws Exception {
+        StringBuilder sb = new StringBuilder("﻿").append(header()).append("\r\n");
+        sb.append(row("35-232")).append("\r\n");
+        sb.append("\r\n");
+        sb.append(row("35-233")).append("\r\n");
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "application_form_input.csv", "text/csv",
+                sb.toString().getBytes(StandardCharsets.UTF_8));
+
+        ApplicationFormCsvParser.ParseResult result = parser.parse(file);
+
+        assertThat(result.hasErrors()).isFalse();
+        assertThat(result.getRecords()).hasSize(2);
+    }
+
     private MockMultipartFile csvFile(String... dataLines) {
         StringBuilder sb = new StringBuilder("﻿").append(header()).append("\r\n");
         for (String line : dataLines) {

@@ -523,7 +523,7 @@
                   || (bytes[0] === 0xFE && bytes[1] === 0xFF))) {
             showNg('ファイルの文字コードがサポートされていません（UTF-16）。', [
               { rowNumber: '-', columnName: '文字コード',
-                message: 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
+                message: 'INPUTファイルをUTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
             ]);
             return;
           } else if (isUtf8WithoutBom(bytes)) {
@@ -558,7 +558,7 @@
             showNg('1行目の列数が不正です。期待: ' + EXPECTED_COLUMN_COUNT + '列、実際: '
                 + firstFields.length + '列', [
               { rowNumber: 1, columnName: '',
-                message: '「加盟会員店マスターデータ」CSVのフォーマットを確認してください。' }
+                message: 'INPUTファイルのフォーマットを確認してください。' }
             ]);
             return;
           }

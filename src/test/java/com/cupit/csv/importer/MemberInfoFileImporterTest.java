@@ -1,6 +1,9 @@
 package com.cupit.csv.importer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.cupit.csv.validator.PaymentCompanyFormatChecker;
@@ -52,6 +56,15 @@ class MemberInfoFileImporterTest {
     private static final int IDX_ADDR_BLOCK = 27;
     private static final int IDX_ADDR_BLOCK_KANA = 28;
     private static final int IDX_ADDR_TEL = 31;
+    private static final int IDX_CORP_ZIP = 62;
+    private static final int IDX_CORP_PREF = 63;
+    private static final int IDX_CORP_PREF_KANA = 64;
+    private static final int IDX_CORP_CITY = 65;
+    private static final int IDX_CORP_CITY_KANA = 66;
+    private static final int IDX_CORP_TOWN = 67;
+    private static final int IDX_CORP_TOWN_KANA = 68;
+    private static final int IDX_CORP_BLOCK = 69;
+    private static final int IDX_CORP_BLOCK_KANA = 70;
     private static final int IDX_HANDLING_ITEMS = 41;
     private static final int IDX_CAPITAL_YEN = 93;
     private static final int IDX_REP_LAST_NAME_KANA = 73;
@@ -63,12 +76,15 @@ class MemberInfoFileImporterTest {
     @Mock
     private MemberInfoRepository memberInfoRepository;
 
+    @Mock
+    private MemberInfoRecordSaver memberInfoRecordSaver;
+
     private MemberInfoFileImporter importer;
 
     @BeforeEach
     void setUp() {
         importer = new MemberInfoFileImporter(
-                memberInfoRepository, new PaymentCompanyFormatChecker());
+                memberInfoRepository, memberInfoRecordSaver, new PaymentCompanyFormatChecker());
         when(memberInfoRepository.findAllById(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of());
     }
@@ -82,9 +98,9 @@ class MemberInfoFileImporterTest {
         assertThat(result.hasErrors()).isFalse();
         assertThat(result.getSuccessCount()).isEqualTo(1);
 
-        ArgumentCaptor<List<MemberInfo>> captor = ArgumentCaptor.forClass(List.class);
-        verify(memberInfoRepository).saveAll(captor.capture());
-        MemberInfo saved = captor.getValue().get(0);
+        ArgumentCaptor<MemberInfo> captor = ArgumentCaptor.forClass(MemberInfo.class);
+        verify(memberInfoRecordSaver).save(captor.capture());
+        MemberInfo saved = captor.getValue();
         assertThat(saved.getTradeCode()).isEqualTo("01-001");
         assertThat(saved.getStoreName()).isEqualTo("赤坂生花店");
         assertThat(saved.getUpdateEmployee()).isEqualTo("user001");
@@ -114,9 +130,9 @@ class MemberInfoFileImporterTest {
         ImportResult result = importer.importFile(file, batch("user001"));
 
         assertThat(result.getSuccessCount()).isEqualTo(1);
-        ArgumentCaptor<List<MemberInfo>> captor = ArgumentCaptor.forClass(List.class);
-        verify(memberInfoRepository).saveAll(captor.capture());
-        MemberInfo saved = captor.getValue().get(0);
+        ArgumentCaptor<MemberInfo> captor = ArgumentCaptor.forClass(MemberInfo.class);
+        verify(memberInfoRecordSaver).save(captor.capture());
+        MemberInfo saved = captor.getValue();
         assertThat(saved.getStoreName()).isEqualTo("赤坂生花店");
         assertThat(saved.getMidCode()).isEqualTo((short) 1);
         assertThat(saved.getJoinDate()).isEqualTo(LocalDate.of(1960, 8, 16));
@@ -159,10 +175,9 @@ class MemberInfoFileImporterTest {
         assertThat(result.getErrors()).hasSize(1);
         assertThat(result.getErrors().get(0).getMessage()).contains("重複しています");
 
-        ArgumentCaptor<List<MemberInfo>> captor = ArgumentCaptor.forClass(List.class);
-        verify(memberInfoRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).hasSize(1);
-        assertThat(captor.getValue().get(0).getStoreName()).isEqualTo("店舗A");
+        ArgumentCaptor<MemberInfo> captor = ArgumentCaptor.forClass(MemberInfo.class);
+        verify(memberInfoRecordSaver, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getStoreName()).isEqualTo("店舗A");
     }
 
     @Test
@@ -193,9 +208,9 @@ class MemberInfoFileImporterTest {
 
         importer.importFile(file, batch("user001"));
 
-        ArgumentCaptor<List<MemberInfo>> captor = ArgumentCaptor.forClass(List.class);
-        verify(memberInfoRepository).saveAll(captor.capture());
-        MemberInfo saved = captor.getValue().get(0);
+        ArgumentCaptor<MemberInfo> captor = ArgumentCaptor.forClass(MemberInfo.class);
+        verify(memberInfoRecordSaver).save(captor.capture());
+        MemberInfo saved = captor.getValue();
         assertThat(saved.getCreateDate()).isEqualTo(LocalDate.now());
         assertThat(saved.getUpdatedDate()).isNull();
     }
@@ -213,11 +228,31 @@ class MemberInfoFileImporterTest {
 
         importer.importFile(file, batch("user001"));
 
-        ArgumentCaptor<List<MemberInfo>> captor = ArgumentCaptor.forClass(List.class);
-        verify(memberInfoRepository).saveAll(captor.capture());
-        MemberInfo saved = captor.getValue().get(0);
+        ArgumentCaptor<MemberInfo> captor = ArgumentCaptor.forClass(MemberInfo.class);
+        verify(memberInfoRecordSaver).save(captor.capture());
+        MemberInfo saved = captor.getValue();
         assertThat(saved.getCreateDate()).isEqualTo(originalCreateDate);
         assertThat(saved.getUpdatedDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void skipsRowWithDbConstraintViolationButRegistersOtherRows() throws Exception {
+        MockMultipartFile file = csvFile(
+                row(field(IDX_TRADE_CODE, "01-914"), field(IDX_STORE_NAME, "エラー行店舗")),
+                row(field(IDX_TRADE_CODE, "01-001"), field(IDX_STORE_NAME, "正常行店舗")));
+        doThrow(new DataIntegrityViolationException("値は型character varying(8)としては長すぎます"))
+                .when(memberInfoRecordSaver)
+                .save(argThat(r -> "01-914".equals(r.getTradeCode())));
+
+        ImportResult result = importer.importFile(file, batch("user001"));
+
+        assertThat(result.getSuccessCount()).isEqualTo(1);
+        assertThat(result.getErrors()).hasSize(1);
+        assertThat(result.getErrors().get(0).getMessage())
+                .contains("取引コード「01-914」")
+                .contains("値は型character varying(8)としては長すぎます");
+
+        verify(memberInfoRecordSaver).save(argThat(r -> "01-001".equals(r.getTradeCode())));
     }
 
     private ImportBatch batch(String employee) {
@@ -263,6 +298,15 @@ class MemberInfoFileImporterTest {
         values.put(IDX_ADDR_BLOCK, "6丁目右6号");
         values.put(IDX_ADDR_BLOCK_KANA, "ロクチョウメミギロクゴウ");
         values.put(IDX_ADDR_TEL, "0166-22-4276");
+        values.put(IDX_CORP_ZIP, "0700032");
+        values.put(IDX_CORP_PREF, "北海道");
+        values.put(IDX_CORP_PREF_KANA, "ホッカイドウ");
+        values.put(IDX_CORP_CITY, "旭川市");
+        values.put(IDX_CORP_CITY_KANA, "アサヒカワシ");
+        values.put(IDX_CORP_TOWN, "二条通");
+        values.put(IDX_CORP_TOWN_KANA, "ニジョウドオリ");
+        values.put(IDX_CORP_BLOCK, "6丁目右6号");
+        values.put(IDX_CORP_BLOCK_KANA, "ロクチョウメミギロクゴウ");
         values.put(IDX_REP_LAST_NAME, "田中");
         values.put(IDX_REP_FIRST_NAME, "一郎");
         values.put(IDX_REP_LAST_NAME_KANA, "タナカ");

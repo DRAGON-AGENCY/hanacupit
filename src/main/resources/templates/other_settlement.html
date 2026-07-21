@@ -597,7 +597,7 @@
               ((bytes[0] === 0xFF && bytes[1] === 0xFE) || (bytes[0] === 0xFE && bytes[1] === 0xFF))) {
             showNg('ファイルの文字コードがサポートされていません（UTF-16）。', [
               { rowNumber: '-', columnName: '文字コード',
-                message: 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
+                message: 'INPUTファイルをUTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。' }
             ]);
             return;
           } else if (isUtf8WithoutBom(bytes)) {

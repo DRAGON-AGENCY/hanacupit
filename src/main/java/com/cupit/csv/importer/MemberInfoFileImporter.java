@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,12 +25,16 @@ import com.cupit.repository.MemberInfoRepository;
 /**
  * 加盟会員店マスターデータ CSV を解析して m_member_info に登録・更新する。
  * trade_code が m_member_info の主キーであるため、明示的な削除は行わず
- * memberInfoRepository.saveAll() のみで upsert（存在すればUPDATE、なければINSERT）する。
+ * memberInfoRecordSaver.save() を1件ずつ呼び出して upsert（存在すればUPDATE、
+ * なければINSERT）する。
  * 文字コード: UTF-8 BOM付きは自動検出、なければMS932。
  * ヘッダー行: 1行目は内容によらず常にヘッダー行として扱いスキップする（列名はチェックしない）。
  * 列数不足の行、取引コード未入力の行、CSV内で取引コードが重複する行、数値・日付変換に
- * 失敗した項目を含む行はその行だけを登録せずスキップし、ファイルの最後まで処理を継続する
- * （データエラーによってファイル全体をロールバックすることはしない）。
+ * 失敗した項目を含む行、およびDB登録時に制約違反（桁数超過等）が発生した行はその行だけを
+ * 登録せずスキップし、ファイルの最後まで処理を継続する（データエラーによってファイル
+ * 全体をロールバックすることはしない）。DB登録は1件ずつ独立したトランザクション
+ * （{@link MemberInfoRecordSaver}）で行うため、1行のDB制約違反が他の正常な行の
+ * 登録に影響しない。
  */
 @Component
 public class MemberInfoFileImporter extends AbstractFileImporter {
@@ -37,18 +42,22 @@ public class MemberInfoFileImporter extends AbstractFileImporter {
     private static final int EXPECTED_COLUMN_COUNT = 255;
 
     private final MemberInfoRepository memberInfoRepository;
+    private final MemberInfoRecordSaver memberInfoRecordSaver;
     private final PaymentCompanyFormatChecker paymentCompanyFormatChecker;
 
     public MemberInfoFileImporter(
             MemberInfoRepository memberInfoRepository,
+            MemberInfoRecordSaver memberInfoRecordSaver,
             PaymentCompanyFormatChecker paymentCompanyFormatChecker) {
         this.memberInfoRepository = memberInfoRepository;
+        this.memberInfoRecordSaver = memberInfoRecordSaver;
         this.paymentCompanyFormatChecker = paymentCompanyFormatChecker;
     }
 
     @Override
     public ImportResult importFile(MultipartFile file, ImportBatch batch) throws IOException {
         List<MemberInfo> records = new ArrayList<>();
+        List<Integer> recordRowNumbers = new ArrayList<>();
         List<CsvValidationError> errors = new ArrayList<>();
         int rowNum = 1;
 
@@ -75,19 +84,51 @@ public class MemberInfoFileImporter extends AbstractFileImporter {
                             + EXPECTED_COLUMN_COUNT + "列、実際: " + fields.size() + "列"));
                     continue;
                 }
-                parseDataRow(fields, rowNum, records, errors, seenTradeCodes);
+                parseDataRow(fields, rowNum, records, recordRowNumbers, errors, seenTradeCodes);
             }
         }
 
         applyAuditColumns(records, batch);
-        memberInfoRepository.saveAll(records);
+        int successCount = saveRecordsIndividually(records, recordRowNumbers, errors);
         int totalDataRows = rowNum - 1;
-        return new ImportResult(records.size(), totalDataRows, errors);
+        return new ImportResult(successCount, totalDataRows, errors);
+    }
+
+    /**
+     * 検証済みレコードを1件ずつ独立したトランザクションで保存する。DB制約違反
+     * （桁数超過等、アプリ層のフォーマットチェック対象外の項目で発生し得る）が
+     * 起きた行は登録せずエラーとして記録し、他の行の保存は継続する。
+     */
+    private int saveRecordsIndividually(
+            List<MemberInfo> records, List<Integer> recordRowNumbers,
+            List<CsvValidationError> errors) {
+        int successCount = 0;
+        for (int i = 0; i < records.size(); i++) {
+            MemberInfo record = records.get(i);
+            try {
+                memberInfoRecordSaver.save(record);
+                successCount++;
+            } catch (DataAccessException e) {
+                errors.add(new CsvValidationError(recordRowNumbers.get(i), "取引コード",
+                        "取引コード「" + record.getTradeCode() + "」: データベースへの登録に失敗しました。（"
+                                + rootCauseMessage(e) + "）"));
+            }
+        }
+        return successCount;
+    }
+
+    private String rootCauseMessage(Throwable e) {
+        Throwable cause = e;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return cause.getMessage();
     }
 
     private void parseDataRow(
             List<String> fields, int rowNum, List<MemberInfo> records,
-            List<CsvValidationError> errors, Set<String> seenTradeCodes) {
+            List<Integer> recordRowNumbers, List<CsvValidationError> errors,
+            Set<String> seenTradeCodes) {
         String tradeCode = trim(fields.get(0));
         if (tradeCode.isEmpty()) {
             errors.add(new CsvValidationError(rowNum, "取引コード", "取引コードは必須です。"));
@@ -398,6 +439,7 @@ public class MemberInfoFileImporter extends AbstractFileImporter {
             return; // この行にデータ変換エラーがあるため登録しない
         }
         records.add(record);
+        recordRowNumbers.add(rowNum);
     }
 
     /**

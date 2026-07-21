@@ -209,6 +209,7 @@ public class ApplicationFormSmccTenpoWriter {
                 XSSFWorkbook workbook = new XSSFWorkbook(template)) {
             Sheet sheet = workbook.getSheet(SHEET_NAME);
 
+            clearSampleData(sheet);
             for (int i = 0; i < rows.size(); i++) {
                 writeDataRow(sheet, DATA_START_ROW + i, rows.get(i));
             }
@@ -218,6 +219,35 @@ public class ApplicationFormSmccTenpoWriter {
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException("ApplicationFormSmccTenpoWriter: 出力Excelの作成に失敗しました。", e);
+        }
+    }
+
+    /**
+     * テンプレートのデータ行（4行目〜）に埋め込まれたサンプルデータが、実データを
+     * 書き込まなかった行・列にそのまま残って出力に混入しないよう空にする。
+     * SKIP（重複チェック等、テンプレート側の数式に委ねる列）は対象外。
+     */
+    private void clearSampleData(Sheet sheet) {
+        int lastRow = sheet.getLastRowNum() + 1;
+        for (int excelRow = DATA_START_ROW; excelRow <= lastRow; excelRow++) {
+            for (ApplicationFormFieldMapping mapping : MAPPINGS) {
+                if (mapping.getSourceType() == ApplicationFormFieldMapping.SourceType.SYSTEM
+                        && "SKIP".equals(mapping.getSource().get(0))) {
+                    continue;
+                }
+                clearCellValue(sheet, excelRow, mapping.getExcelCol());
+            }
+        }
+    }
+
+    private void clearCellValue(Sheet sheet, int excelRow, int col) {
+        Row row = sheet.getRow(excelRow - 1);
+        if (row == null) {
+            return;
+        }
+        Cell cell = row.getCell(col - 1);
+        if (cell != null) {
+            cell.setBlank();
         }
     }
 

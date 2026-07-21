@@ -227,6 +227,11 @@
     gap: 20px;
   }
 
+  .form-row-action-buttons {
+    display: flex;
+    gap: 10px;
+  }
+
   .btn {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 8px 18px; border-radius: 6px;
@@ -256,6 +261,13 @@
   }
 
   .btn-upload:hover:not(:disabled) { background-color: #d3e2f7; }
+
+  .btn-clear-result {
+    background-color: var(--bg-white);
+    border-color: var(--border-input);
+    color: var(--text-main);
+  }
+  .btn-clear-result:hover:not(:disabled) { background-color: #faf8f2; }
 
   /* チェック・生成結果 */
   .check-result {
@@ -353,7 +365,7 @@
     .container { padding: 20px 16px 24px; }
     .form-row-with-action { flex-direction: column; align-items: stretch; }
     .custom-select { width: 100%; }
-    .btn-upload { align-self: flex-end; }
+    .form-row-action-buttons { align-self: flex-end; }
   }
 </style>
 </head>
@@ -387,9 +399,12 @@
           </div>
         </div>
 
-        <button class="btn btn-upload" type="button" id="btn-upload" disabled>
-          <span id="upload-icon">⬆</span><span id="upload-label">アップロード</span>
-        </button>
+        <div class="form-row-action-buttons">
+          <button class="btn btn-upload" type="button" id="btn-upload" disabled>
+            <span id="upload-icon">⬆</span><span id="upload-label">アップロード</span>
+          </button>
+          <button class="btn btn-clear-result" type="button" id="btn-clear-result">画面クリア</button>
+        </div>
       </div>
     </div>
 
@@ -450,6 +465,7 @@
     var fileHidden    = document.getElementById('file-hidden');
     var btnBrowse     = document.getElementById('btn-browse');
     var btnUpload     = document.getElementById('btn-upload');
+    var btnClearResult = document.getElementById('btn-clear-result');
     var checkResult   = document.getElementById('check-result');
     var resultTitle   = document.getElementById('result-title');
     var resultSummary = document.getElementById('result-summary');
@@ -464,6 +480,16 @@
       fileDisplay.value = file.name;
       runFrontendCheck(file);
     });
+
+    btnClearResult.addEventListener('click', resetFileAndResult);
+
+    function resetFileAndResult() {
+      selectedFile = null;
+      fileHidden.value = '';
+      fileDisplay.value = '';
+      hideResult();
+      btnUpload.disabled = true;
+    }
 
     function hideResult() {
       checkResult.className = 'check-result';
@@ -506,7 +532,7 @@
               && ((bytes[0] === 0xFF && bytes[1] === 0xFE)
                   || (bytes[0] === 0xFE && bytes[1] === 0xFF))) {
             showNg('ファイルの文字コードがサポートされていません（UTF-16）。'
-                + 'UTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。');
+                + 'INPUTファイルをUTF-8（BOM付き）またはShift-JIS（MS932）で保存し直してください。');
             return;
           } else if (isUtf8WithoutBom(bytes)) {
             // BOMは無いが非ASCIIを含み、かつ全体が厳密UTF-8として妥当＝UTF-8（BOMなし）。
@@ -575,7 +601,9 @@
           var contentType = res.headers.get('Content-Type') || '';
           if (contentType.indexOf('application/json') !== -1) {
             return res.json().then(function (data) {
-              return Promise.reject(new Error(data.errorMessage || '生成に失敗しました。'));
+              var error = new Error(data.errorMessage || '生成に失敗しました。');
+              error.isBusinessError = true;
+              return Promise.reject(error);
             });
           }
           if (!res.ok) {
@@ -585,8 +613,7 @@
           var totalRowCount = res.headers.get('X-Total-Row-Count');
           var errorCount = res.headers.get('X-Error-Count');
           var disposition = res.headers.get('Content-Disposition') || '';
-          var filenameMatch = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/);
-          var filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'application_form.xlsx';
+          var filename = extractFilename(disposition);
           return res.blob().then(function (blob) {
             downloadBlob(blob, filename);
             showGenerateResult(successCount, totalRowCount, errorCount);
@@ -594,7 +621,10 @@
         })
         .catch(function (err) {
           if (err.message === 'unauthenticated') { return; }
-          showNg('通信エラーが発生しました: ' + err.message, '✗ 生成エラー');
+          // サーバーが返した業務エラー（CSV不備等）はそのまま表示し、
+          // fetch自体の失敗等の真の通信エラーの場合のみ接頭辞を付ける
+          var message = err.isBusinessError ? err.message : '通信エラーが発生しました: ' + err.message;
+          showNg(message, '✗ 生成エラー');
         })
         .finally(function () {
           uploadIcon.innerHTML = '⬆';
@@ -603,6 +633,24 @@
           btnUpload.disabled = !selectedFile;
         });
     });
+
+    /**
+     * Content-Dispositionからファイル名を取り出す。Spring の
+     * ContentDisposition.filename(name, UTF_8) は非ASCII文字を含む場合、
+     * 後方互換用の filename="=?UTF-8?Q?...?=" （RFC2047）と、
+     * 本来使うべき filename*=UTF-8''...（RFC 5987/6266、%エンコード）の
+     * 両方を1つのヘッダーに含めて返す。filename= の方を先にマッチさせると
+     * デコードできない文字化けした文字列になるため、必ず filename*= を
+     * 優先して抽出する。
+     */
+    function extractFilename(disposition) {
+      var starMatch = disposition.match(/filename\*=UTF-8''([^;]+)/);
+      if (starMatch) {
+        return decodeURIComponent(starMatch[1]);
+      }
+      var plainMatch = disposition.match(/filename="?([^";]+)"?/);
+      return plainMatch ? plainMatch[1] : 'application_form.xlsx';
+    }
 
     function downloadBlob(blob, filename) {
       var url = window.URL.createObjectURL(blob);
