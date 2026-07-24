@@ -19,12 +19,12 @@ import org.springframework.mock.web.MockMultipartFile;
 import com.cupit.csv.CsvValidationError;
 import com.cupit.csv.CsvValidationResult;
 import com.cupit.csv.importer.ImportResult;
-import com.cupit.csv.importer.MerchantNumberDataFileImporter;
-import com.cupit.csv.importer.ShopDataFileImporter;
-import com.cupit.csv.importer.TerminalDataFileImporter;
-import com.cupit.csv.validator.MerchantNumberDataCsvValidator;
-import com.cupit.csv.validator.ShopDataCsvValidator;
-import com.cupit.csv.validator.TerminalDataCsvValidator;
+import com.cupit.csv.importer.SmccMerchantNoFileImporter;
+import com.cupit.csv.importer.SteraStoreFileImporter;
+import com.cupit.csv.importer.SteraTerminalFileImporter;
+import com.cupit.csv.validator.SmccMerchantNoCsvValidator;
+import com.cupit.csv.validator.SteraStoreCsvValidator;
+import com.cupit.csv.validator.SteraTerminalCsvValidator;
 import com.cupit.dto.ImportResponse;
 import com.cupit.model.ImportBatch;
 import com.cupit.repository.ImportBatchRepository;
@@ -40,22 +40,22 @@ import com.cupit.service.ShopDataService.DataType;
 class ShopDataServiceTest {
 
     @Mock
-    private ShopDataCsvValidator shopDataCsvValidator;
+    private SteraStoreCsvValidator steraStoreCsvValidator;
 
     @Mock
-    private ShopDataFileImporter shopDataFileImporter;
+    private SteraStoreFileImporter steraStoreFileImporter;
 
     @Mock
-    private TerminalDataCsvValidator terminalDataCsvValidator;
+    private SteraTerminalCsvValidator steraTerminalCsvValidator;
 
     @Mock
-    private TerminalDataFileImporter terminalDataFileImporter;
+    private SteraTerminalFileImporter steraTerminalFileImporter;
 
     @Mock
-    private MerchantNumberDataCsvValidator merchantNumberDataCsvValidator;
+    private SmccMerchantNoCsvValidator smccMerchantNoCsvValidator;
 
     @Mock
-    private MerchantNumberDataFileImporter merchantNumberDataFileImporter;
+    private SmccMerchantNoFileImporter smccMerchantNoFileImporter;
 
     @Mock
     private ImportBatchRepository importBatchRepository;
@@ -66,9 +66,9 @@ class ShopDataServiceTest {
     @BeforeEach
     void setUp() {
         service = new ShopDataService(
-                shopDataCsvValidator, shopDataFileImporter,
-                terminalDataCsvValidator, terminalDataFileImporter,
-                merchantNumberDataCsvValidator, merchantNumberDataFileImporter,
+                steraStoreCsvValidator, steraStoreFileImporter,
+                steraTerminalCsvValidator, steraTerminalFileImporter,
+                smccMerchantNoCsvValidator, smccMerchantNoFileImporter,
                 importBatchRepository);
         file = new MockMultipartFile("file", "shop_data.csv", "text/csv", new byte[] {1});
     }
@@ -97,7 +97,7 @@ class ShopDataServiceTest {
         CsvValidationResult fatalResult = new CsvValidationResult();
         fatalResult.addError(new CsvValidationError(1, "", "ファイルの拡張子が不正です。"));
         fatalResult.markFatal();
-        when(shopDataCsvValidator.validate(file)).thenReturn(fatalResult);
+        when(steraStoreCsvValidator.validate(file)).thenReturn(fatalResult);
 
         ImportResponse response = service.importFile(DataType.SHOP, file, "user001");
 
@@ -109,10 +109,10 @@ class ShopDataServiceTest {
 
     @Test
     void createsImportBatchWithDataTypeLabelAndEmployee() throws Exception {
-        when(shopDataCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(steraStoreCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
         ImportBatch saved = batchWithId(1);
         when(importBatchRepository.save(any())).thenReturn(saved).thenReturn(saved);
-        when(shopDataFileImporter.importFile(any(), any()))
+        when(steraStoreFileImporter.importFile(any(), any()))
                 .thenReturn(new ImportResult(1, 1, List.of()));
 
         service.importFile(DataType.SHOP, file, "user001");
@@ -127,12 +127,12 @@ class ShopDataServiceTest {
 
     @Test
     void setsRecordCountAndErrorCountOnBatchAfterImport() throws Exception {
-        when(shopDataCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(steraStoreCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
         ImportBatch saved = batchWithId(5);
         when(importBatchRepository.save(any())).thenReturn(saved);
         List<CsvValidationError> errors = List.of(
                 new CsvValidationError(3, "取引コード", "取引コードは必須です。"));
-        when(shopDataFileImporter.importFile(any(), any()))
+        when(steraStoreFileImporter.importFile(any(), any()))
                 .thenReturn(new ImportResult(2, 3, errors));
 
         service.importFile(DataType.SHOP, file, "user001");
@@ -146,9 +146,9 @@ class ShopDataServiceTest {
 
     @Test
     void returnsSuccessResponseWhenNoErrors() throws Exception {
-        when(shopDataCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(steraStoreCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
         when(importBatchRepository.save(any())).thenReturn(batchWithId(7));
-        when(shopDataFileImporter.importFile(any(), any()))
+        when(steraStoreFileImporter.importFile(any(), any()))
                 .thenReturn(new ImportResult(3, 3, List.of()));
 
         ImportResponse response = service.importFile(DataType.SHOP, file, "user001");
@@ -161,11 +161,11 @@ class ShopDataServiceTest {
 
     @Test
     void returnsFailureResponseWithErrorDetailsWhenPartialErrors() throws Exception {
-        when(shopDataCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(steraStoreCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
         when(importBatchRepository.save(any())).thenReturn(batchWithId(9));
         List<CsvValidationError> errors = List.of(
                 new CsvValidationError(4, "取引コード", "取引コード「01-001」がCSV内で重複しています。"));
-        when(shopDataFileImporter.importFile(any(), any()))
+        when(steraStoreFileImporter.importFile(any(), any()))
                 .thenReturn(new ImportResult(1, 2, errors));
 
         ImportResponse response = service.importFile(DataType.SHOP, file, "user001");
@@ -181,47 +181,47 @@ class ShopDataServiceTest {
 
     @Test
     void routesToShopValidatorAndImporterForShopDataType() throws Exception {
-        when(shopDataCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(steraStoreCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
         when(importBatchRepository.save(any())).thenReturn(batchWithId(1));
-        when(shopDataFileImporter.importFile(any(), any()))
+        when(steraStoreFileImporter.importFile(any(), any()))
                 .thenReturn(new ImportResult(1, 1, List.of()));
 
         service.importFile(DataType.SHOP, file, "user001");
 
-        verify(shopDataCsvValidator).validate(file);
-        verify(shopDataFileImporter).importFile(any(), any());
-        verify(terminalDataCsvValidator, never()).validate(any());
-        verify(merchantNumberDataCsvValidator, never()).validate(any());
+        verify(steraStoreCsvValidator).validate(file);
+        verify(steraStoreFileImporter).importFile(any(), any());
+        verify(steraTerminalCsvValidator, never()).validate(any());
+        verify(smccMerchantNoCsvValidator, never()).validate(any());
     }
 
     @Test
     void routesToTerminalValidatorAndImporterForTerminalDataType() throws Exception {
-        when(terminalDataCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(steraTerminalCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
         when(importBatchRepository.save(any())).thenReturn(batchWithId(1));
-        when(terminalDataFileImporter.importFile(any(), any()))
+        when(steraTerminalFileImporter.importFile(any(), any()))
                 .thenReturn(new ImportResult(1, 1, List.of()));
 
         service.importFile(DataType.TERMINAL, file, "user001");
 
-        verify(terminalDataCsvValidator).validate(file);
-        verify(terminalDataFileImporter).importFile(any(), any());
-        verify(shopDataCsvValidator, never()).validate(any());
-        verify(merchantNumberDataCsvValidator, never()).validate(any());
+        verify(steraTerminalCsvValidator).validate(file);
+        verify(steraTerminalFileImporter).importFile(any(), any());
+        verify(steraStoreCsvValidator, never()).validate(any());
+        verify(smccMerchantNoCsvValidator, never()).validate(any());
     }
 
     @Test
     void routesToMerchantNumberValidatorAndImporterForMerchantNumberDataType() throws Exception {
-        when(merchantNumberDataCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(smccMerchantNoCsvValidator.validate(file)).thenReturn(new CsvValidationResult());
         when(importBatchRepository.save(any())).thenReturn(batchWithId(1));
-        when(merchantNumberDataFileImporter.importFile(any(), any()))
+        when(smccMerchantNoFileImporter.importFile(any(), any()))
                 .thenReturn(new ImportResult(1, 1, List.of()));
 
         service.importFile(DataType.MERCHANT_NUMBER, file, "user001");
 
-        verify(merchantNumberDataCsvValidator).validate(file);
-        verify(merchantNumberDataFileImporter).importFile(any(), any());
-        verify(shopDataCsvValidator, never()).validate(any());
-        verify(terminalDataCsvValidator, never()).validate(any());
+        verify(smccMerchantNoCsvValidator).validate(file);
+        verify(smccMerchantNoFileImporter).importFile(any(), any());
+        verify(steraStoreCsvValidator, never()).validate(any());
+        verify(steraTerminalCsvValidator, never()).validate(any());
     }
 
     private ImportBatch batchWithId(int batchId) {

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,18 +16,29 @@ import com.cupit.csv.CsvValidationError;
 import com.cupit.csv.CsvValidationResult;
 
 /**
- * 各決済会社所定申込フォーム作成のINPUT CSV（230列）のフォーマットを検証するクラス。
- * 230列固定、1行目は内容によらず常にヘッダー行として扱う（列名の一致チェックは行わない）。
- * 取引コード（JFTD取引コード、4列目）は必須。1行＝1店舗の申込データのため、
- * CSV内で取引コードが重複する場合はどちらの行が正しいか判断できないため、
- * 該当する取引コードの行を（先着1件目も含めて）全てエラーとする。
- * 取引コード以外の全項目は任意とする。
+ * 店舗データ（m_stera_store）CSVのフォーマットを検証するクラス。
+ * 30列固定（取引コード＋29項目）、1行目は内容によらず常にヘッダー行として扱う
+ * （列名の一致チェックは行わない）。1取引コード=1行、CSV内で取引コードが重複する場合は
+ * どちらの行が正しいか判断できないため、該当する取引コードの行を（先着1件目も含めて）
+ * 全てエラーとする。m_stera_storeのNOT NULL制約に合わせ、取引コード以外にも
+ * 多数の項目を必須とする（{@link #REQUIRED_INDEXES}）。
  */
 @Component
-public class ApplicationFormCsvValidator extends AbstractCsvFormatValidator {
+public class SteraStoreCsvValidator extends AbstractCsvFormatValidator {
 
-    private static final int EXPECTED_COLUMN_COUNT = 230;
-    private static final int IDX_TRADE_CODE = 3;
+    private static final int EXPECTED_COLUMN_COUNT = 30;
+
+    private static final String[] COLUMN_NAMES = {
+        "取引コード", "交通系社局", "Edy ID", "dポイント加盟店コード", "dポイント店舗コード",
+        "dポイント支部コード", "届出支店コード", "会員種別", "店舗名", "店舗名カナ",
+        "店舗名（英字）", "店舗郵便番号", "店舗住所（漢字）", "店舗住所（カナ）", "店舗電話番号",
+        "メールアドレス", "緯度", "経度", "金融機関名", "金融機関コード",
+        "支店名", "支店コード", "口座種別", "口座番号", "口座名義（カナ）",
+        "JCB利用状況", "JCB利用開始日", "dポイント利用状況", "dポイント利用開始日", "備考",
+    };
+
+    private static final Set<Integer> REQUIRED_INDEXES = Set.of(
+            1, 2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22, 23, 24, 25, 27);
 
     @Override
     public CsvValidationResult validate(MultipartFile file) throws IOException {
@@ -49,7 +61,7 @@ public class ApplicationFormCsvValidator extends AbstractCsvFormatValidator {
                 result.markFatal();
                 return result;
             }
-            if (headerLine.startsWith("\uFEFF")) {
+            if (headerLine.startsWith("﻿")) {
                 headerLine = headerLine.substring(1);
             }
             headerLine = stripCr(headerLine);
@@ -79,8 +91,8 @@ public class ApplicationFormCsvValidator extends AbstractCsvFormatValidator {
                 List<String> fields = parseLine(dataLine);
                 if (fields.size() != EXPECTED_COLUMN_COUNT) {
                     result.addError(new CsvValidationError(rowNumber, "取引コード",
-                            "取引コード「" + fields.get(IDX_TRADE_CODE).trim() + "」: 列数が不正です。"
-                            + "期待: " + EXPECTED_COLUMN_COUNT + "列、実際: " + fields.size() + "列"));
+                            "取引コード「" + fields.get(0).trim() + "」: 列数が不正です。期待: "
+                            + EXPECTED_COLUMN_COUNT + "列、実際: " + fields.size() + "列"));
                     continue;
                 }
                 validateDataRow(result, rowNumber, fields, tradeCodeCounts);
@@ -105,7 +117,7 @@ public class ApplicationFormCsvValidator extends AbstractCsvFormatValidator {
             if (fields.size() != EXPECTED_COLUMN_COUNT) {
                 continue;
             }
-            String tradeCode = fields.get(IDX_TRADE_CODE).trim();
+            String tradeCode = fields.get(0).trim();
             if (!tradeCode.isEmpty()) {
                 counts.merge(tradeCode, 1, Integer::sum);
             }
@@ -116,7 +128,7 @@ public class ApplicationFormCsvValidator extends AbstractCsvFormatValidator {
     private void validateDataRow(
             CsvValidationResult result, int rowNumber, List<String> fields,
             Map<String, Integer> tradeCodeCounts) {
-        String tradeCode = fields.get(IDX_TRADE_CODE).trim();
+        String tradeCode = fields.get(0).trim();
         if (tradeCode.isEmpty()) {
             result.addError(new CsvValidationError(rowNumber, "取引コード", "取引コードは必須です。"));
             return;
@@ -124,6 +136,13 @@ public class ApplicationFormCsvValidator extends AbstractCsvFormatValidator {
         if (tradeCodeCounts.getOrDefault(tradeCode, 0) > 1) {
             result.addError(new CsvValidationError(rowNumber, "取引コード",
                     "取引コード「" + tradeCode + "」がCSV内で重複しています。"));
+            return;
+        }
+        for (int index = 0; index < EXPECTED_COLUMN_COUNT; index++) {
+            if (REQUIRED_INDEXES.contains(index) && fields.get(index).trim().isEmpty()) {
+                result.addError(new CsvValidationError(rowNumber, COLUMN_NAMES[index],
+                        "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は必須です。"));
+            }
         }
     }
 

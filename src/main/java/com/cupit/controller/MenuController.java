@@ -1,5 +1,7 @@
 package com.cupit.controller;
 
+import java.util.List;
+
 import jakarta.servlet.http.HttpSession;
 
 import org.springframework.stereotype.Controller;
@@ -11,8 +13,12 @@ import com.cupit.exception.MemberInfoNotFoundException;
 import com.cupit.interceptor.AuthenticationInterceptor;
 import com.cupit.model.Employee;
 import com.cupit.model.MemberInfo;
+import com.cupit.model.SmccMerchantNo;
 import com.cupit.model.SteraStore;
+import com.cupit.model.SteraTerminal;
+import com.cupit.repository.SmccMerchantNoRepository;
 import com.cupit.repository.SteraStoreRepository;
+import com.cupit.repository.SteraTerminalRepository;
 import com.cupit.service.EmployeeService;
 import com.cupit.service.JftdReportDataService;
 import com.cupit.service.MemberInfoService;
@@ -20,9 +26,11 @@ import com.cupit.service.MemberInfoService;
 @Controller
 public class MenuController {
 
-    private static final String DEFAULT_TRADE_CODE = "01-001";
     private static final String ATTRIBUTE_NAME_INFO = "info";
+    private static final String ATTRIBUTE_NAME_MEMBERS = "members";
     private static final String ATTRIBUTE_NAME_STORE = "store";
+    private static final String ATTRIBUTE_NAME_TERMINALS = "terminals";
+    private static final String ATTRIBUTE_NAME_MERCHANT_NUMBERS = "merchantNumbers";
     private static final String ATTRIBUTE_NAME_EMPLOYEES = "employees";
     private static final String ATTRIBUTE_NAME_TRANSFER_BATCHES = "transferBatches";
     private static final String ATTRIBUTE_NAME_AUTHORITY_CODE = "authorityCode";
@@ -56,16 +64,22 @@ public class MenuController {
     private final EmployeeService employeeService;
     private final JftdReportDataService jftdReportDataService;
     private final SteraStoreRepository steraStoreRepository;
+    private final SteraTerminalRepository steraTerminalRepository;
+    private final SmccMerchantNoRepository smccMerchantNoRepository;
 
     public MenuController(
             MemberInfoService memberInfoService,
             EmployeeService employeeService,
             JftdReportDataService jftdReportDataService,
-            SteraStoreRepository steraStoreRepository) {
+            SteraStoreRepository steraStoreRepository,
+            SteraTerminalRepository steraTerminalRepository,
+            SmccMerchantNoRepository smccMerchantNoRepository) {
         this.memberInfoService = memberInfoService;
         this.employeeService = employeeService;
         this.jftdReportDataService = jftdReportDataService;
         this.steraStoreRepository = steraStoreRepository;
+        this.steraTerminalRepository = steraTerminalRepository;
+        this.smccMerchantNoRepository = smccMerchantNoRepository;
     }
 
     @GetMapping({"/", "/login"})
@@ -80,9 +94,7 @@ public class MenuController {
 
     @GetMapping("/member_info")
     public String memberInfo(
-            @RequestParam(name = "tradeCode",
-                    required = false,
-                    defaultValue = DEFAULT_TRADE_CODE) String tradeCode,
+            @RequestParam(name = "tradeCode", required = false) String tradeCode,
             Model model) {
         MemberInfo memberInfo = null;
         try {
@@ -95,18 +107,25 @@ public class MenuController {
     }
 
     @GetMapping("/member_list")
-    public String memberList() {
+    public String memberList(Model model) {
+        model.addAttribute(ATTRIBUTE_NAME_MEMBERS, memberInfoService.findAllForList());
         return VIEW_NAME_MEMBER_LIST;
     }
 
     @GetMapping("/store_terminal_smcc")
     public String storeTerminalSmcc(
-            @RequestParam(name = "tradeCode",
-                    required = false,
-                    defaultValue = DEFAULT_TRADE_CODE) String tradeCode,
+            @RequestParam(name = "tradeCode", required = false) String tradeCode,
             Model model) {
         SteraStore store = steraStoreRepository.findByTradeCode(tradeCode).orElse(null);
+        List<SteraTerminal> terminals = store != null
+                ? steraTerminalRepository.findByTradeCodeOrderByRecordNoAsc(tradeCode)
+                : List.of();
+        List<SmccMerchantNo> merchantNumbers = store != null
+                ? smccMerchantNoRepository.findByTradeCodeOrderByRecordNoAsc(tradeCode)
+                : List.of();
         model.addAttribute(ATTRIBUTE_NAME_STORE, store);
+        model.addAttribute(ATTRIBUTE_NAME_TERMINALS, terminals);
+        model.addAttribute(ATTRIBUTE_NAME_MERCHANT_NUMBERS, merchantNumbers);
         return VIEW_NAME_STORE_TERMINAL_SMCC;
     }
 

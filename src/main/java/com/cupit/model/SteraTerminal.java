@@ -32,9 +32,6 @@ public class SteraTerminal {
     @Column(name = "jcb_merchant_no")
     private String jcbMerchantNo;
 
-    @Column(name = "hana_cupid_mgmt_no_2", nullable = false)
-    private String hanaCupidMgmtNo2;
-
     @Column(name = "branch_code", nullable = false)
     private String branchCode;
 
@@ -86,14 +83,6 @@ public class SteraTerminal {
 
     public void setJcbMerchantNo(String jcbMerchantNo) {
         this.jcbMerchantNo = jcbMerchantNo;
-    }
-
-    public String getHanaCupidMgmtNo2() {
-        return hanaCupidMgmtNo2;
-    }
-
-    public void setHanaCupidMgmtNo2(String hanaCupidMgmtNo2) {
-        this.hanaCupidMgmtNo2 = hanaCupidMgmtNo2;
     }
 
     public String getBranchCode() {

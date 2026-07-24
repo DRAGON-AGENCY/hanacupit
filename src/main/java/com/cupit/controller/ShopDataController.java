@@ -16,14 +16,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.cupit.csv.writer.MerchantNumberDataCsvWriter;
-import com.cupit.csv.writer.ShopDataCsvWriter;
-import com.cupit.csv.writer.TerminalDataCsvWriter;
+import com.cupit.csv.writer.SmccMerchantNoCsvWriter;
+import com.cupit.csv.writer.SteraStoreCsvWriter;
+import com.cupit.csv.writer.SteraTerminalCsvWriter;
 import com.cupit.dto.ImportResponse;
 import com.cupit.interceptor.AuthenticationInterceptor;
-import com.cupit.repository.MerchantNumberDataRepository;
-import com.cupit.repository.ShopDataRepository;
-import com.cupit.repository.TerminalDataRepository;
+import com.cupit.repository.SmccMerchantNoRepository;
+import com.cupit.repository.SteraStoreRepository;
+import com.cupit.repository.SteraTerminalRepository;
 import com.cupit.service.ShopDataService;
 import com.cupit.service.ShopDataService.DataType;
 
@@ -41,28 +41,28 @@ public class ShopDataController {
             DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final ShopDataService shopDataService;
-    private final ShopDataRepository shopDataRepository;
-    private final TerminalDataRepository terminalDataRepository;
-    private final MerchantNumberDataRepository merchantNumberDataRepository;
-    private final ShopDataCsvWriter shopDataCsvWriter;
-    private final TerminalDataCsvWriter terminalDataCsvWriter;
-    private final MerchantNumberDataCsvWriter merchantNumberDataCsvWriter;
+    private final SteraStoreRepository steraStoreRepository;
+    private final SteraTerminalRepository steraTerminalRepository;
+    private final SmccMerchantNoRepository smccMerchantNoRepository;
+    private final SteraStoreCsvWriter steraStoreCsvWriter;
+    private final SteraTerminalCsvWriter steraTerminalCsvWriter;
+    private final SmccMerchantNoCsvWriter smccMerchantNoCsvWriter;
 
     public ShopDataController(
             ShopDataService shopDataService,
-            ShopDataRepository shopDataRepository,
-            TerminalDataRepository terminalDataRepository,
-            MerchantNumberDataRepository merchantNumberDataRepository,
-            ShopDataCsvWriter shopDataCsvWriter,
-            TerminalDataCsvWriter terminalDataCsvWriter,
-            MerchantNumberDataCsvWriter merchantNumberDataCsvWriter) {
+            SteraStoreRepository steraStoreRepository,
+            SteraTerminalRepository steraTerminalRepository,
+            SmccMerchantNoRepository smccMerchantNoRepository,
+            SteraStoreCsvWriter steraStoreCsvWriter,
+            SteraTerminalCsvWriter steraTerminalCsvWriter,
+            SmccMerchantNoCsvWriter smccMerchantNoCsvWriter) {
         this.shopDataService = shopDataService;
-        this.shopDataRepository = shopDataRepository;
-        this.terminalDataRepository = terminalDataRepository;
-        this.merchantNumberDataRepository = merchantNumberDataRepository;
-        this.shopDataCsvWriter = shopDataCsvWriter;
-        this.terminalDataCsvWriter = terminalDataCsvWriter;
-        this.merchantNumberDataCsvWriter = merchantNumberDataCsvWriter;
+        this.steraStoreRepository = steraStoreRepository;
+        this.steraTerminalRepository = steraTerminalRepository;
+        this.smccMerchantNoRepository = smccMerchantNoRepository;
+        this.steraStoreCsvWriter = steraStoreCsvWriter;
+        this.steraTerminalCsvWriter = steraTerminalCsvWriter;
+        this.smccMerchantNoCsvWriter = smccMerchantNoCsvWriter;
     }
 
     /**
@@ -113,17 +113,17 @@ public class ShopDataController {
     @GetMapping("/shop_data/download")
     public ResponseEntity<byte[]> download(@RequestParam("dataType") DataType dataType) {
         byte[] csvBytes = switch (dataType) {
-            case SHOP -> shopDataCsvWriter.writeCsv(shopDataRepository.findAllByOrderByTradeCodeAsc());
+            case SHOP -> steraStoreCsvWriter.writeCsv(steraStoreRepository.findAllByOrderByTradeCodeAsc());
             case TERMINAL ->
-                terminalDataCsvWriter.writeCsv(terminalDataRepository.findAllByOrderByTradeCodeAsc());
-            case MERCHANT_NUMBER -> merchantNumberDataCsvWriter.writeCsv(
-                    merchantNumberDataRepository.findAllByOrderByTradeCodeAsc());
+                steraTerminalCsvWriter.writeCsv(steraTerminalRepository.findAllByOrderByTradeCodeAsc());
+            case MERCHANT_NUMBER -> smccMerchantNoCsvWriter.writeCsv(
+                    smccMerchantNoRepository.findAllByOrderByTradeCodeAsc());
         };
 
         String prefix = switch (dataType) {
-            case SHOP -> "shop_data_";
-            case TERMINAL -> "terminal_data_";
-            case MERCHANT_NUMBER -> "merchant_number_data_";
+            case SHOP -> "stera_store_";
+            case TERMINAL -> "stera_terminal_";
+            case MERCHANT_NUMBER -> "smcc_merchant_no_";
         };
         String filename = prefix + LocalDate.now().format(FILENAME_DATE_FORMAT) + ".csv";
         HttpHeaders headers = new HttpHeaders();

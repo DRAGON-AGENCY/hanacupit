@@ -11,9 +11,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,9 +29,10 @@ import com.cupit.model.ApplicationFormInput;
  * 必要なCSV解析ユーティリティのみを自前で持つ）。
  * 文字コード: UTF-8 BOM付きは自動検出、なければMS932。
  * ヘッダー行: 1行目は内容によらず常にヘッダー行として扱いスキップする（列名はチェックしない）。
- * 列数不足の行、取引コード未入力の行、CSV内で取引コードが重複する行、日付・数値変換に
- * 失敗した項目を含む行はその行だけをスキップし、ファイルの最後まで処理を継続する。
- * 取引コード以外の全項目は任意とする。
+ * 列数不足の行、取引コード未入力の行、日付・数値変換に失敗した項目を含む行はその行だけを
+ * スキップし、ファイルの最後まで処理を継続する。CSV内で取引コードが重複する場合はどちらの
+ * 行が正しいか判断できないため、該当する取引コードの行を（先着1件目も含めて）全てスキップ
+ * する。取引コード以外の全項目は任意とする。
  */
 @Component
 public class ApplicationFormCsvParser {
@@ -61,22 +62,27 @@ public class ApplicationFormCsvParser {
                 return new ParseResult(records, errors, 0);
             }
 
-            Set<String> seenTradeCodes = new HashSet<>();
+            List<String> dataLines = new ArrayList<>();
             String line;
             while ((line = reader.readLine()) != null) {
+                dataLines.add(stripCr(line));
+            }
+
+            Map<String, Integer> tradeCodeCounts = countTradeCodes(dataLines);
+
+            for (String dataLine : dataLines) {
                 rowNum++;
-                line = stripCr(line);
-                if (line.isBlank()) {
+                if (dataLine.isBlank()) {
                     continue;
                 }
-                List<String> fields = parseLine(line);
+                List<String> fields = parseLine(dataLine);
                 if (fields.size() != EXPECTED_COLUMN_COUNT) {
                     errors.add(new CsvValidationError(rowNum, "取引コード",
                             "取引コード「" + fields.get(IDX_TRADE_CODE).trim() + "」: 列数が不正です。"
                             + "期待: " + EXPECTED_COLUMN_COUNT + "列、実際: " + fields.size() + "列"));
                     continue;
                 }
-                parseDataRow(fields, rowNum, records, errors, seenTradeCodes);
+                parseDataRow(fields, rowNum, records, errors, tradeCodeCounts);
             }
         }
 
@@ -84,15 +90,38 @@ public class ApplicationFormCsvParser {
         return new ParseResult(records, errors, totalDataRows);
     }
 
+    /**
+     * データ行を1回走査し、取引コードごとの出現回数を数える。列数が不正な行は
+     * 取引コード自体を安全に取得できない可能性があるため集計対象から除く
+     * （その行は別途「列数が不正です」エラーになる）。
+     */
+    private Map<String, Integer> countTradeCodes(List<String> dataLines) {
+        Map<String, Integer> counts = new HashMap<>();
+        for (String dataLine : dataLines) {
+            if (dataLine.isBlank()) {
+                continue;
+            }
+            List<String> fields = parseLine(dataLine);
+            if (fields.size() != EXPECTED_COLUMN_COUNT) {
+                continue;
+            }
+            String tradeCode = trim(fields.get(IDX_TRADE_CODE));
+            if (!tradeCode.isEmpty()) {
+                counts.merge(tradeCode, 1, Integer::sum);
+            }
+        }
+        return counts;
+    }
+
     private void parseDataRow(
             List<String> fields, int rowNum, List<ApplicationFormInput> records,
-            List<CsvValidationError> errors, Set<String> seenTradeCodes) {
+            List<CsvValidationError> errors, Map<String, Integer> tradeCodeCounts) {
         String tradeCode = trim(fields.get(IDX_TRADE_CODE));
         if (tradeCode.isEmpty()) {
             errors.add(new CsvValidationError(rowNum, "取引コード", "取引コードは必須です。"));
             return;
         }
-        if (!seenTradeCodes.add(tradeCode)) {
+        if (tradeCodeCounts.getOrDefault(tradeCode, 0) > 1) {
             errors.add(new CsvValidationError(rowNum, "取引コード",
                     "取引コード「" + tradeCode + "」がCSV内で重複しています。"));
             return;

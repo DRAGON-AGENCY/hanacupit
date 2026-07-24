@@ -77,19 +77,21 @@ public class ApplicationFormService {
     public ApplicationFormGenerateResult generate(
             Destination destination, MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
-            return ApplicationFormGenerateResult.error("ファイルが選択されていません。");
+            return ApplicationFormGenerateResult.error("ファイルが選択されていません。", List.of());
         }
 
         CsvValidationResult validationResult = csvValidator.validate(file);
         if (validationResult.isFatal()) {
             return ApplicationFormGenerateResult.error(
-                    "フォーマット検証エラー: " + buildFatalDetailMessage(validationResult));
+                    "フォーマット検証エラー: " + buildFatalDetailMessage(validationResult),
+                    validationResult.getErrors());
         }
 
         ApplicationFormCsvParser.ParseResult parseResult = csvParser.parse(file);
         if (parseResult.getRecords().isEmpty()) {
             return ApplicationFormGenerateResult.error(
-                    buildNoRegistrableRowsMessage(parseResult.getErrors()));
+                    buildNoRegistrableRowsMessage(parseResult.getErrors()),
+                    parseResult.getErrors());
         }
 
         List<ApplicationFormRowContext> rows = buildRowContexts(parseResult.getRecords());

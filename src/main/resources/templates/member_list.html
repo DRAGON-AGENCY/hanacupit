@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -445,9 +445,23 @@
     text-align: center;
   }
 
-  .data-table tbody tr:hover td {
+  .data-table tbody tr.data-row:hover td {
     background: var(--bg-hover);
     cursor: pointer;
+  }
+
+  /* 絞込み結果が0件のときの空状態 */
+  .data-table tbody td.empty-cell {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-jp);
+    padding: 28px 16px;
+    white-space: normal;
+  }
+
+  .data-table tbody tr.empty-row:hover td {
+    background: var(--bg-white);
+    cursor: default;
   }
 
   .tag {
@@ -525,36 +539,20 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td class="kana">アカサカセイカテン</td><td class="name">赤坂生花店</td><td>旭川市二条通6右6</td><td class="code">01-001</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">フローリストムラタ</td><td class="name">フローリスト ムラタ</td><td>旭川市5条通7-1249</td><td class="code">01-003</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ハナノイウエ</td><td class="name">花のいのうえ</td><td>稚内市緑6-13-5</td><td class="code">01-005</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ナガヒサハナテン</td><td class="name">長久花店</td><td>名寄市西一条南6-8</td><td class="code">01-006</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">オオノセイカテン</td><td class="name">大野生花店</td><td>士別市大通西8</td><td class="code">01-007</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">スガワラセイカテン</td><td class="name">すがわら生花店</td><td>旭川市八条通7左2</td><td class="code">01-008</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">チグサセイカテン</td><td class="name">千草生花店</td><td>士別市西一条6</td><td class="code">01-009</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">タケウチセイカテン</td><td class="name">竹内生花店</td><td>旭川市七条通15左1</td><td class="code">01-012</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ウノセイカテン</td><td class="name">宇野生花店</td><td>旭川市四条通14丁目右1号</td><td class="code">01-014</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">フラワーショップクロダ</td><td class="name">フラワーショップくろだ</td><td>名寄市西四条南8 西條百貨店1F</td><td class="code">01-015</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">アラキセイカテン</td><td class="name">荒木生花店</td><td>名寄市西二条南5</td><td class="code">01-016</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ハナコイズミ</td><td class="name">花のこいずみ</td><td>枝幸郡浜頓別町北3条2-15</td><td class="code">01-019</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">フラワーブティックエハラ</td><td class="name">フラワーブティックエハラ</td><td>富良野市日の出町7-3</td><td class="code">01-020</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">マルタナカセイカセイカブ</td><td class="name">丸タ田中青果生花部</td><td>留萌市栄町2-3-21</td><td class="code">01-023</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ハナショップナカムラ</td><td class="name">花ショップなかむら</td><td>旭川市豊岡四条2-2-26</td><td class="code">01-024</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">タカツセイカテン</td><td class="name">高附生花店</td><td>中川郡美深町大通り北2</td><td class="code">01-029</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">トウキョウハナヤ</td><td class="name">東京花屋</td><td>苫前郡羽幌町南大通1-5-3</td><td class="code">01-030</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">フラワーショップクロダ ワッカナイテン</td><td class="name">フラワーショップくろだ 稚内店</td><td>稚内市大黒4 西條百貨店1F</td><td class="code">01-031</td><td class="kind"><span class="tag tag-info">登録支店</span></td></tr>
-            <tr><td class="kana">フラワーショップクロダ エサシテン</td><td class="name">フラワーショップくろだ 枝幸店</td><td>枝幸郡枝幸町栄町301-1 西條百貨店内</td><td class="code">01-032</td><td class="kind"><span class="tag tag-info">登録支店</span></td></tr>
-            <tr><td class="kana">トミタセイカテン</td><td class="name">富田生花店</td><td>天塩郡遠別町字本町3-86</td><td class="code">01-033</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ハナクラブ</td><td class="name">花くらぶ</td><td>旭川市神居三条4-7-1-7</td><td class="code">01-034</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ハナクウカン サイカ</td><td class="name">花空間 彩華</td><td>旭川市三条通8-左8</td><td class="code">01-037</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">フラワーショップヤマ</td><td class="name">フラワーショップとやま</td><td>旭川市東六条1-2-21</td><td class="code">01-039</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ハナスエヒロヤ</td><td class="name">花すえひろや</td><td>旭川市一条通17丁目右4号</td><td class="code">01-043</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">フラワーショップ アンド アートギャラリー ハナエ</td><td class="name">フラワーショップ&アートギャラリー花絵</td><td>旭川市神居三条19-72-32</td><td class="code">01-044</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">シキサイ</td><td class="name">四季彩</td><td>旭川市豊岡五条4-2-14</td><td class="code">01-045</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">フラワーショップハナタロウ</td><td class="name">フラワーショップ花太郎</td><td>旭川市四条通6-3</td><td class="code">01-047</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ヨイハナノサキ</td><td class="name">良い花のさきき</td><td>上川郡美瑛町栄町1-2-13</td><td class="code">01-048</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">ホンダハナヤ</td><td class="name">本多はなや</td><td>上川郡比布町寿町1-5-5</td><td class="code">01-049</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
-            <tr><td class="kana">レブンハナヤ</td><td class="name">礼文はなや</td><td>礼文郡礼文町字香深村トンナイ130</td><td class="code">01-050</td><td class="kind"><span class="tag tag-success">正会員</span></td></tr>
+            <tr class="data-row" th:each="member : ${members}">
+              <td class="kana" th:text="${member.storeNameKana}"></td>
+              <td class="name" th:text="${member.storeName}"></td>
+              <td th:text="${member.address}"></td>
+              <td class="code" th:text="${member.tradeCode}"></td>
+              <td class="kind">
+                <span th:class="${member.qualificationType == '正会員'} ? 'tag tag-success' : 'tag tag-info'"
+                    th:text="${#strings.isEmpty(member.qualificationType)} ? '—' : ${member.qualificationType}"></span>
+              </td>
+            </tr>
+            <!-- 絞込み結果が0件のときに表示する空状態の行 -->
+            <tr id="empty-row" class="empty-row" style="display:none;">
+              <td class="empty-cell" colspan="5">該当する加盟店がいません。</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -570,11 +568,6 @@
   </div>
 
   <script>
-    // クリアボタン: 検索入力をクリア
-    document.querySelector('.btn-clear').addEventListener('click', function () {
-      document.getElementById('shop-kana').value = '';
-    });
-
     // メニューで選択した照会種別を取得 (member_info / store_terminal_smcc)
     var searchParams = new URLSearchParams(window.location.search);
     var detailRoute = searchParams.get('mode') === 'store_terminal_smcc'
@@ -584,7 +577,7 @@
     // 表の加盟店 (行) を選択したら、同じ枠 (iframe) 内で詳細画面へ遷移する
     // 新規タブを開かず現在のウィンドウを遷移させることで、
     // 親シェル (menu) の左サイドバーを表示したまま詳細画面を表示する
-    document.querySelectorAll('.data-table tbody tr').forEach(function (row) {
+    document.querySelectorAll('.data-table tbody tr.data-row').forEach(function (row) {
       row.addEventListener('click', function () {
         var codeCell = row.querySelector('td.code');
         var tradeCode = codeCell ? codeCell.textContent.trim() : '';
@@ -593,11 +586,16 @@
       });
     });
 
-    // ページネーション: 表示件数の切替と複数ページの表示制御
+    // 絞込み (店名カナ) とページネーション
     (function () {
-      var rows = Array.prototype.slice.call(
-        document.querySelectorAll('.data-table tbody tr')
+      var allRows = Array.prototype.slice.call(
+        document.querySelectorAll('.data-table tbody tr.data-row')
       );
+      var filteredRows = allRows.slice();
+      var kanaInput = document.getElementById('shop-kana');
+      var searchButton = document.querySelector('.btn-search');
+      var clearButton = document.querySelector('.btn-clear');
+      var emptyRow = document.getElementById('empty-row');
       var perPageSelect = document.getElementById('per-page-select');
       var pageNumbersEl = document.getElementById('page-numbers');
       var summaryEl = document.getElementById('result-summary');
@@ -605,13 +603,25 @@
       var prevBtn = pagination.querySelector('[data-nav="prev"]');
       var nextBtn = pagination.querySelector('[data-nav="next"]');
 
-      var totalItems = rows.length;
       var perPage = parseInt(perPageSelect.value, 10);
       var currentPage = 1;
 
+      // 検索文字列・カナを比較用に正規化する。
+      // 前後・途中の空白を除去し、ひらがなをカタカナに統一することで、
+      // ひらがな入力でもカタカナの店名カナに一致するようにする
+      function normalizeKana(text) {
+        if (!text) {
+          return '';
+        }
+        var normalized = text.replace(/[\s　]+/g, '');
+        return normalized.replace(/[ぁ-ゖ]/g, function (character) {
+          return String.fromCharCode(character.charCodeAt(0) + 0x60);
+        });
+      }
+
       // 総ページ数 (最低1ページ)
       function getTotalPages() {
-        return Math.max(1, Math.ceil(totalItems / perPage));
+        return Math.max(1, Math.ceil(filteredRows.length / perPage));
       }
 
       // 表示するページ番号の並びを生成 (両端と現在ページ周辺、省略は'...')
@@ -641,6 +651,7 @@
 
       // 現在ページに応じて行の表示・概要・ページUIを再描画する
       function render() {
+        var totalItems = filteredRows.length;
         var totalPages = getTotalPages();
         if (currentPage > totalPages) {
           currentPage = totalPages;
@@ -648,10 +659,18 @@
         var startIndex = (currentPage - 1) * perPage;
         var endIndex = Math.min(startIndex + perPage, totalItems);
 
-        rows.forEach(function (row, index) {
-          row.style.display =
-            (index >= startIndex && index < endIndex) ? '' : 'none';
+        // いったん全行を隠し、該当ページの行だけを表示する
+        allRows.forEach(function (row) {
+          row.style.display = 'none';
         });
+        for (var index = startIndex; index < endIndex; index++) {
+          filteredRows[index].style.display = '';
+        }
+
+        // 絞込み結果が0件のときは空状態の行を表示する
+        if (emptyRow) {
+          emptyRow.style.display = (totalItems === 0) ? '' : 'none';
+        }
 
         if (totalItems === 0) {
           summaryEl.textContent = '0 件';
@@ -703,6 +722,42 @@
         perPage = parseInt(perPageSelect.value, 10);
         currentPage = 1;
         render();
+      });
+
+      // 入力された店名カナで一覧を絞り込み、1ページ目から再表示する。
+      // 部分一致 (入力がカナのどこかに含まれる) で判定する
+      function applyFilter() {
+        var query = normalizeKana(kanaInput.value);
+        if (query === '') {
+          filteredRows = allRows.slice();
+        } else {
+          filteredRows = allRows.filter(function (row) {
+            var kanaCell = row.querySelector('td.kana');
+            var kana = kanaCell ? normalizeKana(kanaCell.textContent) : '';
+            return kana.indexOf(query) !== -1;
+          });
+        }
+        currentPage = 1;
+        render();
+      }
+
+      // 絞込みを解除し、入力を消して全件を1ページ目から再表示する
+      function clearFilter() {
+        kanaInput.value = '';
+        filteredRows = allRows.slice();
+        currentPage = 1;
+        render();
+      }
+
+      searchButton.addEventListener('click', applyFilter);
+      clearButton.addEventListener('click', clearFilter);
+
+      // 入力欄で Enter キーを押したときも絞込みを実行する
+      kanaInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          applyFilter();
+        }
       });
 
       render();

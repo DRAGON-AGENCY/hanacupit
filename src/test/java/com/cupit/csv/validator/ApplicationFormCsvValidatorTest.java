@@ -92,9 +92,11 @@ class ApplicationFormCsvValidatorTest {
 
         CsvValidationResult result = validator.validate(file);
 
+        // どちらの行が正しいか判断できないため、先着1件目も含めて両方エラーとする
         assertThat(result.isFatal()).isFalse();
-        assertThat(result.getErrors()).hasSize(1);
+        assertThat(result.getErrors()).hasSize(2);
         assertThat(result.getErrors().get(0).getMessage()).contains("重複しています");
+        assertThat(result.getErrors().get(1).getMessage()).contains("重複しています");
     }
 
     private MockMultipartFile csvFile(String... lines) {

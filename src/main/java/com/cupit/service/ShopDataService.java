@@ -13,12 +13,12 @@ import org.springframework.web.multipart.MultipartFile;
 import com.cupit.csv.CsvValidationError;
 import com.cupit.csv.CsvValidationResult;
 import com.cupit.csv.importer.ImportResult;
-import com.cupit.csv.importer.MerchantNumberDataFileImporter;
-import com.cupit.csv.importer.ShopDataFileImporter;
-import com.cupit.csv.importer.TerminalDataFileImporter;
-import com.cupit.csv.validator.MerchantNumberDataCsvValidator;
-import com.cupit.csv.validator.ShopDataCsvValidator;
-import com.cupit.csv.validator.TerminalDataCsvValidator;
+import com.cupit.csv.importer.SmccMerchantNoFileImporter;
+import com.cupit.csv.importer.SteraStoreFileImporter;
+import com.cupit.csv.importer.SteraTerminalFileImporter;
+import com.cupit.csv.validator.SmccMerchantNoCsvValidator;
+import com.cupit.csv.validator.SteraStoreCsvValidator;
+import com.cupit.csv.validator.SteraTerminalCsvValidator;
 import com.cupit.dto.ImportResponse;
 import com.cupit.model.ImportBatch;
 import com.cupit.repository.ImportBatchRepository;
@@ -51,28 +51,28 @@ public class ShopDataService {
         }
     }
 
-    private final ShopDataCsvValidator shopDataCsvValidator;
-    private final ShopDataFileImporter shopDataFileImporter;
-    private final TerminalDataCsvValidator terminalDataCsvValidator;
-    private final TerminalDataFileImporter terminalDataFileImporter;
-    private final MerchantNumberDataCsvValidator merchantNumberDataCsvValidator;
-    private final MerchantNumberDataFileImporter merchantNumberDataFileImporter;
+    private final SteraStoreCsvValidator steraStoreCsvValidator;
+    private final SteraStoreFileImporter steraStoreFileImporter;
+    private final SteraTerminalCsvValidator steraTerminalCsvValidator;
+    private final SteraTerminalFileImporter steraTerminalFileImporter;
+    private final SmccMerchantNoCsvValidator smccMerchantNoCsvValidator;
+    private final SmccMerchantNoFileImporter smccMerchantNoFileImporter;
     private final ImportBatchRepository importBatchRepository;
 
     public ShopDataService(
-            ShopDataCsvValidator shopDataCsvValidator,
-            ShopDataFileImporter shopDataFileImporter,
-            TerminalDataCsvValidator terminalDataCsvValidator,
-            TerminalDataFileImporter terminalDataFileImporter,
-            MerchantNumberDataCsvValidator merchantNumberDataCsvValidator,
-            MerchantNumberDataFileImporter merchantNumberDataFileImporter,
+            SteraStoreCsvValidator steraStoreCsvValidator,
+            SteraStoreFileImporter steraStoreFileImporter,
+            SteraTerminalCsvValidator steraTerminalCsvValidator,
+            SteraTerminalFileImporter steraTerminalFileImporter,
+            SmccMerchantNoCsvValidator smccMerchantNoCsvValidator,
+            SmccMerchantNoFileImporter smccMerchantNoFileImporter,
             ImportBatchRepository importBatchRepository) {
-        this.shopDataCsvValidator = shopDataCsvValidator;
-        this.shopDataFileImporter = shopDataFileImporter;
-        this.terminalDataCsvValidator = terminalDataCsvValidator;
-        this.terminalDataFileImporter = terminalDataFileImporter;
-        this.merchantNumberDataCsvValidator = merchantNumberDataCsvValidator;
-        this.merchantNumberDataFileImporter = merchantNumberDataFileImporter;
+        this.steraStoreCsvValidator = steraStoreCsvValidator;
+        this.steraStoreFileImporter = steraStoreFileImporter;
+        this.steraTerminalCsvValidator = steraTerminalCsvValidator;
+        this.steraTerminalFileImporter = steraTerminalFileImporter;
+        this.smccMerchantNoCsvValidator = smccMerchantNoCsvValidator;
+        this.smccMerchantNoFileImporter = smccMerchantNoFileImporter;
         this.importBatchRepository = importBatchRepository;
     }
 
@@ -117,18 +117,18 @@ public class ShopDataService {
 
     private CsvValidationResult validate(DataType dataType, MultipartFile file) throws IOException {
         return switch (dataType) {
-            case SHOP -> shopDataCsvValidator.validate(file);
-            case TERMINAL -> terminalDataCsvValidator.validate(file);
-            case MERCHANT_NUMBER -> merchantNumberDataCsvValidator.validate(file);
+            case SHOP -> steraStoreCsvValidator.validate(file);
+            case TERMINAL -> steraTerminalCsvValidator.validate(file);
+            case MERCHANT_NUMBER -> smccMerchantNoCsvValidator.validate(file);
         };
     }
 
     private ImportResult doImport(
             DataType dataType, MultipartFile file, ImportBatch batch) throws IOException {
         return switch (dataType) {
-            case SHOP -> shopDataFileImporter.importFile(file, batch);
-            case TERMINAL -> terminalDataFileImporter.importFile(file, batch);
-            case MERCHANT_NUMBER -> merchantNumberDataFileImporter.importFile(file, batch);
+            case SHOP -> steraStoreFileImporter.importFile(file, batch);
+            case TERMINAL -> steraTerminalFileImporter.importFile(file, batch);
+            case MERCHANT_NUMBER -> smccMerchantNoFileImporter.importFile(file, batch);
         };
     }
 

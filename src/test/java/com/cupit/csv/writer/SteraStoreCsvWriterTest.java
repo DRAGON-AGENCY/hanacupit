@@ -19,31 +19,31 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.cupit.csv.importer.ImportResult;
-import com.cupit.csv.importer.ShopDataFileImporter;
+import com.cupit.csv.importer.SteraStoreFileImporter;
 import com.cupit.model.ImportBatch;
-import com.cupit.model.ShopData;
-import com.cupit.repository.ShopDataRepository;
+import com.cupit.model.SteraStore;
+import com.cupit.repository.SteraStoreRepository;
 
 /**
- * {@link ShopDataCsvWriter} のテスト。UTF-8 BOM付き出力、RFC4180準拠のクォート処理、
- * null値の空文字化、および {@link ShopDataFileImporter} による再取り込みとの
+ * {@link SteraStoreCsvWriter} のテスト。UTF-8 BOM付き出力、RFC4180準拠のクォート処理、
+ * null値の空文字化、および {@link SteraStoreFileImporter} による再取り込みとの
  * 往復整合性（ダウンロードしたファイルをそのまま再アップロードできること）を検証する。
  */
 @ExtendWith(MockitoExtension.class)
-class ShopDataCsvWriterTest {
+class SteraStoreCsvWriterTest {
 
     private static final byte[] UTF8_BOM = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
 
-    private final ShopDataCsvWriter writer = new ShopDataCsvWriter();
+    private final SteraStoreCsvWriter writer = new SteraStoreCsvWriter();
 
     @Mock
-    private ShopDataRepository shopDataRepository;
+    private SteraStoreRepository steraStoreRepository;
 
-    private ShopDataFileImporter importer;
+    private SteraStoreFileImporter importer;
 
     @BeforeEach
     void setUp() {
-        importer = new ShopDataFileImporter(shopDataRepository);
+        importer = new SteraStoreFileImporter(steraStoreRepository);
     }
 
     @Test
@@ -61,14 +61,14 @@ class ShopDataCsvWriterTest {
         String headerLine = firstLine(csv);
 
         List<String> columns = parseCsvLine(headerLine);
-        assertThat(columns).hasSize(27);
+        assertThat(columns).hasSize(30);
         assertThat(columns.get(0)).isEqualTo("取引コード");
-        assertThat(columns.get(27 - 1)).isEqualTo("（解約）手続状況");
+        assertThat(columns.get(29)).isEqualTo("備考");
     }
 
     @Test
     void writesNullFieldsAsEmpty() throws Exception {
-        ShopData data = new ShopData();
+        SteraStore data = new SteraStore();
         data.setTradeCode("01-001");
 
         byte[] csv = writer.writeCsv(List.of(data));
@@ -80,38 +80,57 @@ class ShopDataCsvWriterTest {
 
     @Test
     void formatsDateAsSlashSeparated() throws Exception {
-        ShopData data = new ShopData();
+        SteraStore data = new SteraStore();
         data.setTradeCode("01-001");
-        data.setLinkageDate(java.time.LocalDate.of(2020, 1, 1));
+        data.setJcbStartDate(java.time.LocalDate.of(2020, 1, 1));
 
         byte[] csv = writer.writeCsv(List.of(data));
         List<String> row = secondLine(csv);
 
-        assertThat(row.get(19)).isEqualTo("2020/01/01");
+        assertThat(row.get(26)).isEqualTo("2020/01/01");
     }
 
     @Test
     void quotesFieldsContainingCommaOrQuote() throws Exception {
-        ShopData data = new ShopData();
+        SteraStore data = new SteraStore();
         data.setTradeCode("01-001");
-        data.setApplicationTypeFlag("備考、カンマと\"引用符\"を含む");
+        data.setRemarks("備考、カンマと\"引用符\"を含む");
 
         byte[] csv = writer.writeCsv(List.of(data));
         List<String> row = secondLine(csv);
 
-        assertThat(row.get(1)).isEqualTo("備考、カンマと\"引用符\"を含む");
+        assertThat(row.get(29)).isEqualTo("備考、カンマと\"引用符\"を含む");
     }
 
     @Test
     void roundTripsThroughFileImporter() throws Exception {
-        ShopData original = new ShopData();
+        SteraStore original = new SteraStore();
         original.setTradeCode("01-001");
-        original.setApplicationTypeFlag("往復確認、カンマあり");
+        original.setTransitCompany("Suica");
+        original.setEdyId("12345678");
+        original.setBranchCode("01-001000");
+        original.setStoreName("テスト店舗");
+        original.setStoreNameKana("テストテンポ");
+        original.setStoreNameEn("TEST STORE");
+        original.setStoreZip("1000001");
+        original.setStoreAddress("東京都");
+        original.setStoreAddressKana("トウキョウト");
+        original.setStoreTel("03-1234-5678");
+        original.setEmail("test@example.com");
+        original.setBankName("テスト銀行");
+        original.setBankCode("0001");
+        original.setBranchName("テスト支店");
+        original.setBankBranchCode("001");
+        original.setAccountType("1:普通");
+        original.setAccountNo("1234567");
+        original.setAccountHolderKana("テスト");
+        original.setJcbStatus("済");
+        original.setDPointStatus("未");
 
         byte[] csv = writer.writeCsv(List.of(original));
         MockMultipartFile uploadFile =
-                new MockMultipartFile("file", "shop_data.csv", "text/csv", csv);
-        when(shopDataRepository.findAllById(org.mockito.ArgumentMatchers.any()))
+                new MockMultipartFile("file", "stera_store.csv", "text/csv", csv);
+        when(steraStoreRepository.findByTradeCodeIn(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of());
 
         ImportResult result = importer.importFile(uploadFile, batch("user001"));
@@ -119,11 +138,11 @@ class ShopDataCsvWriterTest {
         assertThat(result.hasErrors()).isFalse();
         assertThat(result.getSuccessCount()).isEqualTo(1);
 
-        ArgumentCaptor<List<ShopData>> captor = ArgumentCaptor.forClass(List.class);
-        verify(shopDataRepository).saveAll(captor.capture());
-        ShopData reimported = captor.getValue().get(0);
+        ArgumentCaptor<List<SteraStore>> captor = ArgumentCaptor.forClass(List.class);
+        verify(steraStoreRepository).saveAll(captor.capture());
+        SteraStore reimported = captor.getValue().get(0);
         assertThat(reimported.getTradeCode()).isEqualTo("01-001");
-        assertThat(reimported.getApplicationTypeFlag()).isEqualTo("往復確認、カンマあり");
+        assertThat(reimported.getStoreName()).isEqualTo("テスト店舗");
     }
 
     private ImportBatch batch(String employee) {

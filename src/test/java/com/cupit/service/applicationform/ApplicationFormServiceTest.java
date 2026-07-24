@@ -105,6 +105,7 @@ class ApplicationFormServiceTest {
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getErrorMessage()).contains("フォーマット検証エラー");
         assertThat(result.getErrorMessage()).contains("ファイルの拡張子が不正です");
+        assertThat(result.getErrors()).hasSize(1);
         verify(csvParser, never()).parse(any());
     }
 
@@ -121,6 +122,7 @@ class ApplicationFormServiceTest {
         assertThat(result.isSuccess()).isFalse();
         // 件数だけの通知では原因が分からないため、実際のエラー内容をそのまま返す
         assertThat(result.getErrorMessage()).isEqualTo("取引コードは必須です。");
+        assertThat(result.getErrors()).isEqualTo(errors);
     }
 
     @Test

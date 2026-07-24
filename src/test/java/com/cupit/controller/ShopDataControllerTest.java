@@ -15,17 +15,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 
-import com.cupit.csv.writer.MerchantNumberDataCsvWriter;
-import com.cupit.csv.writer.ShopDataCsvWriter;
-import com.cupit.csv.writer.TerminalDataCsvWriter;
+import com.cupit.csv.writer.SmccMerchantNoCsvWriter;
+import com.cupit.csv.writer.SteraStoreCsvWriter;
+import com.cupit.csv.writer.SteraTerminalCsvWriter;
 import com.cupit.dto.ImportResponse;
 import com.cupit.interceptor.AuthenticationInterceptor;
-import com.cupit.model.MerchantNumberData;
-import com.cupit.model.ShopData;
-import com.cupit.model.TerminalData;
-import com.cupit.repository.MerchantNumberDataRepository;
-import com.cupit.repository.ShopDataRepository;
-import com.cupit.repository.TerminalDataRepository;
+import com.cupit.model.SmccMerchantNo;
+import com.cupit.model.SteraStore;
+import com.cupit.model.SteraTerminal;
+import com.cupit.repository.SmccMerchantNoRepository;
+import com.cupit.repository.SteraStoreRepository;
+import com.cupit.repository.SteraTerminalRepository;
 import com.cupit.service.ShopDataService;
 import com.cupit.service.ShopDataService.DataType;
 
@@ -44,22 +44,22 @@ class ShopDataControllerTest {
     private ShopDataService shopDataService;
 
     @Mock
-    private ShopDataRepository shopDataRepository;
+    private SteraStoreRepository steraStoreRepository;
 
     @Mock
-    private TerminalDataRepository terminalDataRepository;
+    private SteraTerminalRepository steraTerminalRepository;
 
     @Mock
-    private MerchantNumberDataRepository merchantNumberDataRepository;
+    private SmccMerchantNoRepository smccMerchantNoRepository;
 
     @Mock
-    private ShopDataCsvWriter shopDataCsvWriter;
+    private SteraStoreCsvWriter steraStoreCsvWriter;
 
     @Mock
-    private TerminalDataCsvWriter terminalDataCsvWriter;
+    private SteraTerminalCsvWriter steraTerminalCsvWriter;
 
     @Mock
-    private MerchantNumberDataCsvWriter merchantNumberDataCsvWriter;
+    private SmccMerchantNoCsvWriter smccMerchantNoCsvWriter;
 
     @Mock
     private HttpSession session;
@@ -70,9 +70,9 @@ class ShopDataControllerTest {
     @BeforeEach
     void setUp() {
         controller = new ShopDataController(
-                shopDataService, shopDataRepository, terminalDataRepository,
-                merchantNumberDataRepository, shopDataCsvWriter, terminalDataCsvWriter,
-                merchantNumberDataCsvWriter);
+                shopDataService, steraStoreRepository, steraTerminalRepository,
+                smccMerchantNoRepository, steraStoreCsvWriter, steraTerminalCsvWriter,
+                smccMerchantNoCsvWriter);
         file = new MockMultipartFile("file", "shop_data.csv", "text/csv", new byte[] {1});
     }
 
@@ -146,12 +146,12 @@ class ShopDataControllerTest {
     }
 
     @Test
-    void downloadReturnsShopDataCsvWithAttachmentFilenameForShop() {
-        ShopData data = new ShopData();
+    void downloadReturnsSteraStoreCsvWithAttachmentFilenameForShop() {
+        SteraStore data = new SteraStore();
         data.setTradeCode("01-001");
-        when(shopDataRepository.findAllByOrderByTradeCodeAsc()).thenReturn(List.of(data));
+        when(steraStoreRepository.findAllByOrderByTradeCodeAsc()).thenReturn(List.of(data));
         byte[] csvBytes = "dummy".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        when(shopDataCsvWriter.writeCsv(List.of(data))).thenReturn(csvBytes);
+        when(steraStoreCsvWriter.writeCsv(List.of(data))).thenReturn(csvBytes);
 
         ResponseEntity<byte[]> response = controller.download(DataType.SHOP);
 
@@ -159,37 +159,37 @@ class ShopDataControllerTest {
         assertThat(response.getBody()).isEqualTo(csvBytes);
         assertThat(response.getHeaders().getContentDisposition().isAttachment()).isTrue();
         assertThat(response.getHeaders().getContentDisposition().getFilename())
-                .startsWith("shop_data_").endsWith(".csv");
+                .startsWith("stera_store_").endsWith(".csv");
     }
 
     @Test
-    void downloadReturnsTerminalDataCsvWithAttachmentFilenameForTerminal() {
-        TerminalData data = new TerminalData();
+    void downloadReturnsSteraTerminalCsvWithAttachmentFilenameForTerminal() {
+        SteraTerminal data = new SteraTerminal();
         data.setTradeCode("01-001");
-        when(terminalDataRepository.findAllByOrderByTradeCodeAsc()).thenReturn(List.of(data));
+        when(steraTerminalRepository.findAllByOrderByTradeCodeAsc()).thenReturn(List.of(data));
         byte[] csvBytes = "dummy".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        when(terminalDataCsvWriter.writeCsv(List.of(data))).thenReturn(csvBytes);
+        when(steraTerminalCsvWriter.writeCsv(List.of(data))).thenReturn(csvBytes);
 
         ResponseEntity<byte[]> response = controller.download(DataType.TERMINAL);
 
         assertThat(response.getBody()).isEqualTo(csvBytes);
         assertThat(response.getHeaders().getContentDisposition().getFilename())
-                .startsWith("terminal_data_").endsWith(".csv");
+                .startsWith("stera_terminal_").endsWith(".csv");
     }
 
     @Test
-    void downloadReturnsMerchantNumberDataCsvWithAttachmentFilenameForMerchantNumber() {
-        MerchantNumberData data = new MerchantNumberData();
+    void downloadReturnsSmccMerchantNoCsvWithAttachmentFilenameForMerchantNumber() {
+        SmccMerchantNo data = new SmccMerchantNo();
         data.setTradeCode("01-001");
-        when(merchantNumberDataRepository.findAllByOrderByTradeCodeAsc()).thenReturn(List.of(data));
+        when(smccMerchantNoRepository.findAllByOrderByTradeCodeAsc()).thenReturn(List.of(data));
         byte[] csvBytes = "dummy".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        when(merchantNumberDataCsvWriter.writeCsv(List.of(data))).thenReturn(csvBytes);
+        when(smccMerchantNoCsvWriter.writeCsv(List.of(data))).thenReturn(csvBytes);
 
         ResponseEntity<byte[]> response = controller.download(DataType.MERCHANT_NUMBER);
 
         assertThat(response.getBody()).isEqualTo(csvBytes);
         assertThat(response.getHeaders().getContentDisposition().getFilename())
-                .startsWith("merchant_number_data_").endsWith(".csv");
+                .startsWith("smcc_merchant_no_").endsWith(".csv");
     }
 
 }

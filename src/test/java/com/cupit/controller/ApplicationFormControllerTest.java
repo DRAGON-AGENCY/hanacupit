@@ -5,8 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -18,15 +17,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.cupit.csv.CsvValidationError;
+import com.cupit.dto.ApplicationFormGenerateResponse;
 import com.cupit.service.applicationform.ApplicationFormGenerateResult;
 import com.cupit.service.applicationform.ApplicationFormService;
 import com.cupit.service.applicationform.ApplicationFormService.Destination;
 
 /**
- * {@link ApplicationFormController} のテスト。Serviceをモック化し、申請先ごとの
- * ファイル名・拡張子・Content-Type、成功時のレスポンスヘッダー（件数・エラー概要）、
- * 例外種別ごとのHTTPステータス（IllegalArgumentException→400、
- * IOException／RuntimeException→500、result.isSuccess()==false→400）を検証する。
+ * {@link ApplicationFormController} のテスト。Serviceをモック化し、常にJSON
+ * （{@link ApplicationFormGenerateResponse}）で結果を返すこと（申請先ごとの
+ * ファイル名・拡張子・Content-Type、Excelのbase64同梱、行単位のエラー詳細の
+ * 全件反映、部分成功時のNG扱い、例外種別ごとのHTTPステータス）を検証する。
  */
 @ExtendWith(MockitoExtension.class)
 class ApplicationFormControllerTest {
@@ -45,142 +45,130 @@ class ApplicationFormControllerTest {
     }
 
     @Test
-    void uploadReturnsFileBytesWithHeadersOnSuccessForJcb() throws Exception {
+    void returnsBase64FileDataAndCountsOnFullSuccessForJcb() throws Exception {
         ApplicationFormGenerateResult result = ApplicationFormGenerateResult.success(
                 new byte[] {1, 2, 3}, 2, 2, List.of());
         when(applicationFormService.generate(Destination.JCB, file)).thenReturn(result);
 
-        ResponseEntity<?> response = controller.generate(Destination.JCB, file);
+        ResponseEntity<ApplicationFormGenerateResponse> response =
+                controller.generate(Destination.JCB, file);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).isEqualTo(new byte[] {1, 2, 3});
-        assertThat(response.getHeaders().getContentDisposition().isAttachment()).isTrue();
-        assertThat(response.getHeaders().getContentDisposition().getFilename())
-                .startsWith("JCB申込フォーム_").endsWith(".xlsx");
-        assertThat(response.getHeaders().getContentType().toString())
+        ApplicationFormGenerateResponse body = response.getBody();
+        assertThat(body.isSuccess()).isTrue();
+        assertThat(body.getSuccessCount()).isEqualTo(2);
+        assertThat(body.getTotalRowCount()).isEqualTo(2);
+        assertThat(body.getErrors()).isEmpty();
+        assertThat(body.getErrorMessage()).isNull();
+        assertThat(body.getFileName()).startsWith("JCB申込フォーム_").endsWith(".xlsx");
+        assertThat(body.getContentType())
                 .isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        assertThat(response.getHeaders().getFirst("X-Success-Count")).isEqualTo("2");
-        assertThat(response.getHeaders().getFirst("X-Total-Row-Count")).isEqualTo("2");
-        assertThat(response.getHeaders().getFirst("X-Error-Count")).isEqualTo("0");
+        assertThat(Base64.getDecoder().decode(body.getFileData())).isEqualTo(new byte[] {1, 2, 3});
     }
 
     @Test
-    void uploadReturnsXlsmContentTypeAndFilenameForSmccKamei() throws Exception {
+    void returnsXlsmContentTypeAndFilenameForSmccKamei() throws Exception {
         ApplicationFormGenerateResult result = ApplicationFormGenerateResult.success(
                 new byte[] {1}, 1, 1, List.of());
         when(applicationFormService.generate(Destination.SMCC_KAMEI, file)).thenReturn(result);
 
-        ResponseEntity<?> response = controller.generate(Destination.SMCC_KAMEI, file);
+        ApplicationFormGenerateResponse body =
+                controller.generate(Destination.SMCC_KAMEI, file).getBody();
 
-        assertThat(response.getHeaders().getContentDisposition().getFilename())
-                .startsWith("SMCC加盟店申込書_").endsWith(".xlsm");
-        assertThat(response.getHeaders().getContentType().toString())
+        assertThat(body.getFileName()).startsWith("SMCC加盟店申込書_").endsWith(".xlsm");
+        assertThat(body.getContentType())
                 .isEqualToIgnoringCase("application/vnd.ms-excel.sheet.macroEnabled.12");
     }
 
     @Test
-    void uploadReturnsXlsxFilenameForSmccTenpo() throws Exception {
+    void returnsXlsxFilenameForSmccTenpo() throws Exception {
         ApplicationFormGenerateResult result = ApplicationFormGenerateResult.success(
                 new byte[] {1}, 1, 1, List.of());
         when(applicationFormService.generate(Destination.SMCC_TENPO, file)).thenReturn(result);
 
-        ResponseEntity<?> response = controller.generate(Destination.SMCC_TENPO, file);
+        ApplicationFormGenerateResponse body =
+                controller.generate(Destination.SMCC_TENPO, file).getBody();
 
-        assertThat(response.getHeaders().getContentDisposition().getFilename())
-                .startsWith("SMCC店舗情報一覧_").endsWith(".xlsx");
+        assertThat(body.getFileName()).startsWith("SMCC店舗情報一覧_").endsWith(".xlsx");
     }
 
     @Test
-    void uploadReturnsBadRequestWhenResultNotSuccess() throws Exception {
+    void returnsOkWithSuccessFalseAndNoFileWhenNoRegistrableRows() throws Exception {
+        List<CsvValidationError> errors = List.of(
+                new CsvValidationError(2, "取引コード", "取引コードは必須です。"));
         ApplicationFormGenerateResult result =
-                ApplicationFormGenerateResult.error("登録可能な行がありません。");
+                ApplicationFormGenerateResult.error("取引コードは必須です。", errors);
         when(applicationFormService.generate(Destination.JCB, file)).thenReturn(result);
 
-        ResponseEntity<?> response = controller.generate(Destination.JCB, file);
+        ResponseEntity<ApplicationFormGenerateResponse> response =
+                controller.generate(Destination.JCB, file);
 
-        assertThat(response.getStatusCode().value()).isEqualTo(400);
-        ApplicationFormController.ErrorResponse body =
-                (ApplicationFormController.ErrorResponse) response.getBody();
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        ApplicationFormGenerateResponse body = response.getBody();
         assertThat(body.isSuccess()).isFalse();
-        assertThat(body.getErrorMessage()).isEqualTo("登録可能な行がありません。");
+        assertThat(body.getErrorMessage()).isEqualTo("取引コードは必須です。");
+        assertThat(body.getFileData()).isNull();
+        assertThat(body.getErrors()).hasSize(1);
+        assertThat(body.getErrors().get(0).getRowNumber()).isEqualTo(2);
+        assertThat(body.getErrors().get(0).getColumnName()).isEqualTo("取引コード");
+        assertThat(body.getErrors().get(0).getMessage()).isEqualTo("取引コードは必須です。");
     }
 
     @Test
-    void uploadReturnsBadRequestOnIllegalArgument() throws Exception {
+    void treatsPartialSuccessAsNgWithFullErrorTableButStillReturnsFile() throws Exception {
+        List<CsvValidationError> errors = List.of(
+                new CsvValidationError(3, "取引コード", "取引コードは必須です。"),
+                new CsvValidationError(5, "サービス開始希望日", "日付変換エラーです。"));
+        ApplicationFormGenerateResult result = ApplicationFormGenerateResult.success(
+                new byte[] {9}, 1, 3, errors);
+        when(applicationFormService.generate(Destination.JCB, file)).thenReturn(result);
+
+        ResponseEntity<ApplicationFormGenerateResponse> response =
+                controller.generate(Destination.JCB, file);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        ApplicationFormGenerateResponse body = response.getBody();
+        assertThat(body.isSuccess()).isFalse();
+        assertThat(body.getErrors()).hasSize(2);
+        assertThat(body.getFileData()).isNotNull();
+        assertThat(Base64.getDecoder().decode(body.getFileData())).isEqualTo(new byte[] {9});
+        assertThat(body.getErrorMessage()).contains("生成件数: 1 件").contains("エラー: 2 件");
+    }
+
+    @Test
+    void returnsBadRequestOnIllegalArgument() throws Exception {
         when(applicationFormService.generate(any(), any()))
                 .thenThrow(new IllegalArgumentException("ファイルの文字コードがサポートされていません"));
 
-        ResponseEntity<?> response = controller.generate(Destination.JCB, file);
+        ResponseEntity<ApplicationFormGenerateResponse> response =
+                controller.generate(Destination.JCB, file);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
-        ApplicationFormController.ErrorResponse body =
-                (ApplicationFormController.ErrorResponse) response.getBody();
-        assertThat(body.getErrorMessage()).isEqualTo("ファイルの文字コードがサポートされていません");
+        assertThat(response.getBody().getErrorMessage())
+                .isEqualTo("ファイルの文字コードがサポートされていません");
     }
 
     @Test
-    void uploadReturnsServerErrorOnIoException() throws Exception {
+    void returnsServerErrorOnIoException() throws Exception {
         when(applicationFormService.generate(any(), any())).thenThrow(new IOException("read failed"));
 
-        ResponseEntity<?> response = controller.generate(Destination.JCB, file);
+        ResponseEntity<ApplicationFormGenerateResponse> response =
+                controller.generate(Destination.JCB, file);
 
         assertThat(response.getStatusCode().value()).isEqualTo(500);
-        ApplicationFormController.ErrorResponse body =
-                (ApplicationFormController.ErrorResponse) response.getBody();
-        assertThat(body.getErrorMessage()).contains("ファイルの読み込みに失敗しました");
+        assertThat(response.getBody().getErrorMessage()).contains("ファイルの読み込みに失敗しました");
     }
 
     @Test
-    void uploadReturnsServerErrorOnRuntimeException() throws Exception {
+    void returnsServerErrorOnRuntimeException() throws Exception {
         when(applicationFormService.generate(any(), any()))
                 .thenThrow(new RuntimeException("テンプレートの読み込みに失敗しました"));
 
-        ResponseEntity<?> response = controller.generate(Destination.JCB, file);
+        ResponseEntity<ApplicationFormGenerateResponse> response =
+                controller.generate(Destination.JCB, file);
 
         assertThat(response.getStatusCode().value()).isEqualTo(500);
-        ApplicationFormController.ErrorResponse body =
-                (ApplicationFormController.ErrorResponse) response.getBody();
-        assertThat(body.getErrorMessage()).contains("予期せぬエラーが発生しました");
-    }
-
-    @Test
-    void encodesErrorSummaryHeaderWithRowAndMessage() throws Exception {
-        List<CsvValidationError> errors = List.of(
-                new CsvValidationError(3, "取引コード", "取引コードは必須です。"));
-        ApplicationFormGenerateResult result = ApplicationFormGenerateResult.success(
-                new byte[] {1}, 1, 2, errors);
-        when(applicationFormService.generate(Destination.JCB, file)).thenReturn(result);
-
-        ResponseEntity<?> response = controller.generate(Destination.JCB, file);
-
-        String encoded = response.getHeaders().getFirst("X-Error-Summary");
-        String decoded = URLDecoder.decode(encoded, StandardCharsets.UTF_8);
-        assertThat(decoded).isEqualTo("3行目:取引コードは必須です。");
-        assertThat(response.getHeaders().getFirst("X-Error-Count")).isEqualTo("1");
-    }
-
-    @Test
-    void limitsErrorSummaryToFirstFiveErrors() throws Exception {
-        List<CsvValidationError> errors = List.of(
-                new CsvValidationError(2, "取引コード", "エラー1"),
-                new CsvValidationError(3, "取引コード", "エラー2"),
-                new CsvValidationError(4, "取引コード", "エラー3"),
-                new CsvValidationError(5, "取引コード", "エラー4"),
-                new CsvValidationError(6, "取引コード", "エラー5"),
-                new CsvValidationError(7, "取引コード", "エラー6"),
-                new CsvValidationError(8, "取引コード", "エラー7"));
-        ApplicationFormGenerateResult result = ApplicationFormGenerateResult.success(
-                new byte[] {1}, 1, 8, errors);
-        when(applicationFormService.generate(Destination.JCB, file)).thenReturn(result);
-
-        ResponseEntity<?> response = controller.generate(Destination.JCB, file);
-
-        String decoded = URLDecoder.decode(
-                response.getHeaders().getFirst("X-Error-Summary"), StandardCharsets.UTF_8);
-        assertThat(decoded).doesNotContain("エラー6");
-        assertThat(decoded).doesNotContain("エラー7");
-        assertThat(decoded).contains("エラー5");
-        assertThat(response.getHeaders().getFirst("X-Error-Count")).isEqualTo("7");
+        assertThat(response.getBody().getErrorMessage()).contains("予期せぬエラーが発生しました");
     }
 
 }

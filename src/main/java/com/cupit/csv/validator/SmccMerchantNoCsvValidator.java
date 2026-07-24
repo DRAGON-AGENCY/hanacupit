@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,15 +13,22 @@ import com.cupit.csv.CsvValidationError;
 import com.cupit.csv.CsvValidationResult;
 
 /**
- * 加盟店番号データ（MerchantNumberData）CSVのフォーマットを検証するクラス。
- * 26列固定（取引コード＋25項目）、1行目は内容によらず常にヘッダー行として扱う
- * （列名の一致チェックは行わない）。取引コードは必須。1取引コードに複数行（複数端末等）が
- * 存在する運用のため、取引コード自体のCSV内重複は許容する。取引コード以外の全項目は任意とする。
+ * 加盟店番号データ（m_smcc_merchant_no）CSVのフォーマットを検証するクラス。
+ * 4列固定（取引コード＋3項目）、1行目は内容によらず常にヘッダー行として扱う
+ * （列名の一致チェックは行わない）。1取引コードに複数行（複数加盟店番号等）が存在する
+ * 運用のため、取引コード自体のCSV内重複は許容する。m_smcc_merchant_noのNOT NULL制約に
+ * 合わせ、全項目を必須とする（{@link #REQUIRED_INDEXES}）。
  */
 @Component
-public class MerchantNumberDataCsvValidator extends AbstractCsvFormatValidator {
+public class SmccMerchantNoCsvValidator extends AbstractCsvFormatValidator {
 
-    private static final int EXPECTED_COLUMN_COUNT = 26;
+    private static final int EXPECTED_COLUMN_COUNT = 4;
+
+    private static final String[] COLUMN_NAMES = {
+        "取引コード", "SMCC加盟店番号", "種別", "届出支店コード",
+    };
+
+    private static final Set<Integer> REQUIRED_INDEXES = Set.of(1, 2, 3);
 
     @Override
     public CsvValidationResult validate(MultipartFile file) throws IOException {
@@ -43,7 +51,7 @@ public class MerchantNumberDataCsvValidator extends AbstractCsvFormatValidator {
                 result.markFatal();
                 return result;
             }
-            if (headerLine.startsWith("\uFEFF")) {
+            if (headerLine.startsWith("﻿")) {
                 headerLine = headerLine.substring(1);
             }
             headerLine = stripCr(headerLine);
@@ -78,12 +86,17 @@ public class MerchantNumberDataCsvValidator extends AbstractCsvFormatValidator {
         return result;
     }
 
-    private void validateDataRow(
-            CsvValidationResult result, int rowNumber, List<String> fields) {
+    private void validateDataRow(CsvValidationResult result, int rowNumber, List<String> fields) {
         String tradeCode = fields.get(0).trim();
         if (tradeCode.isEmpty()) {
             result.addError(new CsvValidationError(rowNumber, "取引コード", "取引コードは必須です。"));
             return;
+        }
+        for (int index = 0; index < EXPECTED_COLUMN_COUNT; index++) {
+            if (REQUIRED_INDEXES.contains(index) && fields.get(index).trim().isEmpty()) {
+                result.addError(new CsvValidationError(rowNumber, COLUMN_NAMES[index],
+                        "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は必須です。"));
+            }
         }
     }
 

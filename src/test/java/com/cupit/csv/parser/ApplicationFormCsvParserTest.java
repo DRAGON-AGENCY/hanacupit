@@ -53,8 +53,21 @@ class ApplicationFormCsvParserTest {
 
         ApplicationFormCsvParser.ParseResult result = parser.parse(file);
 
+        // どちらの行が正しいか判断できないため、先着1件目も含めて両方スキップする
+        assertThat(result.getRecords()).isEmpty();
+        assertThat(result.getErrors()).hasSize(2);
+        assertThat(result.getErrors()).allMatch(e -> e.getMessage().contains("重複しています"));
+    }
+
+    @Test
+    void keepsOtherNonDuplicateRowsWhenAnotherTradeCodeIsDuplicated() throws Exception {
+        MockMultipartFile file = csvFile(row("35-232"), row("35-232"), row("35-233"));
+
+        ApplicationFormCsvParser.ParseResult result = parser.parse(file);
+
         assertThat(result.getRecords()).hasSize(1);
-        assertThat(result.getErrors()).anyMatch(e -> e.getMessage().contains("重複しています"));
+        assertThat(result.getRecords().get(0).getTradeCode()).isEqualTo("35-233");
+        assertThat(result.getErrors()).hasSize(2);
     }
 
     @Test

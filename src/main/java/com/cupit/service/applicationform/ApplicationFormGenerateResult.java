@@ -37,8 +37,9 @@ public class ApplicationFormGenerateResult {
                 true, excelBytes, successCount, totalRowCount, errors, null);
     }
 
-    public static ApplicationFormGenerateResult error(String errorMessage) {
-        return new ApplicationFormGenerateResult(false, null, 0, 0, List.of(), errorMessage);
+    public static ApplicationFormGenerateResult error(
+            String errorMessage, List<CsvValidationError> errors) {
+        return new ApplicationFormGenerateResult(false, null, 0, 0, errors, errorMessage);
     }
 
     public boolean isSuccess() {

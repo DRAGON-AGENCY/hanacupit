@@ -386,11 +386,11 @@
             </div>
             <div class="select-options">
               <div class="select-option selected" data-value="店舗データ"
-                  data-type="SHOP" data-cols="27">店舗データ</div>
+                  data-type="SHOP" data-cols="30">店舗データ</div>
               <div class="select-option" data-value="端末データ"
-                  data-type="TERMINAL" data-cols="95">端末データ</div>
+                  data-type="TERMINAL" data-cols="7">端末データ</div>
               <div class="select-option" data-value="加盟店番号データ"
-                  data-type="MERCHANT_NUMBER" data-cols="26">加盟店番号データ</div>
+                  data-type="MERCHANT_NUMBER" data-cols="4">加盟店番号データ</div>
             </div>
           </div>
         </div>
@@ -435,7 +435,7 @@
         <li>ファイル選択後、フォーマットチェックが自動で実行されます。エラーがない場合にアップロードボタンが有効になります。</li>
         <li>店舗データは取引コード単位で新規登録または上書き更新されます。端末データ・加盟店番号データは1取引コードに複数行（複数端末等）を登録でき、アップロードするとCSVに含まれる取引コードの既存行は全件削除されたうえで登録し直されます（取引コード単位の洗い替え）。いずれもCSVに含まれない取引コードの既存データは削除されません。</li>
         <li>1行目は内容によらず常にヘッダー行として扱われます（列名はチェックされません）。1行目からデータとして取り込みたい場合でも、必ずヘッダー行を追加してください。</li>
-        <li>列数が不正な行、取引コードが未入力の行はその行だけ登録されず、正常な行のみ登録されます。取引コード以外の項目はすべて任意です。エラーが発生した行はすべて一覧に表示されます。</li>
+        <li>列数が不正な行、取引コードが未入力の行、必須項目が未入力の行はその行だけ登録されず、正常な行のみ登録されます。必須項目はデータ種類によって異なります（店舗データは取引コードのほか大半の項目が必須、端末データ・加盟店番号データは一部の項目が必須です）。エラーが発生した行はすべて一覧に表示されます。</li>
         <li>対応文字コードは <strong>UTF-8（BOM付き）</strong> または <strong>Shift-JIS（MS932）</strong> です。それ以外の文字コードはエラーになります。</li>
         <li>文字コードエラーが表示された場合は、Excelでファイルを開き「名前を付けて保存」→ファイル形式で「CSV UTF-8（コンマ区切り）(*.csv)」を選択して保存し直してください。</li>
       </ol>
@@ -448,7 +448,7 @@
     var valueSpan = document.getElementById('data-type-value');
     var options = select.querySelectorAll('.select-option');
     var currentDataType = 'SHOP';
-    var expectedColumnCount = 27;
+    var expectedColumnCount = 30;
 
     display.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -499,7 +499,10 @@
       runFrontendCheck(file);
     });
 
-    btnClearResult.addEventListener('click', resetFileAndResult);
+    btnClearResult.addEventListener('click', function () {
+      resetFileAndResult();
+      resetDataTypeToDefault();
+    });
 
     function resetFileAndResult() {
       selectedFile = null;
@@ -507,6 +510,15 @@
       fileDisplay.value = '';
       hideResult();
       btnUpload.disabled = true;
+    }
+
+    function resetDataTypeToDefault() {
+      var defaultOption = select.querySelector('.select-option[data-type="SHOP"]');
+      options.forEach(function (o) { o.classList.remove('selected'); });
+      defaultOption.classList.add('selected');
+      valueSpan.textContent = defaultOption.dataset.value;
+      currentDataType = defaultOption.dataset.type;
+      expectedColumnCount = parseInt(defaultOption.dataset.cols, 10);
     }
 
     function hideResult() {
@@ -548,7 +560,7 @@
       var ext = file.name.split('.').pop().toLowerCase();
       if (ext !== 'csv') {
         showNg('ファイルの拡張子が不正です。期待: .csv、実際: .' + ext,
-            [{ rowNumber: 0, columnName: '', message: '正しい CSV ファイルを選択してください。' }]);
+            [{ rowNumber: 0, columnName: '', message: 'CSVファイルを選択してください。' }]);
         return;
       }
 

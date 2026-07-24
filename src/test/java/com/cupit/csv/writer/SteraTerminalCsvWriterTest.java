@@ -18,31 +18,31 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.cupit.csv.importer.ImportResult;
-import com.cupit.csv.importer.MerchantNumberDataFileImporter;
+import com.cupit.csv.importer.SteraTerminalFileImporter;
 import com.cupit.model.ImportBatch;
-import com.cupit.model.MerchantNumberData;
-import com.cupit.repository.MerchantNumberDataRepository;
+import com.cupit.model.SteraTerminal;
+import com.cupit.repository.SteraTerminalRepository;
 
 /**
- * {@link MerchantNumberDataCsvWriter} のテスト。UTF-8 BOM付き出力、RFC4180準拠のクォート処理、
- * null値の空文字化、および {@link MerchantNumberDataFileImporter} による再取り込みとの
+ * {@link SteraTerminalCsvWriter} のテスト。UTF-8 BOM付き出力、RFC4180準拠のクォート処理、
+ * null値の空文字化、および {@link SteraTerminalFileImporter} による再取り込みとの
  * 往復整合性（ダウンロードしたファイルをそのまま再アップロードできること）を検証する。
  */
 @ExtendWith(MockitoExtension.class)
-class MerchantNumberDataCsvWriterTest {
+class SteraTerminalCsvWriterTest {
 
     private static final byte[] UTF8_BOM = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
 
-    private final MerchantNumberDataCsvWriter writer = new MerchantNumberDataCsvWriter();
+    private final SteraTerminalCsvWriter writer = new SteraTerminalCsvWriter();
 
     @Mock
-    private MerchantNumberDataRepository merchantNumberDataRepository;
+    private SteraTerminalRepository steraTerminalRepository;
 
-    private MerchantNumberDataFileImporter importer;
+    private SteraTerminalFileImporter importer;
 
     @BeforeEach
     void setUp() {
-        importer = new MerchantNumberDataFileImporter(merchantNumberDataRepository);
+        importer = new SteraTerminalFileImporter(steraTerminalRepository);
     }
 
     @Test
@@ -60,28 +60,40 @@ class MerchantNumberDataCsvWriterTest {
         String headerLine = firstLine(csv);
 
         List<String> columns = parseCsvLine(headerLine);
-        assertThat(columns).hasSize(26);
+        assertThat(columns).hasSize(7);
         assertThat(columns.get(0)).isEqualTo("取引コード");
-        assertThat(columns.get(26 - 1)).isEqualTo("SmartCode 接続有無");
+        assertThat(columns.get(6)).isEqualTo("端末利用終了日");
     }
 
     @Test
     void writesNullFieldsAsEmpty() throws Exception {
-        MerchantNumberData data = new MerchantNumberData();
+        SteraTerminal data = new SteraTerminal();
         data.setTradeCode("01-001");
 
         byte[] csv = writer.writeCsv(List.of(data));
         List<String> row = secondLine(csv);
 
         assertThat(row.get(0)).isEqualTo("01-001");
-        assertThat(row.get(1)).isEmpty();
+        assertThat(row.get(2)).isEmpty();
+    }
+
+    @Test
+    void formatsDateAsSlashSeparated() throws Exception {
+        SteraTerminal data = new SteraTerminal();
+        data.setTradeCode("01-001");
+        data.setTerminalStartDate(java.time.LocalDate.of(2020, 1, 1));
+
+        byte[] csv = writer.writeCsv(List.of(data));
+        List<String> row = secondLine(csv);
+
+        assertThat(row.get(5)).isEqualTo("2020/01/01");
     }
 
     @Test
     void quotesFieldsContainingCommaOrQuote() throws Exception {
-        MerchantNumberData data = new MerchantNumberData();
+        SteraTerminal data = new SteraTerminal();
         data.setTradeCode("01-001");
-        data.setLineType("備考、カンマと\"引用符\"を含む");
+        data.setJcbMerchantNo("備考、カンマと\"引用符\"を含む");
 
         byte[] csv = writer.writeCsv(List.of(data));
         List<String> row = secondLine(csv);
@@ -91,24 +103,27 @@ class MerchantNumberDataCsvWriterTest {
 
     @Test
     void roundTripsThroughFileImporter() throws Exception {
-        MerchantNumberData original = new MerchantNumberData();
+        SteraTerminal original = new SteraTerminal();
         original.setTradeCode("01-001");
-        original.setLineType("往復確認、カンマあり");
+        original.setTerminalId("TERM0000001");
+        original.setBranchCode("01-001000");
+        original.setTerminalStatus("利用中");
+        original.setTerminalStartDate(java.time.LocalDate.of(2020, 1, 1));
 
         byte[] csv = writer.writeCsv(List.of(original));
         MockMultipartFile uploadFile =
-                new MockMultipartFile("file", "merchant_number_data.csv", "text/csv", csv);
+                new MockMultipartFile("file", "stera_terminal.csv", "text/csv", csv);
 
         ImportResult result = importer.importFile(uploadFile, batch("user001"));
 
         assertThat(result.hasErrors()).isFalse();
         assertThat(result.getSuccessCount()).isEqualTo(1);
 
-        ArgumentCaptor<List<MerchantNumberData>> captor = ArgumentCaptor.forClass(List.class);
-        verify(merchantNumberDataRepository).saveAll(captor.capture());
-        MerchantNumberData reimported = captor.getValue().get(0);
+        ArgumentCaptor<List<SteraTerminal>> captor = ArgumentCaptor.forClass(List.class);
+        verify(steraTerminalRepository).saveAll(captor.capture());
+        SteraTerminal reimported = captor.getValue().get(0);
         assertThat(reimported.getTradeCode()).isEqualTo("01-001");
-        assertThat(reimported.getLineType()).isEqualTo("往復確認、カンマあり");
+        assertThat(reimported.getTerminalId()).isEqualTo("TERM0000001");
     }
 
     private ImportBatch batch(String employee) {

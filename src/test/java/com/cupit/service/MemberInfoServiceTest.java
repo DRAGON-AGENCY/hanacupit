@@ -48,16 +48,21 @@ class MemberInfoServiceTest {
     }
 
     @Test
-    void findByTradeCodeUsesDefaultCodeWhenBlank() {
-        MemberInfo expected = new MemberInfo();
-        expected.setTradeCode(DEFAULT_TRADE_CODE);
-        when(memberInfoRepository.findById(DEFAULT_TRADE_CODE))
-                .thenReturn(Optional.of(expected));
+    void findByTradeCodeThrowsExceptionWhenBlank() {
+        when(memberInfoRepository.findById(""))
+                .thenReturn(Optional.empty());
 
-        MemberInfo actual = memberInfoService.findByTradeCode("");
+        assertThatThrownBy(() -> memberInfoService.findByTradeCode(""))
+                .isInstanceOf(MemberInfoNotFoundException.class);
+    }
 
-        assertThat(actual.getTradeCode())
-                .isEqualTo(DEFAULT_TRADE_CODE);
+    @Test
+    void findByTradeCodeThrowsExceptionWhenNull() {
+        when(memberInfoRepository.findById(""))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> memberInfoService.findByTradeCode(null))
+                .isInstanceOf(MemberInfoNotFoundException.class);
     }
 
     @Test

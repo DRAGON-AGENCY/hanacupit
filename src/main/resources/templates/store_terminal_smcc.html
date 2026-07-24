@@ -390,9 +390,6 @@
     <!-- タイトル -->
     <h1 class="page-title">店舗・端末・SMCC加盟店番号情報照会</h1>
 
-    <!-- store_terminal_smcc.html は現時点でStera店舗情報タブ（m_stera_store）のみ実データに
-         対応済み。Stera端末情報（m_stera_terminal）・SMCC加盟店番号情報（m_smcc_merchant_no）
-         タブは今回のスコープ外のため、引き続き静的モックアップのまま。 -->
     <div class="no-data-message" th:if="${store == null}">
       取引コード「<span th:text="${param.tradeCode != null ? param.tradeCode[0] : ''}"></span>」に該当するStera店舗情報が見つかりません。
     </div>
@@ -464,33 +461,56 @@
       </div>
     </div>
 
-    <!-- Stera端末情報（m_stera_terminal、今回のスコープ外のため引き続き静的モックアップ） -->
+    <!-- Stera端末情報（m_stera_terminal）。1取引コードに複数端末が存在しうるため
+         端末ごとにブロックを繰り返す（取引コード単位の洗い替え登録のため、record_no昇順
+         で表示すれば登録順になる）。 -->
     <div class="tab-panel" data-panel="stera-terminal" role="tabpanel" th:if="${store != null}">
-      <div class="section-subtitle">Stera端末情報</div>
-      <div class="data-table-wrapper">
-        <table class="data-table">
-          <tr><th>レコード番号</th><td>3</td></tr>
-          <tr><th>端末識別番号</th><td>7113462034996</td></tr>
-          <tr><th>JCB 加盟店番号</th><td>21815005100026</td></tr>
-          <tr><th>hana cupid管理番号</th><td>40-879</td></tr>
-          <tr><th>届出支店コード</th><td>40-879000</td></tr>
-          <tr><th>端末利用ステータス</th><td class="jp">利用中</td></tr>
-          <tr><th>端末利用開始日</th><td>2022/09/01</td></tr>
-          <tr><th>端末利用終了日</th><td>—</td></tr>
-        </table>
+      <div th:each="terminal, terminalStat : ${terminals}">
+        <div class="section-subtitle"
+            th:text="${terminals.size() > 1}
+                ? 'Stera端末情報（' + (${terminalStat.index} + 1) + ' / ' + ${terminals.size()} + '）'
+                : 'Stera端末情報'"></div>
+        <div class="data-table-wrapper">
+          <table class="data-table">
+            <tr><th>レコード番号</th><td th:text="${terminal.recordNo}"></td></tr>
+            <tr><th>端末識別番号</th><td th:text="${terminal.terminalId}"></td></tr>
+            <tr><th>JCB 加盟店番号</th><td th:text="${terminal.jcbMerchantNo ?: '—'}"></td></tr>
+            <tr><th>hana cupid管理番号</th><td th:text="${terminal.tradeCode}"></td></tr>
+            <tr><th>届出支店コード</th><td th:text="${terminal.branchCode}"></td></tr>
+            <tr><th>端末利用ステータス</th><td class="jp" th:text="${terminal.terminalStatus}"></td></tr>
+            <tr><th>端末利用開始日</th>
+              <td th:text="${terminal.terminalStartDate != null ? #temporals.format(terminal.terminalStartDate, 'yyyy/MM/dd') : '—'}"></td>
+            </tr>
+            <tr><th>端末利用終了日</th>
+              <td th:text="${terminal.terminalEndDate != null ? #temporals.format(terminal.terminalEndDate, 'yyyy/MM/dd') : '—'}"></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div class="no-data-message" th:if="${#lists.isEmpty(terminals)}">
+        取引コード「<span th:text="${store.tradeCode}"></span>」に該当するStera端末情報が見つかりません。
       </div>
     </div>
 
-    <!-- SMCC加盟店番号情報（m_smcc_merchant_no、今回のスコープ外のため引き続き静的モックアップ） -->
+    <!-- SMCC加盟店番号情報（m_smcc_merchant_no）。1取引コードに複数加盟店番号が存在しうるため
+         端末情報タブと同様にブロックを繰り返す。 -->
     <div class="tab-panel" data-panel="smcc" role="tabpanel" th:if="${store != null}">
-      <div class="section-subtitle">SMCC加盟店番号情報</div>
-      <div class="data-table-wrapper">
-        <table class="data-table">
-          <tr><th>レコード番号</th><td>3</td></tr>
-          <tr><th>加盟店番号</th><td>68473628</td></tr>
-          <tr><th>種別</th><td class="jp">01:VISA/Master加盟店番号</td></tr>
-          <tr><th>届出支店コード</th><td>40-879000</td></tr>
-        </table>
+      <div th:each="merchant, merchantStat : ${merchantNumbers}">
+        <div class="section-subtitle"
+            th:text="${merchantNumbers.size() > 1}
+                ? 'SMCC加盟店番号情報（' + (${merchantStat.index} + 1) + ' / ' + ${merchantNumbers.size()} + '）'
+                : 'SMCC加盟店番号情報'"></div>
+        <div class="data-table-wrapper">
+          <table class="data-table">
+            <tr><th>レコード番号</th><td th:text="${merchant.recordNo}"></td></tr>
+            <tr><th>加盟店番号</th><td th:text="${merchant.merchantNo}"></td></tr>
+            <tr><th>種別</th><td class="jp" th:text="${merchant.type}"></td></tr>
+            <tr><th>届出支店コード</th><td th:text="${merchant.branchCode}"></td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="no-data-message" th:if="${#lists.isEmpty(merchantNumbers)}">
+        取引コード「<span th:text="${store.tradeCode}"></span>」に該当するSMCC加盟店番号情報が見つかりません。
       </div>
     </div>
   </div>

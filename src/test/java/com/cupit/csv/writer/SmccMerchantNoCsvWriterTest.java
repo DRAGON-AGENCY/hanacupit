@@ -18,31 +18,31 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.cupit.csv.importer.ImportResult;
-import com.cupit.csv.importer.TerminalDataFileImporter;
+import com.cupit.csv.importer.SmccMerchantNoFileImporter;
 import com.cupit.model.ImportBatch;
-import com.cupit.model.TerminalData;
-import com.cupit.repository.TerminalDataRepository;
+import com.cupit.model.SmccMerchantNo;
+import com.cupit.repository.SmccMerchantNoRepository;
 
 /**
- * {@link TerminalDataCsvWriter} のテスト。UTF-8 BOM付き出力、RFC4180準拠のクォート処理、
- * null値の空文字化、および {@link TerminalDataFileImporter} による再取り込みとの
+ * {@link SmccMerchantNoCsvWriter} のテスト。UTF-8 BOM付き出力、RFC4180準拠のクォート処理、
+ * null値の空文字化、および {@link SmccMerchantNoFileImporter} による再取り込みとの
  * 往復整合性（ダウンロードしたファイルをそのまま再アップロードできること）を検証する。
  */
 @ExtendWith(MockitoExtension.class)
-class TerminalDataCsvWriterTest {
+class SmccMerchantNoCsvWriterTest {
 
     private static final byte[] UTF8_BOM = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
 
-    private final TerminalDataCsvWriter writer = new TerminalDataCsvWriter();
+    private final SmccMerchantNoCsvWriter writer = new SmccMerchantNoCsvWriter();
 
     @Mock
-    private TerminalDataRepository terminalDataRepository;
+    private SmccMerchantNoRepository smccMerchantNoRepository;
 
-    private TerminalDataFileImporter importer;
+    private SmccMerchantNoFileImporter importer;
 
     @BeforeEach
     void setUp() {
-        importer = new TerminalDataFileImporter(terminalDataRepository);
+        importer = new SmccMerchantNoFileImporter(smccMerchantNoRepository);
     }
 
     @Test
@@ -60,14 +60,14 @@ class TerminalDataCsvWriterTest {
         String headerLine = firstLine(csv);
 
         List<String> columns = parseCsvLine(headerLine);
-        assertThat(columns).hasSize(95);
+        assertThat(columns).hasSize(4);
         assertThat(columns.get(0)).isEqualTo("取引コード");
-        assertThat(columns.get(95 - 1)).isEqualTo("MKP 導入フラグ");
+        assertThat(columns.get(3)).isEqualTo("届出支店コード");
     }
 
     @Test
     void writesNullFieldsAsEmpty() throws Exception {
-        TerminalData data = new TerminalData();
+        SmccMerchantNo data = new SmccMerchantNo();
         data.setTradeCode("01-001");
 
         byte[] csv = writer.writeCsv(List.of(data));
@@ -78,49 +78,39 @@ class TerminalDataCsvWriterTest {
     }
 
     @Test
-    void formatsDateAsSlashSeparated() throws Exception {
-        TerminalData data = new TerminalData();
-        data.setTradeCode("01-001");
-        data.setApplicationOrCancellationDate(java.time.LocalDate.of(2020, 1, 1));
-
-        byte[] csv = writer.writeCsv(List.of(data));
-        List<String> row = secondLine(csv);
-
-        assertThat(row.get(3)).isEqualTo("2020/01/01");
-    }
-
-    @Test
     void quotesFieldsContainingCommaOrQuote() throws Exception {
-        TerminalData data = new TerminalData();
+        SmccMerchantNo data = new SmccMerchantNo();
         data.setTradeCode("01-001");
-        data.setApplicationCategory("備考、カンマと\"引用符\"を含む");
+        data.setType("備考、カンマと\"引用符\"を含む");
 
         byte[] csv = writer.writeCsv(List.of(data));
         List<String> row = secondLine(csv);
 
-        assertThat(row.get(1)).isEqualTo("備考、カンマと\"引用符\"を含む");
+        assertThat(row.get(2)).isEqualTo("備考、カンマと\"引用符\"を含む");
     }
 
     @Test
     void roundTripsThroughFileImporter() throws Exception {
-        TerminalData original = new TerminalData();
+        SmccMerchantNo original = new SmccMerchantNo();
         original.setTradeCode("01-001");
-        original.setApplicationCategory("往復確認、カンマあり");
+        original.setMerchantNo("12345678");
+        original.setType("クレジット");
+        original.setBranchCode("01-001000");
 
         byte[] csv = writer.writeCsv(List.of(original));
         MockMultipartFile uploadFile =
-                new MockMultipartFile("file", "terminal_data.csv", "text/csv", csv);
+                new MockMultipartFile("file", "smcc_merchant_no.csv", "text/csv", csv);
 
         ImportResult result = importer.importFile(uploadFile, batch("user001"));
 
         assertThat(result.hasErrors()).isFalse();
         assertThat(result.getSuccessCount()).isEqualTo(1);
 
-        ArgumentCaptor<List<TerminalData>> captor = ArgumentCaptor.forClass(List.class);
-        verify(terminalDataRepository).saveAll(captor.capture());
-        TerminalData reimported = captor.getValue().get(0);
+        ArgumentCaptor<List<SmccMerchantNo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(smccMerchantNoRepository).saveAll(captor.capture());
+        SmccMerchantNo reimported = captor.getValue().get(0);
         assertThat(reimported.getTradeCode()).isEqualTo("01-001");
-        assertThat(reimported.getApplicationCategory()).isEqualTo("往復確認、カンマあり");
+        assertThat(reimported.getMerchantNo()).isEqualTo("12345678");
     }
 
     private ImportBatch batch(String employee) {
