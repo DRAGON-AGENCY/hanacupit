@@ -6,17 +6,20 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import com.cupit.dto.PaygateStationRow;
 import com.cupit.model.ImportBatch;
+import com.cupit.model.JftdTransferDetail;
 import com.cupit.model.NetstarSalesSummary;
 import com.cupit.model.SettlementItemCode;
 import com.cupit.repository.ImportBatchRepository;
 import com.cupit.repository.JcbSalesDetailRepository;
 import com.cupit.repository.JcbSalesDetailRepository.JcbBrandAggregate;
+import com.cupit.repository.JftdTransferDetailRepository;
 import com.cupit.repository.NetstarSalesSummaryRepository;
 import com.cupit.repository.PaygateMappingRepository;
 import com.cupit.repository.RakutenPayTransactionRepository;
@@ -70,6 +73,7 @@ public class PaygateStationInquiryService {
     private final VisaMasterTransactionRepository visaMasterTransactionRepository;
     private final SettlementItemCodeRepository settlementItemCodeRepository;
     private final PaygateMappingRepository paygateMappingRepository;
+    private final JftdTransferDetailRepository jftdTransferDetailRepository;
 
     public PaygateStationInquiryService(
             ImportBatchRepository importBatchRepository,
@@ -80,7 +84,8 @@ public class PaygateStationInquiryService {
             RakutenPayTransactionRepository rakutenPayTransactionRepository,
             VisaMasterTransactionRepository visaMasterTransactionRepository,
             SettlementItemCodeRepository settlementItemCodeRepository,
-            PaygateMappingRepository paygateMappingRepository) {
+            PaygateMappingRepository paygateMappingRepository,
+            JftdTransferDetailRepository jftdTransferDetailRepository) {
         this.importBatchRepository = importBatchRepository;
         this.jftdTransferCalculationService = jftdTransferCalculationService;
         this.jcbSalesDetailRepository = jcbSalesDetailRepository;
@@ -90,6 +95,7 @@ public class PaygateStationInquiryService {
         this.visaMasterTransactionRepository = visaMasterTransactionRepository;
         this.settlementItemCodeRepository = settlementItemCodeRepository;
         this.paygateMappingRepository = paygateMappingRepository;
+        this.jftdTransferDetailRepository = jftdTransferDetailRepository;
     }
 
     public List<PaygateStationRow> findAll() {
@@ -147,28 +153,71 @@ public class PaygateStationInquiryService {
      * 既存バッチは{@code cutoff_date}がnullのままであり、これも1グループとして
      * 扱う必要がある）。
      */
-    private Map<LocalDate, List<Integer>> groupBatchIdsByCutoffDate(List<ImportBatch> batches) {
-        Map<LocalDate, List<Integer>> result = new LinkedHashMap<>();
+    private Map<LocalDate, List<ImportBatch>> groupBatchesByCutoffDate(List<ImportBatch> batches) {
+        Map<LocalDate, List<ImportBatch>> result = new LinkedHashMap<>();
         for (ImportBatch batch : batches) {
-            result.computeIfAbsent(batch.getCutoffDate(), k -> new ArrayList<>()).add(batch.getBatchId());
+            result.computeIfAbsent(batch.getCutoffDate(), k -> new ArrayList<>()).add(batch);
         }
         return result;
+    }
+
+    private List<Integer> batchIdsOf(List<ImportBatch> batchGroup) {
+        return batchGroup.stream().map(ImportBatch::getBatchId).collect(Collectors.toList());
+    }
+
+    /**
+     * 確定済み（{@code transferBatchId}が設定済み）のバッチは、統合振込確定時点の
+     * スナップショット（{@code m_jftd_transfer_detail}）をそのまま使う。確定後に
+     * 手数料率マスタ（{@code m_settlement_fee_rate}）が変更されても、確定済み取引の
+     * 決済手数料①・支払金額①が変動しないようにするため（帳票側の確定金額と一致させる）。
+     * 未確定のバッチのみ、従来通りその場でライブ再計算する。
+     */
+    private List<TransferLineItem> resolveLineItems(
+            List<ImportBatch> batchGroup, Function<List<Integer>, List<TransferLineItem>> liveCalculator) {
+        List<Integer> confirmedBatchIds = batchGroup.stream()
+                .filter(b -> b.getTransferBatchId() != null)
+                .map(ImportBatch::getBatchId)
+                .collect(Collectors.toList());
+        List<Integer> unconfirmedBatchIds = batchGroup.stream()
+                .filter(b -> b.getTransferBatchId() == null)
+                .map(ImportBatch::getBatchId)
+                .collect(Collectors.toList());
+
+        List<TransferLineItem> lineItems = new ArrayList<>();
+        if (!confirmedBatchIds.isEmpty()) {
+            lineItems.addAll(jftdTransferDetailRepository.findByImportBatchIdIn(confirmedBatchIds).stream()
+                    .map(this::toTransferLineItem)
+                    .collect(Collectors.toList()));
+        }
+        if (!unconfirmedBatchIds.isEmpty()) {
+            lineItems.addAll(liveCalculator.apply(unconfirmedBatchIds));
+        }
+        return lineItems;
+    }
+
+    private TransferLineItem toTransferLineItem(JftdTransferDetail detail) {
+        return new TransferLineItem(
+                detail.getTradeCode(), detail.getItemCode(), detail.getQuantity(), detail.getAmount(),
+                detail.getGrossAmount(), detail.getAcquirerFeeTaxFree(), detail.getAcquirerFeeBase(),
+                detail.getAcquirerFeeTax(), detail.getImportBatchId());
     }
 
     private List<PaygateStationRow> collectJcbRows(
             List<ImportBatch> batches, Map<String, String> storeNameByTradeCode,
             Map<String, String> cardBrandByItemCode) {
         List<PaygateStationRow> rows = new ArrayList<>();
-        for (Map.Entry<LocalDate, List<Integer>> group : groupBatchIdsByCutoffDate(batches).entrySet()) {
+        for (Map.Entry<LocalDate, List<ImportBatch>> group : groupBatchesByCutoffDate(batches).entrySet()) {
             LocalDate cutoffDate = group.getKey();
-            List<Integer> batchIds = group.getValue();
+            List<ImportBatch> batchGroup = group.getValue();
+            List<Integer> batchIds = batchIdsOf(batchGroup);
 
             Map<String, Long> countByKey = jcbSalesDetailRepository.sumByTradeCodeAndCardName(batchIds).stream()
                     .collect(Collectors.groupingBy(
                             a -> a.getTradeCode() + " " + a.getCardName(),
                             Collectors.summingLong(JcbBrandAggregate::getTotalSalesCount)));
 
-            List<TransferLineItem> feeItems = jftdTransferCalculationService.calculateJcbLineItems(batchIds);
+            List<TransferLineItem> feeItems = resolveLineItems(
+                    batchGroup, jftdTransferCalculationService::calculateJcbLineItems);
             rows.addAll(buildRows(
                     feeItems, COMPANY_JCB, cutoffDate, storeNameByTradeCode, cardBrandByItemCode, countByKey));
         }
@@ -179,9 +228,10 @@ public class PaygateStationInquiryService {
             List<ImportBatch> batches, Map<String, String> storeNameByTradeCode,
             Map<String, String> cardBrandByItemCode) {
         List<PaygateStationRow> rows = new ArrayList<>();
-        for (Map.Entry<LocalDate, List<Integer>> group : groupBatchIdsByCutoffDate(batches).entrySet()) {
+        for (Map.Entry<LocalDate, List<ImportBatch>> group : groupBatchesByCutoffDate(batches).entrySet()) {
             LocalDate cutoffDate = group.getKey();
-            List<Integer> batchIds = group.getValue();
+            List<ImportBatch> batchGroup = group.getValue();
+            List<Integer> batchIds = batchIdsOf(batchGroup);
 
             Map<String, Long> countByKey = new LinkedHashMap<>();
             for (NetstarSalesSummary row : netstarSalesSummaryRepository.findByBatchIdIn(batchIds)) {
@@ -191,7 +241,8 @@ public class PaygateStationInquiryService {
                 addNetstarBrandCount(countByKey, row, NETSTAR_BRAND_WECHAT, row.getWechatSalesCount());
             }
 
-            List<TransferLineItem> feeItems = jftdTransferCalculationService.calculateNetstarLineItems(batchIds);
+            List<TransferLineItem> feeItems = resolveLineItems(
+                    batchGroup, jftdTransferCalculationService::calculateNetstarLineItems);
             rows.addAll(buildRows(
                     feeItems, COMPANY_NETSTARS, cutoffDate, storeNameByTradeCode, cardBrandByItemCode, countByKey));
         }
@@ -210,9 +261,10 @@ public class PaygateStationInquiryService {
     private List<PaygateStationRow> collectSumarejoRows(
             List<ImportBatch> batches, Map<String, String> storeNameByTradeCode) {
         List<PaygateStationRow> rows = new ArrayList<>();
-        for (Map.Entry<LocalDate, List<Integer>> group : groupBatchIdsByCutoffDate(batches).entrySet()) {
+        for (Map.Entry<LocalDate, List<ImportBatch>> group : groupBatchesByCutoffDate(batches).entrySet()) {
             LocalDate cutoffDate = group.getKey();
-            List<Integer> batchIds = group.getValue();
+            List<ImportBatch> batchGroup = group.getValue();
+            List<Integer> batchIds = batchIdsOf(batchGroup);
 
             Map<String, Long> countByTradeCode = terminalMonthlyFeeRepository
                     .sumByTradeCodeAndUnitPrice(batchIds).stream()
@@ -220,7 +272,8 @@ public class PaygateStationInquiryService {
                             TerminalFeeAggregate::getTradeCode,
                             Collectors.summingLong(TerminalFeeAggregate::getTerminalCount)));
 
-            List<TransferLineItem> feeItems = jftdTransferCalculationService.calculateSumarejoLineItems(batchIds);
+            List<TransferLineItem> feeItems = resolveLineItems(
+                    batchGroup, jftdTransferCalculationService::calculateSumarejoLineItems);
             rows.addAll(buildRowsWithoutBrand(
                     feeItems, COMPANY_SUMAREJO, cutoffDate, storeNameByTradeCode, countByTradeCode));
         }
@@ -230,16 +283,18 @@ public class PaygateStationInquiryService {
     private List<PaygateStationRow> collectRakutenPayRows(
             List<ImportBatch> batches, Map<String, String> storeNameByTradeCode) {
         List<PaygateStationRow> rows = new ArrayList<>();
-        for (Map.Entry<LocalDate, List<Integer>> group : groupBatchIdsByCutoffDate(batches).entrySet()) {
+        for (Map.Entry<LocalDate, List<ImportBatch>> group : groupBatchesByCutoffDate(batches).entrySet()) {
             LocalDate cutoffDate = group.getKey();
-            List<Integer> batchIds = group.getValue();
+            List<ImportBatch> batchGroup = group.getValue();
+            List<Integer> batchIds = batchIdsOf(batchGroup);
 
             Map<String, Long> countByTradeCode = rakutenPayTransactionRepository.sumByTradeCode(batchIds).stream()
                     .collect(Collectors.groupingBy(
                             RakutenPayAggregate::getTradeCode,
                             Collectors.summingLong(RakutenPayAggregate::getTransactionCount)));
 
-            List<TransferLineItem> feeItems = jftdTransferCalculationService.calculateRakutenPayLineItems(batchIds);
+            List<TransferLineItem> feeItems = resolveLineItems(
+                    batchGroup, jftdTransferCalculationService::calculateRakutenPayLineItems);
             rows.addAll(buildRowsWithoutBrand(
                     feeItems, COMPANY_RAKUTENPAY, cutoffDate, storeNameByTradeCode, countByTradeCode));
         }
@@ -249,16 +304,18 @@ public class PaygateStationInquiryService {
     private List<PaygateStationRow> collectVisaMasterRows(
             List<ImportBatch> batches, Map<String, String> storeNameByTradeCode) {
         List<PaygateStationRow> rows = new ArrayList<>();
-        for (Map.Entry<LocalDate, List<Integer>> group : groupBatchIdsByCutoffDate(batches).entrySet()) {
+        for (Map.Entry<LocalDate, List<ImportBatch>> group : groupBatchesByCutoffDate(batches).entrySet()) {
             LocalDate cutoffDate = group.getKey();
-            List<Integer> batchIds = group.getValue();
+            List<ImportBatch> batchGroup = group.getValue();
+            List<Integer> batchIds = batchIdsOf(batchGroup);
 
             Map<String, Long> countByTradeCode = visaMasterTransactionRepository.sumByTradeCode(batchIds).stream()
                     .collect(Collectors.groupingBy(
                             VisaMasterAggregate::getTradeCode,
                             Collectors.summingLong(VisaMasterAggregate::getTransactionCount)));
 
-            List<TransferLineItem> feeItems = jftdTransferCalculationService.calculateVisaMasterLineItems(batchIds);
+            List<TransferLineItem> feeItems = resolveLineItems(
+                    batchGroup, jftdTransferCalculationService::calculateVisaMasterLineItems);
             rows.addAll(buildRowsWithoutBrand(
                     feeItems, COMPANY_VISA_MASTER, cutoffDate, storeNameByTradeCode, countByTradeCode));
         }

@@ -1,7 +1,10 @@
 package com.cupit.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
@@ -15,12 +18,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.cupit.dto.PaygateStationRow;
 import com.cupit.model.ImportBatch;
+import com.cupit.model.JftdTransferDetail;
 import com.cupit.model.NetstarSalesSummary;
 import com.cupit.model.PaygateStoreMapping;
 import com.cupit.model.SettlementItemCode;
 import com.cupit.repository.ImportBatchRepository;
 import com.cupit.repository.JcbSalesDetailRepository;
 import com.cupit.repository.JcbSalesDetailRepository.JcbBrandAggregate;
+import com.cupit.repository.JftdTransferDetailRepository;
 import com.cupit.repository.NetstarSalesSummaryRepository;
 import com.cupit.repository.PaygateMappingRepository;
 import com.cupit.repository.RakutenPayTransactionRepository;
@@ -71,6 +76,9 @@ class PaygateStationInquiryServiceTest {
     @Mock
     private PaygateMappingRepository paygateMappingRepository;
 
+    @Mock
+    private JftdTransferDetailRepository jftdTransferDetailRepository;
+
     private PaygateStationInquiryService service;
 
     @BeforeEach
@@ -84,7 +92,8 @@ class PaygateStationInquiryServiceTest {
                 rakutenPayTransactionRepository,
                 visaMasterTransactionRepository,
                 settlementItemCodeRepository,
-                paygateMappingRepository);
+                paygateMappingRepository,
+                jftdTransferDetailRepository);
 
         lenient().when(paygateMappingRepository.findAllByOrderByTradeCodeAscTerminalIdAsc()).thenReturn(List.of());
         lenient().when(settlementItemCodeRepository.findAll()).thenReturn(List.of());
@@ -105,6 +114,30 @@ class PaygateStationInquiryServiceTest {
         b.setPaymentType(paymentType);
         b.setCutoffDate(cutoffDate);
         return b;
+    }
+
+    private ImportBatch confirmedBatch(
+            int batchId, String paymentType, LocalDate cutoffDate, int transferBatchId) {
+        ImportBatch b = batch(batchId, paymentType, cutoffDate);
+        b.setTransferBatchId(transferBatchId);
+        return b;
+    }
+
+    private JftdTransferDetail transferDetail(
+            int transferBatchId, int importBatchId, String tradeCode, String itemCode,
+            int amount, int grossAmount, int feeTaxFree, int feeBase, int feeTax) {
+        JftdTransferDetail detail = new JftdTransferDetail();
+        detail.setTransferBatchId(transferBatchId);
+        detail.setImportBatchId(importBatchId);
+        detail.setTradeCode(tradeCode);
+        detail.setItemCode(itemCode);
+        detail.setQuantity(1);
+        detail.setAmount(amount);
+        detail.setGrossAmount(grossAmount);
+        detail.setAcquirerFeeTaxFree(feeTaxFree);
+        detail.setAcquirerFeeBase(feeBase);
+        detail.setAcquirerFeeTax(feeTax);
+        return detail;
     }
 
     private void givenStoreName(String tradeCode, String storeName) {
@@ -308,6 +341,42 @@ class PaygateStationInquiryServiceTest {
         assertThat(rows).hasSize(1);
         assertThat(rows.get(0).getPaymentCompany()).isEqualTo("楽天ペイ");
         assertThat(rows.get(0).getSalesCount()).isEqualTo(11);
+    }
+
+    /**
+     * 統合振込確定後にm_settlement_fee_rateが変更されても、確定済み取引の決済手数料①・
+     * 支払金額①が帳票側と食い違わないよう、確定済みバッチはm_jftd_transfer_detailの
+     * スナップショットを使い、未確定バッチのみJftdTransferCalculationServiceで
+     * ライブ再計算することを検証する。
+     */
+    @Test
+    void findAllUsesSnapshotForConfirmedBatchAndLiveCalculationForUnconfirmedBatch() {
+        ImportBatch confirmed = confirmedBatch(401, "楽天ペイ", CUTOFF_DATE, 999);
+        ImportBatch unconfirmed = batch(402, "楽天ペイ", CUTOFF_DATE);
+        when(importBatchRepository.findAll()).thenReturn(List.of(confirmed, unconfirmed));
+
+        JftdTransferDetail snapshot = transferDetail(
+                999, 401, "01-024", "3300062", 21856, 22550, 0, 631, 63);
+        when(jftdTransferDetailRepository.findByImportBatchIdIn(List.of(401))).thenReturn(List.of(snapshot));
+
+        when(jftdTransferCalculationService.calculateRakutenPayLineItems(List.of(402)))
+                .thenReturn(List.of(lineItem("02-007", "3300062", 500, 500, 0, 0, 0)));
+
+        when(rakutenPayTransactionRepository.sumByTradeCode(List.of(401, 402))).thenReturn(List.of());
+
+        List<PaygateStationRow> rows = service.findAll();
+
+        assertThat(rows).extracting(PaygateStationRow::getTradeCode)
+                .containsExactlyInAnyOrder("01-024", "02-007");
+        PaygateStationRow confirmedRow = rows.stream()
+                .filter(r -> "01-024".equals(r.getTradeCode()))
+                .findFirst().orElseThrow();
+        assertThat(confirmedRow.getSalesAmount()).isEqualTo(22550);
+        assertThat(confirmedRow.getAcquirerFee()).isEqualTo(694);
+        assertThat(confirmedRow.getPayableAmount()).isEqualTo(21856);
+
+        verify(jftdTransferCalculationService, never())
+                .calculateRakutenPayLineItems(argThat(ids -> ids.contains(401)));
     }
 
     @Test
