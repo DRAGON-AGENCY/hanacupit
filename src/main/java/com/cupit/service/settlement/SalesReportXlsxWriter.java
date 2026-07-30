@@ -11,7 +11,9 @@ import java.util.List;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.model.CalculationChain;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCalcChain;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -59,12 +61,36 @@ public class SalesReportXlsxWriter {
             Sheet sheet = workbook.getSheetAt(0);
 
             writeDataRows(sheet, rows);
+            clearCalculationChain(workbook);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException("売上報告書の作成に失敗しました。", e);
+        }
+    }
+
+    /**
+     * データ行の書き込みでテンプレートの数式セルを上書き・削除すると、ブックの
+     * 計算チェーン（xl/calcChain.xml）が実際のセル構成と不整合になり、Excelで
+     * 開いた際に「一部の内容に問題が見つかりました」という修復ダイアログが
+     * 表示されることがある（各決済会社所定申込フォーム作成のSMCC加盟店申込書で
+     * 実際に発生した不具合と同根のため、同じ計算チェーンを持つ本テンプレートにも
+     * 予防的に対策する）。POIは計算チェーンの項目数が0件の場合のみ書き込み時に
+     * このパートを自動的に除去するため、明示的に全項目をクリアして0件にする
+     * （計算チェーンが無くてもExcelは開くたびに再計算するため問題ない。なお
+     * {@code setForceFormulaRecalculation(true)}は再計算を強制するだけで、
+     * 計算チェーンパート自体の不整合は解消しないため、この対策とは別に必要）。
+     */
+    private void clearCalculationChain(XSSFWorkbook workbook) {
+        CalculationChain calcChain = workbook.getCalculationChain();
+        if (calcChain == null) {
+            return;
+        }
+        CTCalcChain ctCalcChain = calcChain.getCTCalcChain();
+        while (ctCalcChain.sizeOfCArray() > 0) {
+            ctCalcChain.removeC(0);
         }
     }
 
