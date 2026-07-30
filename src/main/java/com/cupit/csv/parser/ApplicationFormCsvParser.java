@@ -18,11 +18,12 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.cupit.csv.ApplicationFormColumn;
 import com.cupit.csv.CsvValidationError;
 import com.cupit.model.ApplicationFormInput;
 
 /**
- * 各決済会社所定申込フォーム作成のINPUT CSV（230列）を解析し、
+ * 各決済会社所定申込フォーム作成のINPUT CSV（{@link ApplicationFormColumn}で定義した列数）を解析し、
  * {@link ApplicationFormInput}のリストとして返す。DBへの永続化は行わない
  * （アップロードされたCSVをその場でExcel生成に使う一時的な変換処理のため、
  * バッチ登録を前提とする{@code AbstractFileImporter}は継承せず、
@@ -37,8 +38,8 @@ import com.cupit.model.ApplicationFormInput;
 @Component
 public class ApplicationFormCsvParser {
 
-    private static final int EXPECTED_COLUMN_COUNT = 230;
-    private static final int IDX_TRADE_CODE = 3;
+    private static final int EXPECTED_COLUMN_COUNT = ApplicationFormColumn.values().length;
+    private static final int IDX_TRADE_CODE = ApplicationFormColumn.TRADE_CODE.ordinal();
     private static final DateTimeFormatter FMT_YYYY_SLASH_MM_SLASH_DD =
             DateTimeFormatter.ofPattern("yyyy/MM/dd");
 
@@ -129,300 +130,302 @@ public class ApplicationFormCsvParser {
 
         int errorCountBeforeRow = errors.size();
         ApplicationFormInput record = new ApplicationFormInput();
-        record.setRecordNumber(trim(fields.get(0)));
-        record.setReaderSerialNo(trim(fields.get(1)));
-        record.setTerminalId(trim(fields.get(2)));
-        record.setTradeCode(trim(fields.get(3)));
-        record.setPaygateContinuationStatus(trim(fields.get(4)));
-        record.setMemberType(trim(fields.get(5)));
-        record.setStoreName(trim(fields.get(6)));
-        record.setStoreNameKana(trim(fields.get(7)));
-        record.setStoreNameAlphabet(trim(fields.get(8)));
-        record.setStoreZip(trim(fields.get(9)));
-        record.setStoreAddress(trim(fields.get(10)));
-        record.setStoreAddressKana(trim(fields.get(11)));
-        record.setStoreTel(trim(fields.get(12)));
-        record.setStoreEmail(trim(fields.get(13)));
-        record.setStoreHomepageUrl(trim(fields.get(14)));
-        record.setIndividualOrCorporateType(trim(fields.get(15)));
-        record.setCorpNumber(trim(fields.get(16)));
-        record.setCorpName(trim(fields.get(17)));
-        record.setCorpNameKana(trim(fields.get(18)));
-        record.setCorpNameAlphabet(trim(fields.get(19)));
-        record.setCorpZip(trim(fields.get(20)));
-        record.setCorpAddress(trim(fields.get(21)));
-        record.setCorpAddressKana(trim(fields.get(22)));
-        record.setCorpTel(trim(fields.get(23)));
-        record.setEstablishmentDate(trim(fields.get(24)));
-        record.setRepFullName(trim(fields.get(25)));
-        record.setRepFullNameKana(trim(fields.get(26)));
-        record.setRepZip(trim(fields.get(27)));
-        record.setRepAddress(trim(fields.get(28)));
-        record.setRepAddressKana(trim(fields.get(29)));
-        record.setRepTel(trim(fields.get(30)));
-        record.setRepBirthDate(trim(fields.get(31)));
-        record.setBankName(trim(fields.get(32)));
-        record.setBranchName(trim(fields.get(33)));
-        record.setAccountNumber(trim(fields.get(34)));
-        record.setAccountHolderKana(trim(fields.get(35)));
-        record.setJcbUsageFlag(trim(fields.get(36)));
-        record.setAnnualSales(trim(fields.get(37)));
-        record.setAccountType(trim(fields.get(38)));
-        record.setStatus(trim(fields.get(39)));
-        record.setWorkerName(trim(fields.get(40)));
-        record.setContactFullName(trim(fields.get(41)));
-        record.setContactTel(trim(fields.get(42)));
-        record.setStoreAddressPref(trim(fields.get(43)));
-        record.setContactLastName(trim(fields.get(44)));
-        record.setContactFirstName(trim(fields.get(45)));
-        record.setCorpAddressPref(trim(fields.get(46)));
-        record.setRepLastName(trim(fields.get(47)));
-        record.setRepFirstName(trim(fields.get(48)));
-        record.setRepLastNameKana(trim(fields.get(49)));
-        record.setRepFirstNameKana(trim(fields.get(50)));
-        record.setRepAddressPref(trim(fields.get(51)));
-        record.setDPointUsageFlag(trim(fields.get(52)));
-        record.setRepLastNameAlphabet(trim(fields.get(53)));
-        record.setRepFirstNameAlphabet(trim(fields.get(54)));
-        record.setRepGender(trim(fields.get(55)));
-        record.setDoorToDoorSalesFlag(trim(fields.get(56)));
-        record.setTelemarketingSalesFlag(trim(fields.get(57)));
-        record.setChainSalesFlag(trim(fields.get(58)));
-        record.setBusinessOpportunitySalesFlag(trim(fields.get(59)));
-        record.setContinuousServiceFlag(trim(fields.get(60)));
-        record.setPrepaidTransactionFlag(trim(fields.get(61)));
-        record.setLegalViolationHistoryFlag(trim(fields.get(62)));
-        record.setCardDataRetentionStatus(trim(fields.get(63)));
-        record.setPciDssComplianceStatus(trim(fields.get(64)));
-        record.setNonRetentionPlannedMonth(trim(fields.get(65)));
-        record.setPciDssCompliancePlannedMonth(trim(fields.get(66)));
-        record.setTerminalIcStatus(trim(fields.get(67)));
-        record.setTerminalIcPlannedMonth(trim(fields.get(68)));
-        record.setAcquirerUniqueKey(trim(fields.get(69)));
-        record.setClassification(trim(fields.get(70)));
-        record.setContractSource(trim(fields.get(71)));
-        record.setGiftContractFlag(trim(fields.get(72)));
-        record.setEdyContractFlag(trim(fields.get(73)));
-        record.setApplicantType(trim(fields.get(74)));
-        record.setServiceStartDesiredDate(parseDateSlashChecked(fields.get(75), rowNum, "サービス開始希望日", errors));
-        record.setServiceEndDate(parseDateSlashChecked(fields.get(76), rowNum, "サービス終了日", errors));
-        record.setVmMerchantNumber(trim(fields.get(77)));
-        record.setClosingDate1(trim(fields.get(78)));
-        record.setPaymentDate1(trim(fields.get(79)));
-        record.setClosingDate2(trim(fields.get(80)));
-        record.setPaymentDate2(trim(fields.get(81)));
-        record.setSettlementCycle(trim(fields.get(82)));
-        record.setBankCode(trim(fields.get(83)));
-        record.setBankNameKana(trim(fields.get(84)));
-        record.setBranchCode(trim(fields.get(85)));
-        record.setBranchNameKana(trim(fields.get(86)));
-        record.setContactLastNameKana(trim(fields.get(87)));
-        record.setContactFirstNameKana(trim(fields.get(88)));
-        record.setMerchantType(trim(fields.get(89)));
-        record.setFranchiseFlag(trim(fields.get(90)));
-        record.setPaypayFcAgreementFlag(trim(fields.get(91)));
-        record.setTerminalType(trim(fields.get(92)));
-        record.setIndustryCategoryMajor(trim(fields.get(93)));
-        record.setIndustryCategoryMinor(trim(fields.get(94)));
-        record.setStoreIndustryMajor(trim(fields.get(95)));
-        record.setStoreIndustryMinor(trim(fields.get(96)));
-        record.setRepAddrPrefKana(trim(fields.get(97)));
-        record.setRepAddrCityKana(trim(fields.get(98)));
-        record.setRepAddrTownKana(trim(fields.get(99)));
-        record.setRepAddrBlockKana(trim(fields.get(100)));
-        record.setRepAddrBuildingKana(trim(fields.get(101)));
-        record.setFcStoreType(trim(fields.get(102)));
-        record.setSecondhandDealerLicenseNumber(trim(fields.get(103)));
-        record.setMapListingFlag(trim(fields.get(104)));
+        record.setRecordNumber(trim(fields.get(ApplicationFormColumn.RECORD_NUMBER.ordinal())));
+        record.setReaderSerialNo(trim(fields.get(ApplicationFormColumn.READER_SERIAL_NO.ordinal())));
+        record.setTerminalId(trim(fields.get(ApplicationFormColumn.TERMINAL_ID.ordinal())));
+        record.setTradeCode(trim(fields.get(ApplicationFormColumn.TRADE_CODE.ordinal())));
+        record.setPaygateContinuationStatus(trim(fields.get(ApplicationFormColumn.PAYGATE_CONTINUATION_STATUS.ordinal())));
+        record.setJcbApplicationClassification(trim(fields.get(ApplicationFormColumn.JCB_APPLICATION_CLASSIFICATION.ordinal())));
+        record.setSmccApplicationClassification(trim(fields.get(ApplicationFormColumn.SMCC_APPLICATION_CLASSIFICATION.ordinal())));
+        record.setMemberType(trim(fields.get(ApplicationFormColumn.MEMBER_TYPE.ordinal())));
+        record.setStoreName(trim(fields.get(ApplicationFormColumn.STORE_NAME.ordinal())));
+        record.setStoreNameKana(trim(fields.get(ApplicationFormColumn.STORE_NAME_KANA.ordinal())));
+        record.setStoreNameAlphabet(trim(fields.get(ApplicationFormColumn.STORE_NAME_ALPHABET.ordinal())));
+        record.setStoreZip(trim(fields.get(ApplicationFormColumn.STORE_ZIP.ordinal())));
+        record.setStoreAddress(trim(fields.get(ApplicationFormColumn.STORE_ADDRESS.ordinal())));
+        record.setStoreAddressKana(trim(fields.get(ApplicationFormColumn.STORE_ADDRESS_KANA.ordinal())));
+        record.setStoreTel(trim(fields.get(ApplicationFormColumn.STORE_TEL.ordinal())));
+        record.setStoreEmail(trim(fields.get(ApplicationFormColumn.STORE_EMAIL.ordinal())));
+        record.setStoreHomepageUrl(trim(fields.get(ApplicationFormColumn.STORE_HOMEPAGE_URL.ordinal())));
+        record.setIndividualOrCorporateType(trim(fields.get(ApplicationFormColumn.INDIVIDUAL_OR_CORPORATE_TYPE.ordinal())));
+        record.setCorpNumber(trim(fields.get(ApplicationFormColumn.CORP_NUMBER.ordinal())));
+        record.setCorpName(trim(fields.get(ApplicationFormColumn.CORP_NAME.ordinal())));
+        record.setCorpNameKana(trim(fields.get(ApplicationFormColumn.CORP_NAME_KANA.ordinal())));
+        record.setCorpNameAlphabet(trim(fields.get(ApplicationFormColumn.CORP_NAME_ALPHABET.ordinal())));
+        record.setCorpZip(trim(fields.get(ApplicationFormColumn.CORP_ZIP.ordinal())));
+        record.setCorpAddress(trim(fields.get(ApplicationFormColumn.CORP_ADDRESS.ordinal())));
+        record.setCorpAddressKana(trim(fields.get(ApplicationFormColumn.CORP_ADDRESS_KANA.ordinal())));
+        record.setCorpTel(trim(fields.get(ApplicationFormColumn.CORP_TEL.ordinal())));
+        record.setEstablishmentDate(trim(fields.get(ApplicationFormColumn.ESTABLISHMENT_DATE.ordinal())));
+        record.setRepFullName(trim(fields.get(ApplicationFormColumn.REP_FULL_NAME.ordinal())));
+        record.setRepFullNameKana(trim(fields.get(ApplicationFormColumn.REP_FULL_NAME_KANA.ordinal())));
+        record.setRepZip(trim(fields.get(ApplicationFormColumn.REP_ZIP.ordinal())));
+        record.setRepAddress(trim(fields.get(ApplicationFormColumn.REP_ADDRESS.ordinal())));
+        record.setRepAddressKana(trim(fields.get(ApplicationFormColumn.REP_ADDRESS_KANA.ordinal())));
+        record.setRepTel(trim(fields.get(ApplicationFormColumn.REP_TEL.ordinal())));
+        record.setRepBirthDate(trim(fields.get(ApplicationFormColumn.REP_BIRTH_DATE.ordinal())));
+        record.setBankName(trim(fields.get(ApplicationFormColumn.BANK_NAME.ordinal())));
+        record.setBranchName(trim(fields.get(ApplicationFormColumn.BRANCH_NAME.ordinal())));
+        record.setAccountNumber(trim(fields.get(ApplicationFormColumn.ACCOUNT_NUMBER.ordinal())));
+        record.setAccountHolderKana(trim(fields.get(ApplicationFormColumn.ACCOUNT_HOLDER_KANA.ordinal())));
+        record.setJcbUsageFlag(trim(fields.get(ApplicationFormColumn.JCB_USAGE_FLAG.ordinal())));
+        record.setAnnualSales(trim(fields.get(ApplicationFormColumn.ANNUAL_SALES.ordinal())));
+        record.setAccountType(trim(fields.get(ApplicationFormColumn.ACCOUNT_TYPE.ordinal())));
+        record.setStatus(trim(fields.get(ApplicationFormColumn.STATUS.ordinal())));
+        record.setWorkerName(trim(fields.get(ApplicationFormColumn.WORKER_NAME.ordinal())));
+        record.setContactFullName(trim(fields.get(ApplicationFormColumn.CONTACT_FULL_NAME.ordinal())));
+        record.setContactTel(trim(fields.get(ApplicationFormColumn.CONTACT_TEL.ordinal())));
+        record.setStoreAddressPref(trim(fields.get(ApplicationFormColumn.STORE_ADDRESS_PREF.ordinal())));
+        record.setContactLastName(trim(fields.get(ApplicationFormColumn.CONTACT_LAST_NAME.ordinal())));
+        record.setContactFirstName(trim(fields.get(ApplicationFormColumn.CONTACT_FIRST_NAME.ordinal())));
+        record.setCorpAddressPref(trim(fields.get(ApplicationFormColumn.CORP_ADDRESS_PREF.ordinal())));
+        record.setRepLastName(trim(fields.get(ApplicationFormColumn.REP_LAST_NAME.ordinal())));
+        record.setRepFirstName(trim(fields.get(ApplicationFormColumn.REP_FIRST_NAME.ordinal())));
+        record.setRepLastNameKana(trim(fields.get(ApplicationFormColumn.REP_LAST_NAME_KANA.ordinal())));
+        record.setRepFirstNameKana(trim(fields.get(ApplicationFormColumn.REP_FIRST_NAME_KANA.ordinal())));
+        record.setRepAddressPref(trim(fields.get(ApplicationFormColumn.REP_ADDRESS_PREF.ordinal())));
+        record.setDPointUsageFlag(trim(fields.get(ApplicationFormColumn.D_POINT_USAGE_FLAG.ordinal())));
+        record.setRepLastNameAlphabet(trim(fields.get(ApplicationFormColumn.REP_LAST_NAME_ALPHABET.ordinal())));
+        record.setRepFirstNameAlphabet(trim(fields.get(ApplicationFormColumn.REP_FIRST_NAME_ALPHABET.ordinal())));
+        record.setRepGender(trim(fields.get(ApplicationFormColumn.REP_GENDER.ordinal())));
+        record.setDoorToDoorSalesFlag(trim(fields.get(ApplicationFormColumn.DOOR_TO_DOOR_SALES_FLAG.ordinal())));
+        record.setTelemarketingSalesFlag(trim(fields.get(ApplicationFormColumn.TELEMARKETING_SALES_FLAG.ordinal())));
+        record.setChainSalesFlag(trim(fields.get(ApplicationFormColumn.CHAIN_SALES_FLAG.ordinal())));
+        record.setBusinessOpportunitySalesFlag(trim(fields.get(ApplicationFormColumn.BUSINESS_OPPORTUNITY_SALES_FLAG.ordinal())));
+        record.setContinuousServiceFlag(trim(fields.get(ApplicationFormColumn.CONTINUOUS_SERVICE_FLAG.ordinal())));
+        record.setPrepaidTransactionFlag(trim(fields.get(ApplicationFormColumn.PREPAID_TRANSACTION_FLAG.ordinal())));
+        record.setLegalViolationHistoryFlag(trim(fields.get(ApplicationFormColumn.LEGAL_VIOLATION_HISTORY_FLAG.ordinal())));
+        record.setCardDataRetentionStatus(trim(fields.get(ApplicationFormColumn.CARD_DATA_RETENTION_STATUS.ordinal())));
+        record.setPciDssComplianceStatus(trim(fields.get(ApplicationFormColumn.PCI_DSS_COMPLIANCE_STATUS.ordinal())));
+        record.setNonRetentionPlannedMonth(trim(fields.get(ApplicationFormColumn.NON_RETENTION_PLANNED_MONTH.ordinal())));
+        record.setPciDssCompliancePlannedMonth(trim(fields.get(ApplicationFormColumn.PCI_DSS_COMPLIANCE_PLANNED_MONTH.ordinal())));
+        record.setTerminalIcStatus(trim(fields.get(ApplicationFormColumn.TERMINAL_IC_STATUS.ordinal())));
+        record.setTerminalIcPlannedMonth(trim(fields.get(ApplicationFormColumn.TERMINAL_IC_PLANNED_MONTH.ordinal())));
+        record.setAcquirerUniqueKey(trim(fields.get(ApplicationFormColumn.ACQUIRER_UNIQUE_KEY.ordinal())));
+        record.setClassification(trim(fields.get(ApplicationFormColumn.CLASSIFICATION.ordinal())));
+        record.setContractSource(trim(fields.get(ApplicationFormColumn.CONTRACT_SOURCE.ordinal())));
+        record.setGiftContractFlag(trim(fields.get(ApplicationFormColumn.GIFT_CONTRACT_FLAG.ordinal())));
+        record.setEdyContractFlag(trim(fields.get(ApplicationFormColumn.EDY_CONTRACT_FLAG.ordinal())));
+        record.setApplicantType(trim(fields.get(ApplicationFormColumn.APPLICANT_TYPE.ordinal())));
+        record.setServiceStartDesiredDate(parseDateSlashChecked(fields.get(ApplicationFormColumn.SERVICE_START_DESIRED_DATE.ordinal()), rowNum, "サービス開始希望日", errors));
+        record.setServiceEndDate(parseDateSlashChecked(fields.get(ApplicationFormColumn.SERVICE_END_DATE.ordinal()), rowNum, "サービス終了日", errors));
+        record.setVmMerchantNumber(trim(fields.get(ApplicationFormColumn.VM_MERCHANT_NUMBER.ordinal())));
+        record.setClosingDate1(trim(fields.get(ApplicationFormColumn.CLOSING_DATE1.ordinal())));
+        record.setPaymentDate1(trim(fields.get(ApplicationFormColumn.PAYMENT_DATE1.ordinal())));
+        record.setClosingDate2(trim(fields.get(ApplicationFormColumn.CLOSING_DATE2.ordinal())));
+        record.setPaymentDate2(trim(fields.get(ApplicationFormColumn.PAYMENT_DATE2.ordinal())));
+        record.setSettlementCycle(trim(fields.get(ApplicationFormColumn.SETTLEMENT_CYCLE.ordinal())));
+        record.setBankCode(trim(fields.get(ApplicationFormColumn.BANK_CODE.ordinal())));
+        record.setBankNameKana(trim(fields.get(ApplicationFormColumn.BANK_NAME_KANA.ordinal())));
+        record.setBranchCode(trim(fields.get(ApplicationFormColumn.BRANCH_CODE.ordinal())));
+        record.setBranchNameKana(trim(fields.get(ApplicationFormColumn.BRANCH_NAME_KANA.ordinal())));
+        record.setContactLastNameKana(trim(fields.get(ApplicationFormColumn.CONTACT_LAST_NAME_KANA.ordinal())));
+        record.setContactFirstNameKana(trim(fields.get(ApplicationFormColumn.CONTACT_FIRST_NAME_KANA.ordinal())));
+        record.setMerchantType(trim(fields.get(ApplicationFormColumn.MERCHANT_TYPE.ordinal())));
+        record.setFranchiseFlag(trim(fields.get(ApplicationFormColumn.FRANCHISE_FLAG.ordinal())));
+        record.setPaypayFcAgreementFlag(trim(fields.get(ApplicationFormColumn.PAYPAY_FC_AGREEMENT_FLAG.ordinal())));
+        record.setTerminalType(trim(fields.get(ApplicationFormColumn.TERMINAL_TYPE.ordinal())));
+        record.setIndustryCategoryMajor(trim(fields.get(ApplicationFormColumn.INDUSTRY_CATEGORY_MAJOR.ordinal())));
+        record.setIndustryCategoryMinor(trim(fields.get(ApplicationFormColumn.INDUSTRY_CATEGORY_MINOR.ordinal())));
+        record.setStoreIndustryMajor(trim(fields.get(ApplicationFormColumn.STORE_INDUSTRY_MAJOR.ordinal())));
+        record.setStoreIndustryMinor(trim(fields.get(ApplicationFormColumn.STORE_INDUSTRY_MINOR.ordinal())));
+        record.setRepAddrPrefKana(trim(fields.get(ApplicationFormColumn.REP_ADDR_PREF_KANA.ordinal())));
+        record.setRepAddrCityKana(trim(fields.get(ApplicationFormColumn.REP_ADDR_CITY_KANA.ordinal())));
+        record.setRepAddrTownKana(trim(fields.get(ApplicationFormColumn.REP_ADDR_TOWN_KANA.ordinal())));
+        record.setRepAddrBlockKana(trim(fields.get(ApplicationFormColumn.REP_ADDR_BLOCK_KANA.ordinal())));
+        record.setRepAddrBuildingKana(trim(fields.get(ApplicationFormColumn.REP_ADDR_BUILDING_KANA.ordinal())));
+        record.setFcStoreType(trim(fields.get(ApplicationFormColumn.FC_STORE_TYPE.ordinal())));
+        record.setSecondhandDealerLicenseNumber(trim(fields.get(ApplicationFormColumn.SECONDHAND_DEALER_LICENSE_NUMBER.ordinal())));
+        record.setMapListingFlag(trim(fields.get(ApplicationFormColumn.MAP_LISTING_FLAG.ordinal())));
         record.setMapListingDesiredDateDpayRakuten(
-                parseDateSlashChecked(fields.get(105), rowNum, "d払い・楽天Pay 地図掲載希望日", errors));
+                parseDateSlashChecked(fields.get(ApplicationFormColumn.MAP_LISTING_DESIRED_DATE_DPAY_RAKUTEN.ordinal()), rowNum, "d払い・楽天Pay 地図掲載希望日", errors));
         record.setMapListingDesiredDatePaypayAupay(
-                parseDateSlashChecked(fields.get(106), rowNum, "PayPay・auPay・ゆうちょPay・Alipay 地図掲載希望日", errors));
-        record.setStoreImageListingFlag(trim(fields.get(107)));
-        record.setStoreImageUrl(trim(fields.get(108)));
-        record.setStoreIntroduction(trim(fields.get(109)));
+                parseDateSlashChecked(fields.get(ApplicationFormColumn.MAP_LISTING_DESIRED_DATE_PAYPAY_AUPAY.ordinal()), rowNum, "PayPay・auPay・ゆうちょPay・Alipay 地図掲載希望日", errors));
+        record.setStoreImageListingFlag(trim(fields.get(ApplicationFormColumn.STORE_IMAGE_LISTING_FLAG.ordinal())));
+        record.setStoreImageUrl(trim(fields.get(ApplicationFormColumn.STORE_IMAGE_URL.ordinal())));
+        record.setStoreIntroduction(trim(fields.get(ApplicationFormColumn.STORE_INTRODUCTION.ordinal())));
         record.setFeeRateRakutenPay(
-                parseBigDecimalChecked(fields.get(110), rowNum, "楽天Pay 加盟店手数料率（税込）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_RAKUTEN_PAY.ordinal()), rowNum, "楽天Pay 加盟店手数料率（税込）", errors));
         record.setFeeRateLinePay(
-                parseBigDecimalChecked(fields.get(111), rowNum, "LINE Pay 加盟店手数料率（税込）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_LINE_PAY.ordinal()), rowNum, "LINE Pay 加盟店手数料率（税込）", errors));
         record.setFeeRatePaypay(
-                parseBigDecimalChecked(fields.get(112), rowNum, "PayPay 加盟店手数料率（税込）", errors));
-        record.setFeeRateDBarai(parseBigDecimalChecked(fields.get(113), rowNum, "d払い 加盟店手数料率（税込）", errors));
-        record.setFeeRateAuPay(parseBigDecimalChecked(fields.get(114), rowNum, "auPay 加盟店手数料率（税込）", errors));
-        record.setFeeRateMerpay(parseBigDecimalChecked(fields.get(115), rowNum, "メルペイ 加盟店手数料率（税込）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_PAYPAY.ordinal()), rowNum, "PayPay 加盟店手数料率（税込）", errors));
+        record.setFeeRateDBarai(parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_D_BARAI.ordinal()), rowNum, "d払い 加盟店手数料率（税込）", errors));
+        record.setFeeRateAuPay(parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_AU_PAY.ordinal()), rowNum, "auPay 加盟店手数料率（税込）", errors));
+        record.setFeeRateMerpay(parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_MERPAY.ordinal()), rowNum, "メルペイ 加盟店手数料率（税込）", errors));
         record.setFeeRateYuchoPay(
-                parseBigDecimalChecked(fields.get(116), rowNum, "ゆうちょPay 加盟店手数料率（税込）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_YUCHO_PAY.ordinal()), rowNum, "ゆうちょPay 加盟店手数料率（税込）", errors));
         record.setFeeRateAeonPay(
-                parseBigDecimalChecked(fields.get(117), rowNum, "AEONPay 加盟店手数料率（税込）", errors));
-        record.setAtokaraRate(parseBigDecimalChecked(fields.get(118), rowNum, "アトカラ", errors));
-        record.setFeeRateMdr1(parseBigDecimalChecked(fields.get(119), rowNum, "加盟店手数料率（1回）MDR", errors));
-        record.setFeeRateMdr3(parseBigDecimalChecked(fields.get(120), rowNum, "加盟店手数料率（3回）MDR", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_AEON_PAY.ordinal()), rowNum, "AEONPay 加盟店手数料率（税込）", errors));
+        record.setAtokaraRate(parseBigDecimalChecked(fields.get(ApplicationFormColumn.ATOKARA_RATE.ordinal()), rowNum, "アトカラ", errors));
+        record.setFeeRateMdr1(parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_MDR1.ordinal()), rowNum, "加盟店手数料率（1回）MDR", errors));
+        record.setFeeRateMdr3(parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_MDR3.ordinal()), rowNum, "加盟店手数料率（3回）MDR", errors));
         record.setFeeRateMdr4(
-                parseBigDecimalChecked(fields.get(121), rowNum, "加盟店手数料率（4回）MDR+分割手数料", errors));
-        record.setFeeRateInstallment5(parseBigDecimalChecked(fields.get(122), rowNum, "加盟店手数料率（5回）", errors));
-        record.setFeeRateInstallment6(parseBigDecimalChecked(fields.get(123), rowNum, "加盟店手数料率（6回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_MDR4.ordinal()), rowNum, "加盟店手数料率（4回）MDR+分割手数料", errors));
+        record.setFeeRateInstallment5(parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT5.ordinal()), rowNum, "加盟店手数料率（5回）", errors));
+        record.setFeeRateInstallment6(parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT6.ordinal()), rowNum, "加盟店手数料率（6回）", errors));
         record.setFeeRateInstallment10(
-                parseBigDecimalChecked(fields.get(124), rowNum, "加盟店手数料率（10回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT10.ordinal()), rowNum, "加盟店手数料率（10回）", errors));
         record.setFeeRateInstallment12(
-                parseBigDecimalChecked(fields.get(125), rowNum, "加盟店手数料率（12回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT12.ordinal()), rowNum, "加盟店手数料率（12回）", errors));
         record.setFeeRateInstallment15(
-                parseBigDecimalChecked(fields.get(126), rowNum, "加盟店手数料率（15回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT15.ordinal()), rowNum, "加盟店手数料率（15回）", errors));
         record.setFeeRateInstallment18(
-                parseBigDecimalChecked(fields.get(127), rowNum, "加盟店手数料率（18回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT18.ordinal()), rowNum, "加盟店手数料率（18回）", errors));
         record.setFeeRateInstallment20(
-                parseBigDecimalChecked(fields.get(128), rowNum, "加盟店手数料率（20回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT20.ordinal()), rowNum, "加盟店手数料率（20回）", errors));
         record.setFeeRateInstallment24(
-                parseBigDecimalChecked(fields.get(129), rowNum, "加盟店手数料率（24回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT24.ordinal()), rowNum, "加盟店手数料率（24回）", errors));
         record.setFeeRateInstallment30(
-                parseBigDecimalChecked(fields.get(130), rowNum, "加盟店手数料率（30回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT30.ordinal()), rowNum, "加盟店手数料率（30回）", errors));
         record.setFeeRateInstallment36(
-                parseBigDecimalChecked(fields.get(131), rowNum, "加盟店手数料率（36回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_INSTALLMENT36.ordinal()), rowNum, "加盟店手数料率（36回）", errors));
         record.setFeeRateWesmo(
-                parseBigDecimalChecked(fields.get(132), rowNum, "Wesmo! 加盟店手数料率（非課税）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_WESMO.ordinal()), rowNum, "Wesmo! 加盟店手数料率（非課税）", errors));
         record.setFeeRateBankPay(
-                parseBigDecimalChecked(fields.get(133), rowNum, "BankPay 加盟店手数料率（非課税）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BANK_PAY.ordinal()), rowNum, "BankPay 加盟店手数料率（非課税）", errors));
         record.setFeeRateWechat(
-                parseBigDecimalChecked(fields.get(134), rowNum, "Wechat 加盟店手数料率（非課税）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_WECHAT.ordinal()), rowNum, "Wechat 加盟店手数料率（非課税）", errors));
         record.setFeeRateAlipay(
-                parseBigDecimalChecked(fields.get(135), rowNum, "Alipay 加盟店手数料率（非課税）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_ALIPAY.ordinal()), rowNum, "Alipay 加盟店手数料率（非課税）", errors));
         record.setFeeRateUnionpayQr(
-                parseBigDecimalChecked(fields.get(136), rowNum, "銀聯QR 加盟店手数料率（非課税）", errors));
-        record.setChangeNotes(trim(fields.get(137)));
-        record.setSmccDepartment(trim(fields.get(138)));
-        record.setSmccContactName(trim(fields.get(139)));
-        record.setSmartCodeFlag(trim(fields.get(140)));
-        record.setMkpFlag(trim(fields.get(141)));
-        record.setTerminalCount(parseIntegerChecked(fields.get(142), rowNum, "端末台数", errors));
-        record.setLineType(trim(fields.get(143)));
-        record.setPosConnectionFlag(trim(fields.get(144)));
-        record.setPosMakerName(trim(fields.get(145)));
-        record.setPosVendorContactName(trim(fields.get(146)));
-        record.setPosVendorContactTel(trim(fields.get(147)));
-        record.setSmartCodeConnectionFlag(trim(fields.get(148)));
-        record.setDPointMerchantCode(trim(fields.get(149)));
-        record.setDPointStoreCode(trim(fields.get(150)));
-        record.setDPointBranchCode(trim(fields.get(151)));
-        record.setVisaMasterMerchantNumber(trim(fields.get(152)));
-        record.setNanacoMerchantNumber(trim(fields.get(153)));
-        record.setIdMerchantNumber(trim(fields.get(154)));
-        record.setTransitMerchantNumber(trim(fields.get(155)));
-        record.setUnionpayMerchantNumber(trim(fields.get(156)));
-        record.setWaonMerchantNumber(trim(fields.get(157)));
-        record.setEdyMerchantNumber(trim(fields.get(158)));
-        record.setNfcMerchantNumber(trim(fields.get(159)));
-        record.setTransitOperator(trim(fields.get(160)));
-        record.setEdyId(trim(fields.get(161)));
-        record.setSteraTerminalNumber1(trim(fields.get(162)));
-        record.setSteraTerminalNumber2(trim(fields.get(163)));
-        record.setSteraTerminalNumber3(trim(fields.get(164)));
-        record.setSteraTerminalNumber4(trim(fields.get(165)));
-        record.setSteraTerminalNumber5(trim(fields.get(166)));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_UNIONPAY_QR.ordinal()), rowNum, "銀聯QR 加盟店手数料率（非課税）", errors));
+        record.setChangeNotes(trim(fields.get(ApplicationFormColumn.CHANGE_NOTES.ordinal())));
+        record.setSmccDepartment(trim(fields.get(ApplicationFormColumn.SMCC_DEPARTMENT.ordinal())));
+        record.setSmccContactName(trim(fields.get(ApplicationFormColumn.SMCC_CONTACT_NAME.ordinal())));
+        record.setSmartCodeFlag(trim(fields.get(ApplicationFormColumn.SMART_CODE_FLAG.ordinal())));
+        record.setMkpFlag(trim(fields.get(ApplicationFormColumn.MKP_FLAG.ordinal())));
+        record.setTerminalCount(parseIntegerChecked(fields.get(ApplicationFormColumn.TERMINAL_COUNT.ordinal()), rowNum, "端末台数", errors));
+        record.setLineType(trim(fields.get(ApplicationFormColumn.LINE_TYPE.ordinal())));
+        record.setPosConnectionFlag(trim(fields.get(ApplicationFormColumn.POS_CONNECTION_FLAG.ordinal())));
+        record.setPosMakerName(trim(fields.get(ApplicationFormColumn.POS_MAKER_NAME.ordinal())));
+        record.setPosVendorContactName(trim(fields.get(ApplicationFormColumn.POS_VENDOR_CONTACT_NAME.ordinal())));
+        record.setPosVendorContactTel(trim(fields.get(ApplicationFormColumn.POS_VENDOR_CONTACT_TEL.ordinal())));
+        record.setSmartCodeConnectionFlag(trim(fields.get(ApplicationFormColumn.SMART_CODE_CONNECTION_FLAG.ordinal())));
+        record.setDPointMerchantCode(trim(fields.get(ApplicationFormColumn.D_POINT_MERCHANT_CODE.ordinal())));
+        record.setDPointStoreCode(trim(fields.get(ApplicationFormColumn.D_POINT_STORE_CODE.ordinal())));
+        record.setDPointBranchCode(trim(fields.get(ApplicationFormColumn.D_POINT_BRANCH_CODE.ordinal())));
+        record.setVisaMasterMerchantNumber(trim(fields.get(ApplicationFormColumn.VISA_MASTER_MERCHANT_NUMBER.ordinal())));
+        record.setNanacoMerchantNumber(trim(fields.get(ApplicationFormColumn.NANACO_MERCHANT_NUMBER.ordinal())));
+        record.setIdMerchantNumber(trim(fields.get(ApplicationFormColumn.ID_MERCHANT_NUMBER.ordinal())));
+        record.setTransitMerchantNumber(trim(fields.get(ApplicationFormColumn.TRANSIT_MERCHANT_NUMBER.ordinal())));
+        record.setUnionpayMerchantNumber(trim(fields.get(ApplicationFormColumn.UNIONPAY_MERCHANT_NUMBER.ordinal())));
+        record.setWaonMerchantNumber(trim(fields.get(ApplicationFormColumn.WAON_MERCHANT_NUMBER.ordinal())));
+        record.setEdyMerchantNumber(trim(fields.get(ApplicationFormColumn.EDY_MERCHANT_NUMBER.ordinal())));
+        record.setNfcMerchantNumber(trim(fields.get(ApplicationFormColumn.NFC_MERCHANT_NUMBER.ordinal())));
+        record.setTransitOperator(trim(fields.get(ApplicationFormColumn.TRANSIT_OPERATOR.ordinal())));
+        record.setEdyId(trim(fields.get(ApplicationFormColumn.EDY_ID.ordinal())));
+        record.setSteraTerminalNumber1(trim(fields.get(ApplicationFormColumn.STERA_TERMINAL_NUMBER1.ordinal())));
+        record.setSteraTerminalNumber2(trim(fields.get(ApplicationFormColumn.STERA_TERMINAL_NUMBER2.ordinal())));
+        record.setSteraTerminalNumber3(trim(fields.get(ApplicationFormColumn.STERA_TERMINAL_NUMBER3.ordinal())));
+        record.setSteraTerminalNumber4(trim(fields.get(ApplicationFormColumn.STERA_TERMINAL_NUMBER4.ordinal())));
+        record.setSteraTerminalNumber5(trim(fields.get(ApplicationFormColumn.STERA_TERMINAL_NUMBER5.ordinal())));
         record.setFeeRateBrandRakutenPay(
-                parseBigDecimalChecked(fields.get(167), rowNum, "ブランド間料率(税抜) 楽天Pay", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_RAKUTEN_PAY.ordinal()), rowNum, "ブランド間料率(税抜) 楽天Pay", errors));
         record.setFeeRateBrandLinePay(
-                parseBigDecimalChecked(fields.get(168), rowNum, "ブランド間料率(税抜) LINE Pay", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_LINE_PAY.ordinal()), rowNum, "ブランド間料率(税抜) LINE Pay", errors));
         record.setFeeRateBrandPaypay(
-                parseBigDecimalChecked(fields.get(169), rowNum, "ブランド間料率(税抜) PayPay", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_PAYPAY.ordinal()), rowNum, "ブランド間料率(税抜) PayPay", errors));
         record.setFeeRateBrandDBarai(
-                parseBigDecimalChecked(fields.get(170), rowNum, "ブランド間料率(税抜) d払い", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_D_BARAI.ordinal()), rowNum, "ブランド間料率(税抜) d払い", errors));
         record.setFeeRateBrandAuPay(
-                parseBigDecimalChecked(fields.get(171), rowNum, "ブランド間料率(税抜) auPay", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_AU_PAY.ordinal()), rowNum, "ブランド間料率(税抜) auPay", errors));
         record.setFeeRateBrandMerpay(
-                parseBigDecimalChecked(fields.get(172), rowNum, "ブランド間料率(税抜) メルペイ", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_MERPAY.ordinal()), rowNum, "ブランド間料率(税抜) メルペイ", errors));
         record.setFeeRateBrandYuchoPay(
-                parseBigDecimalChecked(fields.get(173), rowNum, "ブランド間料率(税抜) ゆうちょPay", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_YUCHO_PAY.ordinal()), rowNum, "ブランド間料率(税抜) ゆうちょPay", errors));
         record.setFeeRateBrandAeonPay(
-                parseBigDecimalChecked(fields.get(174), rowNum, "ブランド間料率(税抜) AEONPay", errors));
-        record.setAtokaraWholesaleRate(parseBigDecimalChecked(fields.get(175), rowNum, "アトカラ卸料率", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_AEON_PAY.ordinal()), rowNum, "ブランド間料率(税抜) AEONPay", errors));
+        record.setAtokaraWholesaleRate(parseBigDecimalChecked(fields.get(ApplicationFormColumn.ATOKARA_WHOLESALE_RATE.ordinal()), rowNum, "アトカラ卸料率", errors));
         record.setMerchantInstallmentFee1(
-                parseBigDecimalChecked(fields.get(176), rowNum, "加盟店分割払い手数料（1回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE1.ordinal()), rowNum, "加盟店分割払い手数料（1回）", errors));
         record.setMerchantInstallmentFee3(
-                parseBigDecimalChecked(fields.get(177), rowNum, "加盟店分割払い手数料（3回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE3.ordinal()), rowNum, "加盟店分割払い手数料（3回）", errors));
         record.setMerchantInstallmentFee4(
-                parseBigDecimalChecked(fields.get(178), rowNum, "加盟店分割払い手数料（4回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE4.ordinal()), rowNum, "加盟店分割払い手数料（4回）", errors));
         record.setMerchantInstallmentFee5(
-                parseBigDecimalChecked(fields.get(179), rowNum, "加盟店分割払い手数料（5回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE5.ordinal()), rowNum, "加盟店分割払い手数料（5回）", errors));
         record.setMerchantInstallmentFee6(
-                parseBigDecimalChecked(fields.get(180), rowNum, "加盟店分割払い手数料（6回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE6.ordinal()), rowNum, "加盟店分割払い手数料（6回）", errors));
         record.setMerchantInstallmentFee10(
-                parseBigDecimalChecked(fields.get(181), rowNum, "加盟店分割払い手数料（10回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE10.ordinal()), rowNum, "加盟店分割払い手数料（10回）", errors));
         record.setMerchantInstallmentFee12(
-                parseBigDecimalChecked(fields.get(182), rowNum, "加盟店分割払い手数料（12回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE12.ordinal()), rowNum, "加盟店分割払い手数料（12回）", errors));
         record.setMerchantInstallmentFee15(
-                parseBigDecimalChecked(fields.get(183), rowNum, "加盟店分割払い手数料（15回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE15.ordinal()), rowNum, "加盟店分割払い手数料（15回）", errors));
         record.setMerchantInstallmentFee18(
-                parseBigDecimalChecked(fields.get(184), rowNum, "加盟店分割払い手数料（18回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE18.ordinal()), rowNum, "加盟店分割払い手数料（18回）", errors));
         record.setMerchantInstallmentFee20(
-                parseBigDecimalChecked(fields.get(185), rowNum, "加盟店分割払い手数料（20回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE20.ordinal()), rowNum, "加盟店分割払い手数料（20回）", errors));
         record.setMerchantInstallmentFee24(
-                parseBigDecimalChecked(fields.get(186), rowNum, "加盟店分割払い手数料（24回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE24.ordinal()), rowNum, "加盟店分割払い手数料（24回）", errors));
         record.setMerchantInstallmentFee30(
-                parseBigDecimalChecked(fields.get(187), rowNum, "加盟店分割払い手数料（30回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE30.ordinal()), rowNum, "加盟店分割払い手数料（30回）", errors));
         record.setMerchantInstallmentFee36(
-                parseBigDecimalChecked(fields.get(188), rowNum, "加盟店分割払い手数料（36回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.MERCHANT_INSTALLMENT_FEE36.ordinal()), rowNum, "加盟店分割払い手数料（36回）", errors));
         record.setFeeRateBrandWechat(
-                parseBigDecimalChecked(fields.get(189), rowNum, "ブランド間料率(非課税) Wechat", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_WECHAT.ordinal()), rowNum, "ブランド間料率(非課税) Wechat", errors));
         record.setFeeRateBrandAlipay(
-                parseBigDecimalChecked(fields.get(190), rowNum, "ブランド間料率(非課税) Alipay", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_ALIPAY.ordinal()), rowNum, "ブランド間料率(非課税) Alipay", errors));
         record.setFeeRateBrandWesmo(
-                parseBigDecimalChecked(fields.get(191), rowNum, "ブランド間料率(税抜) Wesmo!", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_BRAND_WESMO.ordinal()), rowNum, "ブランド間料率(税抜) Wesmo!", errors));
         record.setAtokaraCustomerRate(
-                parseBigDecimalChecked(fields.get(192), rowNum, "顧客手数料情報 アトカラ", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.ATOKARA_CUSTOMER_RATE.ordinal()), rowNum, "顧客手数料情報 アトカラ", errors));
         record.setCustomerInstallmentFee1(
-                parseBigDecimalChecked(fields.get(193), rowNum, "顧客手数料率（1回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE1.ordinal()), rowNum, "顧客手数料率（1回）", errors));
         record.setCustomerInstallmentFee3(
-                parseBigDecimalChecked(fields.get(194), rowNum, "顧客手数料率（3回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE3.ordinal()), rowNum, "顧客手数料率（3回）", errors));
         record.setCustomerInstallmentFee4(
-                parseBigDecimalChecked(fields.get(195), rowNum, "顧客手数料率（4回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE4.ordinal()), rowNum, "顧客手数料率（4回）", errors));
         record.setCustomerInstallmentFee5(
-                parseBigDecimalChecked(fields.get(196), rowNum, "顧客手数料率（5回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE5.ordinal()), rowNum, "顧客手数料率（5回）", errors));
         record.setCustomerInstallmentFee6(
-                parseBigDecimalChecked(fields.get(197), rowNum, "顧客手数料率（6回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE6.ordinal()), rowNum, "顧客手数料率（6回）", errors));
         record.setCustomerInstallmentFee10(
-                parseBigDecimalChecked(fields.get(198), rowNum, "顧客手数料率（10回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE10.ordinal()), rowNum, "顧客手数料率（10回）", errors));
         record.setCustomerInstallmentFee12(
-                parseBigDecimalChecked(fields.get(199), rowNum, "顧客手数料率（12回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE12.ordinal()), rowNum, "顧客手数料率（12回）", errors));
         record.setCustomerInstallmentFee15(
-                parseBigDecimalChecked(fields.get(200), rowNum, "顧客手数料率（15回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE15.ordinal()), rowNum, "顧客手数料率（15回）", errors));
         record.setCustomerInstallmentFee18(
-                parseBigDecimalChecked(fields.get(201), rowNum, "顧客手数料率（18回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE18.ordinal()), rowNum, "顧客手数料率（18回）", errors));
         record.setCustomerInstallmentFee20(
-                parseBigDecimalChecked(fields.get(202), rowNum, "顧客手数料率（20回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE20.ordinal()), rowNum, "顧客手数料率（20回）", errors));
         record.setCustomerInstallmentFee24(
-                parseBigDecimalChecked(fields.get(203), rowNum, "顧客手数料率（24回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE24.ordinal()), rowNum, "顧客手数料率（24回）", errors));
         record.setCustomerInstallmentFee30(
-                parseBigDecimalChecked(fields.get(204), rowNum, "顧客手数料率（30回）", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE30.ordinal()), rowNum, "顧客手数料率（30回）", errors));
         record.setCustomerInstallmentFee36(
-                parseBigDecimalChecked(fields.get(205), rowNum, "顧客手数料率（36回）", errors));
-        record.setCostShareFlagRakutenPay(trim(fields.get(206)));
-        record.setCostShareFlagLinePay(trim(fields.get(207)));
-        record.setCostShareFlagPaypay(trim(fields.get(208)));
-        record.setCostShareFlagDBarai(trim(fields.get(209)));
-        record.setCostShareFlagAuPay(trim(fields.get(210)));
-        record.setCostShareFlagMerpay(trim(fields.get(211)));
-        record.setCostShareFlagYuchoPay(trim(fields.get(212)));
-        record.setCostShareFlagAeonPay(trim(fields.get(213)));
-        record.setCostShareFlagWesmo(trim(fields.get(214)));
-        record.setUnionpayQrMerchantNumber(trim(fields.get(215)));
-        record.setAwMerchantNumber(trim(fields.get(216)));
-        record.setDBaraiIpid(trim(fields.get(217)));
-        record.setAlipayPid(trim(fields.get(218)));
-        record.setUnionpayQrMid(trim(fields.get(219)));
-        record.setRelocationRepresentativeMerchantNumber(trim(fields.get(220)));
-        record.setRelocationPlatformMerchantNumber(trim(fields.get(221)));
-        record.setCancelAndNewRepresentativeMerchantNumber(trim(fields.get(222)));
-        record.setCancelAndNewPlatformMerchantNumber(trim(fields.get(223)));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.CUSTOMER_INSTALLMENT_FEE36.ordinal()), rowNum, "顧客手数料率（36回）", errors));
+        record.setCostShareFlagRakutenPay(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_RAKUTEN_PAY.ordinal())));
+        record.setCostShareFlagLinePay(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_LINE_PAY.ordinal())));
+        record.setCostShareFlagPaypay(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_PAYPAY.ordinal())));
+        record.setCostShareFlagDBarai(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_D_BARAI.ordinal())));
+        record.setCostShareFlagAuPay(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_AU_PAY.ordinal())));
+        record.setCostShareFlagMerpay(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_MERPAY.ordinal())));
+        record.setCostShareFlagYuchoPay(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_YUCHO_PAY.ordinal())));
+        record.setCostShareFlagAeonPay(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_AEON_PAY.ordinal())));
+        record.setCostShareFlagWesmo(trim(fields.get(ApplicationFormColumn.COST_SHARE_FLAG_WESMO.ordinal())));
+        record.setUnionpayQrMerchantNumber(trim(fields.get(ApplicationFormColumn.UNIONPAY_QR_MERCHANT_NUMBER.ordinal())));
+        record.setAwMerchantNumber(trim(fields.get(ApplicationFormColumn.AW_MERCHANT_NUMBER.ordinal())));
+        record.setDBaraiIpid(trim(fields.get(ApplicationFormColumn.D_BARAI_IPID.ordinal())));
+        record.setAlipayPid(trim(fields.get(ApplicationFormColumn.ALIPAY_PID.ordinal())));
+        record.setUnionpayQrMid(trim(fields.get(ApplicationFormColumn.UNIONPAY_QR_MID.ordinal())));
+        record.setRelocationRepresentativeMerchantNumber(trim(fields.get(ApplicationFormColumn.RELOCATION_REPRESENTATIVE_MERCHANT_NUMBER.ordinal())));
+        record.setRelocationPlatformMerchantNumber(trim(fields.get(ApplicationFormColumn.RELOCATION_PLATFORM_MERCHANT_NUMBER.ordinal())));
+        record.setCancelAndNewRepresentativeMerchantNumber(trim(fields.get(ApplicationFormColumn.CANCEL_AND_NEW_REPRESENTATIVE_MERCHANT_NUMBER.ordinal())));
+        record.setCancelAndNewPlatformMerchantNumber(trim(fields.get(ApplicationFormColumn.CANCEL_AND_NEW_PLATFORM_MERCHANT_NUMBER.ordinal())));
         record.setCafisArchTerminalCount(
-                parseIntegerChecked(fields.get(224), rowNum, "【CAFIS Arch】端末台数", errors));
+                parseIntegerChecked(fields.get(ApplicationFormColumn.CAFIS_ARCH_TERMINAL_COUNT.ordinal()), rowNum, "【CAFIS Arch】端末台数", errors));
         record.setQuoCardPayMerchantRateNss(
-                parseBigDecimalChecked(fields.get(225), rowNum, "【NSSのみ】QUOカードPay加盟店間料率(税込)", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.QUO_CARD_PAY_MERCHANT_RATE_NSS.ordinal()), rowNum, "【NSSのみ】QUOカードPay加盟店間料率(税込)", errors));
         record.setQuoCardPayBrandRateNss(
-                parseBigDecimalChecked(fields.get(226), rowNum, "【NSSのみ】QUOカードPayブランド間料率(税抜)", errors));
-        record.setBankPayNssTid(trim(fields.get(227)));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.QUO_CARD_PAY_BRAND_RATE_NSS.ordinal()), rowNum, "【NSSのみ】QUOカードPayブランド間料率(税抜)", errors));
+        record.setBankPayNssTid(trim(fields.get(ApplicationFormColumn.BANK_PAY_NSS_TID.ordinal())));
         record.setFeeRateJcoinPayMerchant(
-                parseBigDecimalChecked(fields.get(228), rowNum, "J-Coin Pay加盟店間料率(非課税)", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_JCOIN_PAY_MERCHANT.ordinal()), rowNum, "J-Coin Pay加盟店間料率(非課税)", errors));
         record.setFeeRateJcoinPayBrand(
-                parseBigDecimalChecked(fields.get(229), rowNum, "J-Coin Payブランド間料率(非課税)", errors));
+                parseBigDecimalChecked(fields.get(ApplicationFormColumn.FEE_RATE_JCOIN_PAY_BRAND.ordinal()), rowNum, "J-Coin Payブランド間料率(非課税)", errors));
         if (errors.size() > errorCountBeforeRow) {
             return; // この行にデータ変換エラーがあるため対象外とする
         }

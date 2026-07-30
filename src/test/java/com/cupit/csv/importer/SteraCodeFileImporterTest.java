@@ -222,6 +222,35 @@ class SteraCodeFileImporterTest {
     }
 
     @Test
+    void reportsErrorWhenSummaryTotalsDoNotMatchRegisteredDetailRows() throws Exception {
+        // 1行目は正常に登録されるが、2行目は端末未登録のためスキップされる。
+        // 小計行はファイルどおり2件・8000円（5000+3000）を主張するが、実際に登録される
+        // 明細は1件・5000円のみのため、突合チェックで不一致を検出する必要がある。
+        when(steraTerminalRepository.findByTerminalId("7113462036751"))
+                .thenReturn(List.of(activeTerminal("01-001")));
+        when(steraStoreRepository.findByTradeCode("01-001"))
+                .thenReturn(Optional.of(new SteraStore()));
+        when(steraTerminalRepository.findByTerminalId("9999999999999"))
+                .thenReturn(List.of());
+
+        ImportResult result = importer.importFile(
+                CsvFiles.utf8Bom("x.csv", HEADER,
+                        "\"楽天ペイ\",\"7113462036751\",\"03447\",\"20251101\",\"091102\",\"1\",\"5000\",\"\",\"\",\"\"",
+                        "\"楽天ペイ\",\"9999999999999\",\"03448\",\"20251101\",\"091103\",\"1\",\"3000\",\"\",\"\",\"\"",
+                        "\"楽天ペイ\",\"S68473628\",\"99999\",\"20251115\",\"000000\",\"2\",\"8000\",\"100\",\"7900\",\"\""),
+                batch(20, "user001"));
+
+        assertThat(result.getSuccessCount()).isEqualTo(1);
+        ArgumentCaptor<SteraCodeSettlementSummary> captor =
+                ArgumentCaptor.forClass(SteraCodeSettlementSummary.class);
+        verify(settlementSummaryRepository, times(1)).save(captor.capture());
+        assertThat(result.getErrors())
+                .anyMatch(e -> e.getMessage().contains("小計行の件数・金額")
+                        && e.getMessage().contains("小計行: 2件・8000円")
+                        && e.getMessage().contains("登録される明細: 1件・5000円"));
+    }
+
+    @Test
     void skipsSummaryRowWhenAmountIsNonNumeric() throws Exception {
         ImportResult result = importer.importFile(
                 CsvFiles.utf8Bom("x.csv", HEADER,

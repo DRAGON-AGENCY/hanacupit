@@ -4,7 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * 各決済会社所定申込フォーム作成のINPUTファイル（230列）1行分を表すクラス。
+ * 各決済会社所定申込フォーム作成のINPUTファイル（列順は{@code ApplicationFormCsvParser.Column}参照）
+ * 1行分を表すクラス。
  * data1（サンプル_010_stera申込み）由来の56項目と、m_member_infoから取得・加工しても
  * 設定できない項目（JCB・SMCC申込書・SMCC店舗情報一覧向け）を保持する。
  * m_member_info・m_paygate_store_mappingと組み合わせて各決済会社所定フォーマットの
@@ -18,6 +19,8 @@ public class ApplicationFormInput {
     private String terminalId;
     private String tradeCode;
     private String paygateContinuationStatus;
+    private String jcbApplicationClassification;
+    private String smccApplicationClassification;
     private String memberType;
     private String storeName;
     private String storeNameKana;
@@ -278,6 +281,20 @@ public class ApplicationFormInput {
 
     public void setPaygateContinuationStatus(String paygateContinuationStatus) {
         this.paygateContinuationStatus = paygateContinuationStatus;
+    }
+    public String getJcbApplicationClassification() {
+        return jcbApplicationClassification;
+    }
+
+    public void setJcbApplicationClassification(String jcbApplicationClassification) {
+        this.jcbApplicationClassification = jcbApplicationClassification;
+    }
+    public String getSmccApplicationClassification() {
+        return smccApplicationClassification;
+    }
+
+    public void setSmccApplicationClassification(String smccApplicationClassification) {
+        this.smccApplicationClassification = smccApplicationClassification;
     }
     public String getMemberType() {
         return memberType;

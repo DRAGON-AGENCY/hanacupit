@@ -125,4 +125,14 @@ public class SettlementFeeRate {
     public void setUpdatedDate(LocalDate updatedDate) {
         this.updatedDate = updatedDate;
     }
+
+    @Override
+    public String toString() {
+        return "SettlementFeeRate{"
+                + "feeRateId=" + feeRateId
+                + ", paymentCompany=" + paymentCompany
+                + ", cardBrand=" + cardBrand
+                + ", calcModel=" + calcModel
+                + "}";
+    }
 }

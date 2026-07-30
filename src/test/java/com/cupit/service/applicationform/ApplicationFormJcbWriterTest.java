@@ -38,8 +38,7 @@ class ApplicationFormJcbWriterTest {
         MemberInfo memberInfo = new MemberInfo();
         memberInfo.setStoreName("フラワーショップやざき");
         ApplicationFormRowContext ctx = new ApplicationFormRowContext(
-                new ApplicationFormInput(), memberInfo, null,
-                Map.of("NEW_CHANGE_CANCEL_FLAG_JCB", "新規"), 1);
+                new ApplicationFormInput(), memberInfo, null, Map.of(), 1);
 
         byte[] bytes = writer.write(List.of(ctx));
 
@@ -51,13 +50,14 @@ class ApplicationFormJcbWriterTest {
     }
 
     @Test
-    void appliesDeriveJcbFlagToFirstColumn() throws IOException {
+    void appliesJcbApplicationClassificationFromInputToFirstColumn() throws IOException {
         ApplicationFormJcbWriter writer =
                 new ApplicationFormJcbWriter(TEMPLATE_DIR, new ApplicationFormFieldResolver());
+        ApplicationFormInput input = new ApplicationFormInput();
+        input.setJcbApplicationClassification("新規");
         ApplicationFormRowContext ctx = new ApplicationFormRowContext(
-                new ApplicationFormInput(), null, null,
-                Map.of("NEW_CHANGE_CANCEL_FLAG_JCB", "新規",
-                        "EXISTING_CONTRACT_FLAG", "無", "CANCEL_INTENTION", "", "CANCEL_STATUS", ""), 1);
+                input, null, null,
+                Map.of("EXISTING_CONTRACT_FLAG", "無", "CANCEL_INTENTION", "", "CANCEL_STATUS", ""), 1);
 
         byte[] bytes = writer.write(List.of(ctx));
 

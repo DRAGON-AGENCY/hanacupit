@@ -14,7 +14,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.cupit.dto.SteraJcbRow;
 import com.cupit.model.ImportBatch;
+import com.cupit.model.SettlementFeeRate;
 import com.cupit.repository.ImportBatchRepository;
+import com.cupit.repository.SettlementFeeRateRepository;
 import com.cupit.repository.SteraJcbSalesDetailRepository;
 import com.cupit.repository.SteraJcbSalesDetailRepository.SteraJcbStoreGroupAggregate;
 
@@ -36,11 +38,24 @@ class SteraJcbInquiryServiceTest {
     @Mock
     private SteraJcbSalesDetailRepository steraJcbSalesDetailRepository;
 
+    @Mock
+    private SettlementFeeRateRepository settlementFeeRateRepository;
+
     private SteraJcbInquiryService service;
 
     @BeforeEach
     void setUp() {
-        service = new SteraJcbInquiryService(importBatchRepository, steraJcbSalesDetailRepository);
+        service = new SteraJcbInquiryService(
+                importBatchRepository, steraJcbSalesDetailRepository, settlementFeeRateRepository);
+        when(settlementFeeRateRepository.findByPaymentCompanyAndCardBrand("stera terminal", "共通"))
+                .thenReturn(java.util.Optional.of(feeRate("0.0275", "0.002")));
+    }
+
+    private SettlementFeeRate feeRate(String acquirerFeeRate, String companyFeeRate) {
+        SettlementFeeRate rate = new SettlementFeeRate();
+        rate.setAcquirerFeeRate(new java.math.BigDecimal(acquirerFeeRate));
+        rate.setOurFeeRateBase(new java.math.BigDecimal(companyFeeRate));
+        return rate;
     }
 
     private ImportBatch batch(int batchId, LocalDate cutoffDate) {
@@ -142,6 +157,38 @@ class SteraJcbInquiryServiceTest {
         assertThat(row.getCompanyFee()).isEqualTo(4);
         assertThat(row.getSettlementAmount()).isEqualTo(2029);
         assertThat(row.getCutoffDate()).isEqualTo(CUTOFF_DATE);
+    }
+
+    @Test
+    void findAllUsesFeeRateFromMasterNotHardcodedValue() {
+        // 手数料率マスタ（m_settlement_fee_rate）の値を旧ハードコード値（2.75%/0.2%）とは
+        // 異なる値に差し替え、計算結果がマスタ側の値に追従することを確認する
+        // （固定値を参照しているのではないことの証明）。
+        when(settlementFeeRateRepository.findByPaymentCompanyAndCardBrand("stera terminal", "共通"))
+                .thenReturn(java.util.Optional.of(feeRate("0.03", "0.005")));
+        when(importBatchRepository.findAll()).thenReturn(List.of(batch(100, CUTOFF_DATE)));
+        when(steraJcbSalesDetailRepository.sumByStoreCardNameAndPaymentMethod(List.of(100)))
+                .thenReturn(List.of(aggregate(
+                        "01-020", "01-020000", "店舗A", "クレジット", "1回払い", 100, 2000L)));
+
+        List<SteraJcbRow> rows = service.findAll();
+
+        assertThat(rows).hasSize(1);
+        SteraJcbRow row = rows.get(0);
+        assertThat(row.getAcquirerFee()).isEqualTo(60);
+        assertThat(row.getCompanyFee()).isEqualTo(10);
+        assertThat(row.getSettlementAmount()).isEqualTo(1930);
+    }
+
+    @Test
+    void findAllThrowsWhenFeeRateMasterRowMissing() {
+        when(settlementFeeRateRepository.findByPaymentCompanyAndCardBrand("stera terminal", "共通"))
+                .thenReturn(java.util.Optional.empty());
+        when(importBatchRepository.findAll()).thenReturn(List.of(batch(100, CUTOFF_DATE)));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.findAll())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("手数料率マスタ");
     }
 
     @Test

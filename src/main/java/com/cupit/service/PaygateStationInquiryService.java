@@ -7,8 +7,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.cupit.dto.PaygateStationRow;
@@ -44,6 +47,8 @@ import com.cupit.service.settlement.TransferLineItem;
  */
 @Service
 public class PaygateStationInquiryService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PaygateStationInquiryService.class);
 
     private static final String COMPANY_JCB = "JCB";
     private static final String COMPANY_NETSTARS = "NETSTARS";
@@ -107,21 +112,42 @@ public class PaygateStationInquiryService {
                 .collect(Collectors.groupingBy(ImportBatch::getPaymentType));
 
         List<PaygateStationRow> rows = new ArrayList<>();
-        rows.addAll(collectJcbRows(
+        rows.addAll(collectSafely(COMPANY_JCB, () -> collectJcbRows(
                 batchesByPaymentType.getOrDefault(PAYMENT_TYPE_JCB, List.of()),
-                storeNameByTradeCode, cardBrandByItemCode));
-        rows.addAll(collectNetstarRows(
+                storeNameByTradeCode, cardBrandByItemCode)));
+        rows.addAll(collectSafely(COMPANY_NETSTARS, () -> collectNetstarRows(
                 batchesByPaymentType.getOrDefault(PAYMENT_TYPE_NETSTAR, List.of()),
-                storeNameByTradeCode, cardBrandByItemCode));
-        rows.addAll(collectSumarejoRows(
-                batchesByPaymentType.getOrDefault(PAYMENT_TYPE_SUMAREJO, List.of()), storeNameByTradeCode));
-        rows.addAll(collectRakutenPayRows(
-                batchesByPaymentType.getOrDefault(PAYMENT_TYPE_RAKUTENPAY, List.of()), storeNameByTradeCode));
-        rows.addAll(collectVisaMasterRows(
-                batchesByPaymentType.getOrDefault(PAYMENT_TYPE_VISA_MASTER, List.of()), storeNameByTradeCode));
+                storeNameByTradeCode, cardBrandByItemCode)));
+        rows.addAll(collectSafely(COMPANY_SUMAREJO, () -> collectSumarejoRows(
+                batchesByPaymentType.getOrDefault(PAYMENT_TYPE_SUMAREJO, List.of()), storeNameByTradeCode)));
+        rows.addAll(collectSafely(COMPANY_RAKUTENPAY, () -> collectRakutenPayRows(
+                batchesByPaymentType.getOrDefault(PAYMENT_TYPE_RAKUTENPAY, List.of()), storeNameByTradeCode)));
+        rows.addAll(collectSafely(COMPANY_VISA_MASTER, () -> collectVisaMasterRows(
+                batchesByPaymentType.getOrDefault(PAYMENT_TYPE_VISA_MASTER, List.of()), storeNameByTradeCode)));
 
         rows.sort(Comparator.comparing(PaygateStationRow::getTradeCode));
         return rows;
+    }
+
+    /**
+     * 決済会社ごとの集計を分離して実行する。手数料率マスタ・項目コードマスタに
+     * 存在しないカードブランド名など、1決済会社分のデータ不備で例外が起きても、
+     * その決済会社の行が0件になるだけで他の決済会社の表示は継続する
+     * （実データ不備で画面全体がクラッシュしないようにするための防御）。
+     * 振込金額の計算そのもの（{@link JftdTransferCalculationService}・
+     * 統合振込CSV確定処理）はこの防御の対象外とし、従来どおり例外を伝播させる
+     * （不明なブランドの金額を気づかずに計上してしまわないようにするため）。
+     */
+    private List<PaygateStationRow> collectSafely(
+            String paymentCompany, Supplier<List<PaygateStationRow>> collector) {
+        try {
+            return collector.get();
+        } catch (RuntimeException e) {
+            LOGGER.error(
+                    "PAYGATE Station精算情報照会: {}分の集計中にエラーが発生したため、"
+                    + "{}分の表示をスキップします。", paymentCompany, paymentCompany, e);
+            return List.of();
+        }
     }
 
     private boolean isKnownPaymentType(String paymentType) {

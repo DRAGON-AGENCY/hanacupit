@@ -9,10 +9,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.cupit.csv.ApplicationFormColumn;
 import com.cupit.exception.MemberInfoNotFoundException;
 import com.cupit.interceptor.AuthenticationInterceptor;
 import com.cupit.model.Employee;
 import com.cupit.model.MemberInfo;
+import com.cupit.model.SettlementFeeRate;
+import com.cupit.model.SettlementItemCode;
 import com.cupit.model.SmccMerchantNo;
 import com.cupit.model.SteraStore;
 import com.cupit.model.SteraTerminal;
@@ -22,6 +25,8 @@ import com.cupit.repository.SteraTerminalRepository;
 import com.cupit.service.EmployeeService;
 import com.cupit.service.JftdReportDataService;
 import com.cupit.service.MemberInfoService;
+import com.cupit.service.SettlementFeeRateService;
+import com.cupit.service.SettlementItemCodeService;
 
 @Controller
 public class MenuController {
@@ -36,10 +41,19 @@ public class MenuController {
     private static final String ATTRIBUTE_NAME_AUTHORITY_CODE = "authorityCode";
     private static final String ATTRIBUTE_NAME_EMPLOYEE = "employee";
     private static final String ATTRIBUTE_NAME_MODE = "mode";
+    private static final String ATTRIBUTE_NAME_EXPECTED_COLUMN_COUNT = "expectedColumnCount";
+    private static final String ATTRIBUTE_NAME_FEE_RATES = "feeRates";
+    private static final String ATTRIBUTE_NAME_FEE_RATE = "feeRate";
+    private static final String ATTRIBUTE_NAME_ITEM_CODES = "itemCodes";
+    private static final String ATTRIBUTE_NAME_ITEM_CODE = "itemCode";
     private static final String MODE_NEW = "new";
     private static final String AUTHORITY_ADMINISTRATOR = "01";
     private static final String REDIRECT_EMPLOYEE_LIST =
             "redirect:/employee_list";
+    private static final String REDIRECT_SETTLEMENT_FEE_RATE_LIST =
+            "redirect:/settlement_fee_rate_list";
+    private static final String REDIRECT_SETTLEMENT_ITEM_CODE_LIST =
+            "redirect:/settlement_item_code_list";
     private static final String VIEW_NAME_LOGIN = "login";
     private static final String VIEW_NAME_MENU = "menu";
     private static final String VIEW_NAME_MEMBER_INFO = "member_info";
@@ -59,6 +73,14 @@ public class MenuController {
     private static final String VIEW_NAME_OTHER_SETTLEMENT = "other_settlement";
     private static final String VIEW_NAME_EMPLOYEE_LIST = "employee_list";
     private static final String VIEW_NAME_EMPLOYEE_EDIT = "employee_edit";
+    private static final String VIEW_NAME_SETTLEMENT_FEE_RATE_LIST =
+            "settlement_fee_rate_list";
+    private static final String VIEW_NAME_SETTLEMENT_FEE_RATE_EDIT =
+            "settlement_fee_rate_edit";
+    private static final String VIEW_NAME_SETTLEMENT_ITEM_CODE_LIST =
+            "settlement_item_code_list";
+    private static final String VIEW_NAME_SETTLEMENT_ITEM_CODE_EDIT =
+            "settlement_item_code_edit";
 
     private final MemberInfoService memberInfoService;
     private final EmployeeService employeeService;
@@ -66,6 +88,8 @@ public class MenuController {
     private final SteraStoreRepository steraStoreRepository;
     private final SteraTerminalRepository steraTerminalRepository;
     private final SmccMerchantNoRepository smccMerchantNoRepository;
+    private final SettlementFeeRateService settlementFeeRateService;
+    private final SettlementItemCodeService settlementItemCodeService;
 
     public MenuController(
             MemberInfoService memberInfoService,
@@ -73,13 +97,17 @@ public class MenuController {
             JftdReportDataService jftdReportDataService,
             SteraStoreRepository steraStoreRepository,
             SteraTerminalRepository steraTerminalRepository,
-            SmccMerchantNoRepository smccMerchantNoRepository) {
+            SmccMerchantNoRepository smccMerchantNoRepository,
+            SettlementFeeRateService settlementFeeRateService,
+            SettlementItemCodeService settlementItemCodeService) {
         this.memberInfoService = memberInfoService;
         this.employeeService = employeeService;
         this.jftdReportDataService = jftdReportDataService;
         this.steraStoreRepository = steraStoreRepository;
         this.steraTerminalRepository = steraTerminalRepository;
         this.smccMerchantNoRepository = smccMerchantNoRepository;
+        this.settlementFeeRateService = settlementFeeRateService;
+        this.settlementItemCodeService = settlementItemCodeService;
     }
 
     @GetMapping({"/", "/login"})
@@ -168,7 +196,10 @@ public class MenuController {
     }
 
     @GetMapping("/application_form")
-    public String applicationForm() {
+    public String applicationForm(Model model) {
+        // フロントエンドの列数チェックがApplicationFormColumnの定義数と常に一致するよう、
+        // ハードコードせずここから渡す（CLAUDE.md「多列固定フォーマットCSVの列位置管理」参照）。
+        model.addAttribute(ATTRIBUTE_NAME_EXPECTED_COLUMN_COUNT, ApplicationFormColumn.values().length);
         return VIEW_NAME_APPLICATION_FORM;
     }
 
@@ -229,6 +260,70 @@ public class MenuController {
         model.addAttribute(ATTRIBUTE_NAME_MODE, mode);
         model.addAttribute(ATTRIBUTE_NAME_AUTHORITY_CODE, authorityCode);
         return VIEW_NAME_EMPLOYEE_EDIT;
+    }
+
+    @GetMapping("/settlement_fee_rate_list")
+    public String settlementFeeRateList(HttpSession session, Model model) {
+        model.addAttribute(
+                ATTRIBUTE_NAME_FEE_RATES, settlementFeeRateService.findAllFeeRates());
+        model.addAttribute(
+                ATTRIBUTE_NAME_AUTHORITY_CODE, getAuthorityCode(session));
+        return VIEW_NAME_SETTLEMENT_FEE_RATE_LIST;
+    }
+
+    @GetMapping("/settlement_fee_rate_edit")
+    public String settlementFeeRateEdit(
+            @RequestParam(name = "mode", required = false) String mode,
+            @RequestParam(name = "feeRateId", required = false) Integer feeRateId,
+            HttpSession session,
+            Model model) {
+        String authorityCode = getAuthorityCode(session);
+
+        // メンテナンスは管理者 (01) のみ。それ以外は一覧へ戻す
+        if (!AUTHORITY_ADMINISTRATOR.equals(authorityCode)) {
+            return REDIRECT_SETTLEMENT_FEE_RATE_LIST;
+        }
+
+        // 編集モードでは選択された手数料率の内容を読み込む
+        if (!MODE_NEW.equals(mode) && feeRateId != null) {
+            SettlementFeeRate feeRate = settlementFeeRateService.findById(feeRateId);
+            model.addAttribute(ATTRIBUTE_NAME_FEE_RATE, feeRate);
+        }
+        model.addAttribute(ATTRIBUTE_NAME_MODE, mode);
+        model.addAttribute(ATTRIBUTE_NAME_AUTHORITY_CODE, authorityCode);
+        return VIEW_NAME_SETTLEMENT_FEE_RATE_EDIT;
+    }
+
+    @GetMapping("/settlement_item_code_list")
+    public String settlementItemCodeList(HttpSession session, Model model) {
+        model.addAttribute(
+                ATTRIBUTE_NAME_ITEM_CODES, settlementItemCodeService.findAllItemCodes());
+        model.addAttribute(
+                ATTRIBUTE_NAME_AUTHORITY_CODE, getAuthorityCode(session));
+        return VIEW_NAME_SETTLEMENT_ITEM_CODE_LIST;
+    }
+
+    @GetMapping("/settlement_item_code_edit")
+    public String settlementItemCodeEdit(
+            @RequestParam(name = "mode", required = false) String mode,
+            @RequestParam(name = "itemCodeId", required = false) Integer itemCodeId,
+            HttpSession session,
+            Model model) {
+        String authorityCode = getAuthorityCode(session);
+
+        // メンテナンスは管理者 (01) のみ。それ以外は一覧へ戻す
+        if (!AUTHORITY_ADMINISTRATOR.equals(authorityCode)) {
+            return REDIRECT_SETTLEMENT_ITEM_CODE_LIST;
+        }
+
+        // 編集モードでは選択された項目コードの内容を読み込む
+        if (!MODE_NEW.equals(mode) && itemCodeId != null) {
+            SettlementItemCode itemCode = settlementItemCodeService.findById(itemCodeId);
+            model.addAttribute(ATTRIBUTE_NAME_ITEM_CODE, itemCode);
+        }
+        model.addAttribute(ATTRIBUTE_NAME_MODE, mode);
+        model.addAttribute(ATTRIBUTE_NAME_AUTHORITY_CODE, authorityCode);
+        return VIEW_NAME_SETTLEMENT_ITEM_CODE_EDIT;
     }
 
     /**

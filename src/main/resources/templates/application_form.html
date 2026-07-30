@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" th:content="${csrfToken}" content="">
+<!-- INPUT CSVの期待列数。サーバー側のApplicationFormColumn(enum)の定義数をそのまま埋め込み、
+     フロントエンドの列数チェックがサーバー側の列定義と常に一致するようにする
+     （ハードコードして二重管理すると、列追加時に片方の更新を忘れるバグの元になる）。 -->
+<meta name="expected-column-count" th:content="${expectedColumnCount}" content="">
 <title>各決済会社所定申込フォーム作成 | キャッシュレス管理システム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -455,7 +459,10 @@
   </div>
 
   <script>
-    var EXPECTED_COLUMN_COUNT = 230;
+    // サーバー側のApplicationFormColumn(enum)の定義数をmetaタグ経由で取得する
+    // （数値をここに直書きしない。詳細はmetaタグのコメント参照）。
+    var EXPECTED_COLUMN_COUNT = parseInt(
+        document.querySelector('meta[name="expected-column-count"]').getAttribute('content'), 10);
 
     var select = document.getElementById('destination-select');
     var display = select.querySelector('.select-display');
@@ -506,7 +513,10 @@
       runFrontendCheck(file);
     });
 
-    btnClearResult.addEventListener('click', resetFileAndResult);
+    btnClearResult.addEventListener('click', function () {
+      resetFileAndResult();
+      resetDestination();
+    });
 
     function resetFileAndResult() {
       selectedFile = null;
@@ -514,6 +524,14 @@
       fileDisplay.value = '';
       hideResult();
       btnUpload.disabled = true;
+    }
+
+    function resetDestination() {
+      var defaultOption = options[0];
+      options.forEach(function (o) { o.classList.remove('selected'); });
+      defaultOption.classList.add('selected');
+      valueSpan.textContent = defaultOption.dataset.value;
+      currentDestination = defaultOption.dataset.enum;
     }
 
     function hideResult() {

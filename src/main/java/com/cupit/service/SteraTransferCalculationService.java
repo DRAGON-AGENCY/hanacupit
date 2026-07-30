@@ -10,8 +10,10 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 import com.cupit.model.ImportBatch;
+import com.cupit.model.SettlementFeeRate;
 import com.cupit.model.SteraStore;
 import com.cupit.repository.ImportBatchRepository;
+import com.cupit.repository.SettlementFeeRateRepository;
 import com.cupit.repository.SteraCodeSettlementDetailRepository;
 import com.cupit.repository.SteraCodeSettlementDetailRepository.SteraCodeGroupAggregate;
 import com.cupit.repository.SteraCreditSalesDetailRepository;
@@ -36,11 +38,8 @@ public class SteraTransferCalculationService {
     private static final String PAYMENT_TYPE_STERA_CODE = "stera code";
     private static final String PAYMENT_TYPE_STERA_CREDIT = "steraクレジット";
 
-    /** 仕入手数料率2.75%。実データ全件検証済み（調査メモ参照）。 */
-    private static final BigDecimal ACQUIRER_FEE_RATE = new BigDecimal("0.0275");
-
-    /** 当社手数料率0.2%。実データ全件検証済み。 */
-    private static final BigDecimal COMPANY_FEE_RATE = new BigDecimal("0.002");
+    private static final String FEE_RATE_PAYMENT_COMPANY = "stera terminal";
+    private static final String FEE_RATE_CARD_BRAND = "共通";
 
     /** 振込手数料129円が0円になる振込先金融機関コード（ＧＭＯあおぞらネット銀行）。 */
     private static final String ZERO_TRANSFER_FEE_BANK_CODE = "0310";
@@ -52,18 +51,30 @@ public class SteraTransferCalculationService {
     private final SteraCodeSettlementDetailRepository steraCodeSettlementDetailRepository;
     private final SteraCreditSalesDetailRepository steraCreditSalesDetailRepository;
     private final SteraStoreRepository steraStoreRepository;
+    private final SettlementFeeRateRepository settlementFeeRateRepository;
 
     public SteraTransferCalculationService(
             ImportBatchRepository importBatchRepository,
             SteraJcbSalesDetailRepository steraJcbSalesDetailRepository,
             SteraCodeSettlementDetailRepository steraCodeSettlementDetailRepository,
             SteraCreditSalesDetailRepository steraCreditSalesDetailRepository,
-            SteraStoreRepository steraStoreRepository) {
+            SteraStoreRepository steraStoreRepository,
+            SettlementFeeRateRepository settlementFeeRateRepository) {
         this.importBatchRepository = importBatchRepository;
         this.steraJcbSalesDetailRepository = steraJcbSalesDetailRepository;
         this.steraCodeSettlementDetailRepository = steraCodeSettlementDetailRepository;
         this.steraCreditSalesDetailRepository = steraCreditSalesDetailRepository;
         this.steraStoreRepository = steraStoreRepository;
+        this.settlementFeeRateRepository = settlementFeeRateRepository;
+    }
+
+    private SettlementFeeRate findFeeRate() {
+        return settlementFeeRateRepository
+                .findByPaymentCompanyAndCardBrand(FEE_RATE_PAYMENT_COMPANY, FEE_RATE_CARD_BRAND)
+                .orElseThrow(() -> new IllegalStateException(
+                        "手数料率マスタにstera terminal分の設定（payment_company='"
+                                + FEE_RATE_PAYMENT_COMPANY + "', card_brand='" + FEE_RATE_CARD_BRAND
+                                + "'）がありません。"));
     }
 
     /**
@@ -92,12 +103,20 @@ public class SteraTransferCalculationService {
         Map<String, Long> acquirerFeeByTradeCode = new LinkedHashMap<>();
         Map<String, Long> companyFeeByTradeCode = new LinkedHashMap<>();
 
+        // ループの内側で毎回マスタを引かないよう、手数料率は事前に1回だけ取得する。
+        SettlementFeeRate feeRate = findFeeRate();
+        BigDecimal acquirerFeeRate = feeRate.getAcquirerFeeRate();
+        BigDecimal companyFeeRate = feeRate.getOurFeeRateBase();
+
         accumulateJcb(batchIdsByPaymentType.getOrDefault(PAYMENT_TYPE_STERA_JCB, List.of()),
-                grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode);
+                grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode,
+                acquirerFeeRate, companyFeeRate);
         accumulateCode(batchIdsByPaymentType.getOrDefault(PAYMENT_TYPE_STERA_CODE, List.of()),
-                grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode);
+                grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode,
+                acquirerFeeRate, companyFeeRate);
         accumulateCredit(batchIdsByPaymentType.getOrDefault(PAYMENT_TYPE_STERA_CREDIT, List.of()),
-                grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode);
+                grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode,
+                acquirerFeeRate, companyFeeRate);
 
         List<SteraTransferLineItem> lineItems = new ArrayList<>();
         for (String tradeCode : grossAmountByTradeCode.keySet()) {
@@ -128,19 +147,22 @@ public class SteraTransferCalculationService {
     }
 
     /**
-     * stera JCBは取引コード×お取扱カード名×支払区分でGROUP BYした金額を対象にする。
+     * stera JCBは取引コード×お取扱カード名×お支払方法×支払区分でGROUP BYした金額を
+     * 対象にする（課題表項番26で実データ検証済み。支払区分を含めないと1円ズレる）。
      */
     private void accumulateJcb(
             List<Integer> batchIds, Map<String, Long> grossAmountByTradeCode,
-            Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode) {
+            Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode,
+            BigDecimal acquirerFeeRate, BigDecimal companyFeeRate) {
         if (batchIds.isEmpty()) {
             return;
         }
         List<SteraJcbGroupAggregate> aggregates =
-                steraJcbSalesDetailRepository.sumByTradeCodeCardNameAndPaymentMethod(batchIds);
+                steraJcbSalesDetailRepository.sumByTradeCodeCardNameAndPaymentMethodAndPaymentType(batchIds);
         for (SteraJcbGroupAggregate aggregate : aggregates) {
             accumulateGroup(aggregate.getTradeCode(), aggregate.getTotalSalesAmount(),
-                    grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode);
+                    grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode,
+                    acquirerFeeRate, companyFeeRate);
         }
     }
 
@@ -150,7 +172,8 @@ public class SteraTransferCalculationService {
      */
     private void accumulateCode(
             List<Integer> batchIds, Map<String, Long> grossAmountByTradeCode,
-            Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode) {
+            Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode,
+            BigDecimal acquirerFeeRate, BigDecimal companyFeeRate) {
         if (batchIds.isEmpty()) {
             return;
         }
@@ -158,7 +181,8 @@ public class SteraTransferCalculationService {
                 steraCodeSettlementDetailRepository.sumByTradeCodeAndBrand(batchIds);
         for (SteraCodeGroupAggregate aggregate : aggregates) {
             accumulateGroup(aggregate.getTradeCode(), aggregate.getTotalSettlementAmount(),
-                    grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode);
+                    grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode,
+                    acquirerFeeRate, companyFeeRate);
         }
     }
 
@@ -167,7 +191,8 @@ public class SteraTransferCalculationService {
      */
     private void accumulateCredit(
             List<Integer> batchIds, Map<String, Long> grossAmountByTradeCode,
-            Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode) {
+            Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode,
+            BigDecimal acquirerFeeRate, BigDecimal companyFeeRate) {
         if (batchIds.isEmpty()) {
             return;
         }
@@ -175,7 +200,8 @@ public class SteraTransferCalculationService {
                 steraCreditSalesDetailRepository.sumByTradeCodeCardBrandAndTransactionType(batchIds);
         for (SteraCreditGroupAggregate aggregate : aggregates) {
             accumulateGroup(aggregate.getTradeCode(), aggregate.getTotalBillingAmount(),
-                    grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode);
+                    grossAmountByTradeCode, acquirerFeeByTradeCode, companyFeeByTradeCode,
+                    acquirerFeeRate, companyFeeRate);
         }
     }
 
@@ -187,12 +213,13 @@ public class SteraTransferCalculationService {
      */
     private void accumulateGroup(
             String tradeCode, long groupTotalAmount, Map<String, Long> grossAmountByTradeCode,
-            Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode) {
+            Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode,
+            BigDecimal acquirerFeeRate, BigDecimal companyFeeRate) {
         grossAmountByTradeCode.merge(tradeCode, groupTotalAmount, Long::sum);
         acquirerFeeByTradeCode.merge(
-                tradeCode, (long) roundHalfUp(groupTotalAmount, ACQUIRER_FEE_RATE), Long::sum);
+                tradeCode, (long) roundHalfUp(groupTotalAmount, acquirerFeeRate), Long::sum);
         companyFeeByTradeCode.merge(
-                tradeCode, (long) roundHalfUp(groupTotalAmount, COMPANY_FEE_RATE), Long::sum);
+                tradeCode, (long) roundHalfUp(groupTotalAmount, companyFeeRate), Long::sum);
     }
 
     private int roundHalfUp(long amount, BigDecimal rate) {

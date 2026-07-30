@@ -428,10 +428,12 @@
     border-collapse: collapse;
     font-size: var(--fs-base);
     table-layout: fixed;
-    /* 列幅の合計 = 1700px。支店コード・店舗名・カード名・お支払方法・支払区分は
-       全角文字を含む実データ（例:支店コード「２１８１－５００－５１－０００３４」）の
-       実際の文字数を収容できる幅にしている。 */
-    min-width: 1700px;
+    /* 列幅の合計 = 1810px。支店コード・カード名・お支払方法・締め日は全角文字を含む
+       実データ（例:支店コード「２１８１－５００－５１－０００３４」、カード名
+       「【ダイナースクラブ】」「【交通系電子マネー】」）が省略記号(…)にならず
+       収まる幅にしている。店舗名のみ、長い店舗名では省略記号での表示を許容する
+       （CLAUDE.mdの表形式画面規約どおり、その他の列は極力1行で収まる幅を優先する）。 */
+    min-width: 1810px;
   }
 
   .data-table thead th {
@@ -605,10 +607,10 @@
             <col style="width: 100px">
             <col style="width: 300px">
             <col style="width: 260px">
+            <col style="width: 200px">
             <col style="width: 160px">
             <col style="width: 130px">
-            <col style="width: 120px">
-            <col style="width: 110px">
+            <col style="width: 140px">
             <col style="width: 130px">
             <col style="width: 130px">
             <col style="width: 130px">

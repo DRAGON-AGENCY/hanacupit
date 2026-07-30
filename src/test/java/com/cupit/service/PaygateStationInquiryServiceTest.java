@@ -435,6 +435,31 @@ class PaygateStationInquiryServiceTest {
                 .containsExactly("01-001", "05-010");
     }
 
+    /**
+     * 手数料率マスタ・項目コードマスタに存在しないカードブランド名（表記ゆれ等）を持つ
+     * JCBデータが1件あると、JftdTransferCalculationService.calculateJcbLineItems()が
+     * IllegalStateExceptionを投げる（findFeeRate/findItemCodeの仕様）。この例外で
+     * 画面全体がcrashしないよう、JCB分だけ0件になり、他の決済会社（楽天ペイ）の行は
+     * 通常どおり返ることを検証する（実際に本番データで発生した不具合の回帰テスト）。
+     */
+    @Test
+    void findAllSkipsOnlyTheFailingCompanyWhenCalculationThrows() {
+        when(importBatchRepository.findAll()).thenReturn(List.of(
+                batch(500, "JCB", CUTOFF_DATE),
+                batch(501, "楽天ペイ", CUTOFF_DATE)));
+        when(jftdTransferCalculationService.calculateJcbLineItems(List.of(500)))
+                .thenThrow(new IllegalStateException(
+                        "手数料率マスタにカードブランド「JCBカード」の設定がありません。"));
+        when(jftdTransferCalculationService.calculateRakutenPayLineItems(List.of(501)))
+                .thenReturn(List.of(lineItem("01-024", "3300062", 21856, 22550, 0, 631, 63)));
+        when(rakutenPayTransactionRepository.sumByTradeCode(List.of(501))).thenReturn(List.of());
+
+        List<PaygateStationRow> rows = service.findAll();
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getPaymentCompany()).isEqualTo("楽天ペイ");
+    }
+
     private TerminalFeeAggregate terminalFeeAggregate(
             String tradeCode, int unitPrice, int batchId, long terminalCount) {
         return new TerminalFeeAggregate() {

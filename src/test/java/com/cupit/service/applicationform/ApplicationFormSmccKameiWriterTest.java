@@ -38,13 +38,14 @@ class ApplicationFormSmccKameiWriterTest {
     }
 
     @Test
-    void writesNewChangeCancelFlagSmccToCol2() throws IOException {
+    void writesSmccApplicationClassificationFromInputToCol2() throws IOException {
         ApplicationFormSmccKameiWriter writer = new ApplicationFormSmccKameiWriter(
                 TEMPLATE_DIR, new ApplicationFormFieldResolver());
+        ApplicationFormInput input = new ApplicationFormInput();
+        input.setSmccApplicationClassification("1：新規加盟店");
         ApplicationFormRowContext ctx = new ApplicationFormRowContext(
-                new ApplicationFormInput(), null, null,
-                Map.of("NEW_CHANGE_CANCEL_FLAG_SMCC", "1：新規加盟店",
-                        "SYSTEM_DATE_SLASH", "2026/07/17",
+                input, null, null,
+                Map.of("SYSTEM_DATE_SLASH", "2026/07/17",
                         "DEFAULT_STORE_COUNT_1", "1",
                         "DEFAULT_REPRESENTATIVE_STORE_FLAG", "有"), 1);
 

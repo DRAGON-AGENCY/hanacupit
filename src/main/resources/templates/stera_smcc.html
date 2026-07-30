@@ -428,10 +428,10 @@
     border-collapse: collapse;
     font-size: var(--fs-base);
     table-layout: fixed;
-    /* 列幅の合計 = 1600px。店舗名・カード名は実データの文字数
-       （例：店舗名「花キューピットstera codeテスト店」、カード名「交通系（ｔｏｉｃａ）」）
-       を収容できる幅にしている。 */
-    min-width: 1600px;
+    /* 列幅の合計 = 1670px。店舗名・カード名・決済フォーマット・締め日は実データの文字数
+       （例：店舗名「花キューピットstera codeテスト店」、カード名「交通系（ｔｏｉｃａ）」、
+       決済フォーマット「steraクレジット」）が省略記号(…)にならず収まる幅にしている。 */
+    min-width: 1670px;
   }
 
   .data-table thead th {
@@ -605,10 +605,10 @@
             <col style="width: 100px">
             <col style="width: 200px">
             <col style="width: 300px">
-            <col style="width: 130px">
+            <col style="width: 170px">
             <col style="width: 180px">
             <col style="width: 100px">
-            <col style="width: 110px">
+            <col style="width: 140px">
             <col style="width: 120px">
             <col style="width: 120px">
             <col style="width: 120px">

@@ -21,6 +21,8 @@ public final class ApplicationFormInputFieldAccessor {
         MAP.put("terminal_id", ApplicationFormInput::getTerminalId);
         MAP.put("trade_code", ApplicationFormInput::getTradeCode);
         MAP.put("paygate_continuation_status", ApplicationFormInput::getPaygateContinuationStatus);
+        MAP.put("jcb_application_classification", ApplicationFormInput::getJcbApplicationClassification);
+        MAP.put("smcc_application_classification", ApplicationFormInput::getSmccApplicationClassification);
         MAP.put("member_type", ApplicationFormInput::getMemberType);
         MAP.put("store_name", ApplicationFormInput::getStoreName);
         MAP.put("store_name_kana", ApplicationFormInput::getStoreNameKana);

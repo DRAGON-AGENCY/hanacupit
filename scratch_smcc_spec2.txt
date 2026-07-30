@@ -1,0 +1,142 @@
+=== 表紙 ===
+B5: '単体テスト仕様書'
+B10: 'Unit Test Specification'
+B15: 'プロジェクト名'
+D15: '花キューピットシステム'
+B16: 'システム名'
+D16: '花キューピットシステム'
+B17: 'サブシステム名'
+D17: '照会機能'
+B18: '機能名'
+D18: 'stera terminal精算情報 (SMCC) 照会'
+B19: 'バージョン'
+D19: 'Ver. 1.00'
+B20: '作成日'
+D20: datetime.datetime(2026, 7, 27, 0, 0)
+B21: '作成者'
+D21: 'kuroyanagi'
+B22: '承認者'
+B30: '○○○○株式会社'
+=== 改訂履歴 ===
+B2: '改訂履歴'
+B4: '版数'
+C4: '改訂日'
+D4: '改訂者'
+E4: '承認者'
+F4: '改訂内容'
+B5: 1
+C5: datetime.datetime(2026, 7, 27, 0, 0)
+D5: 'kuroyanagi'
+E5: '新規作成'
+F5: '新規作成'
+=== テスト仕様書 ===
+B2: '単体テスト仕様書'
+B4: 'プロジェクト名'
+D4: '花キューピットシステム'
+E4: 'システム名'
+F4: '花キューピットシステム'
+B5: '機能名'
+D5: 'stera terminal精算情報 (SMCC) 照会'
+E5: '対応バージョン'
+F5: 'Ver. 1.00'
+B6: 'テスト担当者'
+D6: 'kuroyanagi'
+E6: 'レビュー担当者'
+B7: 'テスト開始日'
+E7: 'テスト終了日'
+F7: datetime.datetime(2026, 7, 27, 0, 0)
+B9: '■ テスト結果サマリ'
+B10: 'テストケース総数'
+C10: '実施済'
+D10: '合格'
+E10: '不合格'
+F10: '未実施'
+G10: '合格率'
+B11: 8
+C11: 8
+D11: 8
+E11: 0
+F11: 0
+G11: '100%'
+B13: '■ テストケース一覧'
+B14: '項番'
+C14: '観点'
+D14: '確認事項'
+E14: 'テスト対象Class／Method'
+F14: 'OK/NG'
+G14: '確認日'
+H14: '使用取引コード／備考'
+I14: 'JUnit／画面確認区分'
+J14: '画面上での対象データの特定方法（実データ）'
+B15: 1
+C15: '正常系'
+D15: 'バッチが1件も無い場合、空のリストが返る。'
+E15: 'SteraSmccInquiryService.findAll()'
+F15: 'OK'
+G15: datetime.datetime(2026, 7, 28, 0, 0)
+H15: 'JUnit: SteraSmccInquiryServiceTest.findAllReturnsEmptyWhenNoBatchesExist()（m_import_batchが空のケースをモックで再現。実データでは常に何らかのバッチが存在するため画面での再現は行わない）'
+I15: 'JUnitのみ'
+J15: '該当なし（m_import_batchが0件のケースのため、画面上で再現する対象データは無い）'
+B16: 2
+C16: '正常系'
+D16: 'steraクレジット（m_stera_credit_sales_detail）とstera code（m_stera_code_settlement_detail）の2フォーマットの明細を1つの一覧にまとめて返す。'
+E16: 'SteraSmccInquiryService.findAll()'
+F16: 'OK'
+G16: datetime.datetime(2026, 7, 28, 0, 0)
+H16: 'JUnit: SteraSmccInquiryServiceTest.findAllMergesCreditAndCodeIntoOneList()（steraクレジット1件・stera code1件をモックで再現）実運用での等価シナリオ: stera_SMCC精算情報照会_単体テスト仕様書確認用テストデータ.sql（steraクレジット：取引コード99-301、stera code：取引コード99-303、いずれも締め日2025-11-30）'
+I16: '両方'
+J16: '締め日＝2025-11-30 で絞り込み、決済フォーマット＝steraクレジット（取引コード99-301）と決済フォーマット＝stera code（取引コード99-303）の行が同じ一覧内に両方表示されることを確認する'
+B17: 3
+C17: '正常系'
+D17: 'stera codeはstore_name列を持たないため、m_stera_store（取引コード単位の店舗マスタ）から店舗名を解決する。また取扱区分（transactionType）は常にnullになる（QR決済のため支払回数の概念が無い）。'
+E17: 'SteraSmccInquiryService.findAll()'
+F17: 'OK'
+G17: datetime.datetime(2026, 7, 28, 0, 0)
+H17: 'JUnit: SteraSmccInquiryServiceTest.findAllResolvesCodeStoreNameFromSteraStoreAndLeavesTransactionTypeNull()（取引コード「02-044」相当をモックで再現）実運用での等価シナリオ: stera_SMCC精算情報照会_単体テスト仕様書確認用テストデータ.sql（取引コード99-303、m_stera_storeに同取引コードの店舗名「花キューピットstera_codeテスト店C」を投入済み）'
+I17: '両方'
+J17: '締め日＝2025-11-30／決済フォーマット＝stera code／取引コード＝99-303 の行を探し、店舗名＝「花キューピットstera_codeテスト店C」と表示され、取扱区分列が「－」（null）になっていることを確認する'
+B18: 4
+C18: '正常系'
+D18: '請求金額に対し仕入手数料2.75%・当社手数料0.2%を識別番号（merchant_id）単位で四捨五入計算し、精算金額＝請求金額-仕入手数料-当社手数料で算出する（steraクレジット）。'
+E18: 'SteraSmccInquiryService.findAll()'
+F18: 'OK'
+G18: datetime.datetime(2026, 7, 28, 0, 0)
+H18: 'JUnit: SteraSmccInquiryServiceTest.findAllComputesFeePerGroupForCredit()（請求金額2200円のモックデータで検算：仕入手数料61円・当社手数料4円・精算金額2135円）実運用での等価シナリオ: stera_SMCC精算情報照会_単体テスト仕様書確認用テストデータ.sql（取引コード99-301、締め日2025-11-30）'
+I18: '両方'
+J18: '締め日＝2025-11-30／決済フォーマット＝steraクレジット／取引コード＝99-301／カード名＝ＶＭ／取扱区分＝１回払 の行を探す（請求金額20,000円・仕入手数料550円・当社手数料40円・精算金額19,410円になることを確認する）'
+B19: 5
+C19: '異常系'
+D19: '締め日（cutoff_date）がnullの既存バッチでも、steraクレジット・stera codeいずれも例外を投げずに処理される。'
+E19: 'SteraSmccInquiryService.findAll()'
+F19: 'OK'
+G19: datetime.datetime(2026, 7, 28, 0, 0)
+H19: 'JUnit: SteraSmccInquiryServiceTest.findAllHandlesNullCutoffDateForBothFormatsWithoutThrowing()（cutoff_date=nullのsteraクレジット・stera codeバッチをモックで再現）実運用での等価シナリオ: 現在DBに登録されているsteraクレジット・stera codeバッチ（batch_id 7, 8および本SQLで投入する分）はいずれもcutoff_dateが設定済みのため、画面上で再現できるnullケースのデータは存在しない'
+I19: 'JUnitのみ'
+J19: '該当なし（cutoff_date=NULLのsteraクレジット・stera codeバッチが現状DBに存在しないため）'
+B20: 6
+C20: '正常系'
+D20: '対象外の決済種類（stera JCB等）のバッチは無視され、結果に含まれない。'
+E20: 'SteraSmccInquiryService.findAll()'
+F20: 'OK'
+G20: datetime.datetime(2026, 7, 28, 0, 0)
+H20: 'JUnit: SteraSmccInquiryServiceTest.findAllIgnoresUnrelatedPaymentTypes()（payment_type="stera JCB"のバッチをモックで再現）実運用での等価シナリオ: stera terminal精算情報照会(JCB)側の既存データ（取引コード01-020他、batch_id 6, 14〜16、payment_type="stera JCB"）は本画面に出現しない'
+I20: '両方'
+J20: '【表示されないことを確認する行】決済フォーマット欄に出ない取引コード: 01-020／02-044／03-048／04-064／05-083／TEST-003（いずれもpayment_type="stera JCB"）。画面の検索結果一覧をどれだけスクロールしても、これらの取引コードの行が1行も出てこないことを確認する。'
+B21: 7
+C21: '正常系'
+D21: '結果は取引コード昇順→（同一取引コード内は）識別番号（merchant_id／terminal_id）昇順にソートされる。'
+E21: 'SteraSmccInquiryService.findAll()'
+F21: 'OK'
+G21: datetime.datetime(2026, 7, 28, 0, 0)
+H21: 'JUnit: SteraSmccInquiryServiceTest.findAllSortsByTradeCodeThenStoreNumber()（取引コード違いのデータをモックで再現）実運用での等価シナリオ: stera_SMCC精算情報照会_単体テスト仕様書確認用テストデータ.sql全体（取引コード99-301〜99-303）'
+I21: '両方'
+J21: '締め日フィルタを「すべて」にして一覧を表示し、取引コード列が 99-301 → 99-302 → 99-303 の順に並んでいることを確認する'
+B22: 8
+C22: '正常系'
+D22: 'GET /stera_smcc_search は、Serviceの結果をそのままHTTPステータス200で返す。'
+E22: 'SteraSmccController.search()'
+F22: 'OK'
+G22: datetime.datetime(2026, 7, 28, 0, 0)
+H22: 'JUnit: SteraSmccControllerTest.searchReturnsRowsFromServiceWithOkStatus()（新規作成）実運用での等価シナリオ: stera_SMCC精算情報照会_単体テスト仕様書確認用テストデータ.sql全体'
+I22: '両方'
+J22: '任意の1行（例: 締め日＝2025-11-30／取引コード＝99-301）で取得できれば、画面全体（GET /stera_smcc_search のJSON応答）がそのままレンダリングされていることを確認できる'

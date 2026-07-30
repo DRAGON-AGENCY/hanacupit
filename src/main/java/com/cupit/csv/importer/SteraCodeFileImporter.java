@@ -98,7 +98,7 @@ public class SteraCodeFileImporter extends AbstractFileImporter {
                         && !isNumeric(terminalId);
 
                 if (isSummaryRow) {
-                    addSummaryRow(summaryRecords, errors, rowNum, batch, today, brand, fields);
+                    addSummaryRow(detailRecords, summaryRecords, errors, rowNum, batch, today, brand, fields);
                 } else {
                     addDetailRow(detailRecords, errors, rowNum, batch, today,
                             brand, terminalId, slipNumber, fields);
@@ -151,16 +151,19 @@ public class SteraCodeFileImporter extends AbstractFileImporter {
     }
 
     private void addSummaryRow(
+            List<SteraCodeSettlementDetail> detailRecords,
             List<SteraCodeSettlementSummary> summaryRecords, List<CsvValidationError> errors,
             int rowNum, ImportBatch batch, LocalDate today, String brand, List<String> fields) {
         int errorCountBeforeRow = errors.size();
         SteraCodeSettlementSummary summary = new SteraCodeSettlementSummary();
         summary.setBatchId(batch.getBatchId());
         summary.setBrand(brand);
-        summary.setTransactionCount(
-                parseIntChecked(fields.get(5), rowNum, "1:売上2:返品（小計行では件数合計）", errors));
-        summary.setSettlementAmount(
-                parseIntChecked(fields.get(6), rowNum, "決済金額（小計行では合計金額）", errors));
+        int expectedCount = parseIntChecked(
+                fields.get(5), rowNum, "1:売上2:返品（小計行では件数合計）", errors);
+        int expectedAmount = parseIntChecked(
+                fields.get(6), rowNum, "決済金額（小計行では合計金額）", errors);
+        summary.setTransactionCount(expectedCount);
+        summary.setSettlementAmount(expectedAmount);
         summary.setFeeAmount(
                 parseIntChecked(fields.get(7), rowNum, "手数料金額", errors));
         summary.setNetAmount(
@@ -171,6 +174,38 @@ public class SteraCodeFileImporter extends AbstractFileImporter {
         summary.setUpdateEmployee(batch.getUpdateEmployee());
         summary.setCreateDate(today);
         summaryRecords.add(summary);
+
+        validateBrandTotals(detailRecords, brand, expectedCount, expectedAmount, rowNum, errors);
+    }
+
+    /**
+     * ブランドごとの小計行（件数・決済金額）が、実際にこのファイルで登録された同ブランドの
+     * 明細行の件数・合計金額と一致するか確認する（突合検証）。小計行は明細ブロックの末尾に
+     * あるため、この時点までに読み込んだdetailRecordsには同ブランドの明細が出揃っている。
+     * 不一致の場合、明細行の一部が端末未登録等の理由でエラーとしてスキップされている
+     * 可能性が高いが、その場合でも件数・金額の食い違いという事実自体を検出しておく価値が
+     * あるため、行単位のエラーとは別にエラーとして報告する（既に登録済みの明細行を
+     * 取り消すことはしない。detailRecordsはこの時点でまだDBへ保存されていないが、小計行と
+     * 紐づく行単位のエラーがあるかどうかに関わらず常にこの突合を行う）。
+     */
+    private void validateBrandTotals(
+            List<SteraCodeSettlementDetail> detailRecords, String brand,
+            int expectedCount, int expectedAmount, int rowNum, List<CsvValidationError> errors) {
+        int actualCount = 0;
+        int actualAmount = 0;
+        for (SteraCodeSettlementDetail detail : detailRecords) {
+            if (brand.equals(detail.getBrand())) {
+                actualCount++;
+                actualAmount += detail.getSettlementAmount();
+            }
+        }
+        if (actualCount != expectedCount || actualAmount != expectedAmount) {
+            errors.add(new CsvValidationError(rowNum, "決済金額（小計行では合計金額）",
+                    "ブランド「" + brand + "」: 小計行の件数・金額が、実際に登録される明細の"
+                    + "件数・金額と一致しません（小計行: " + expectedCount + "件・" + expectedAmount
+                    + "円、登録される明細: " + actualCount + "件・" + actualAmount + "円）。"
+                    + "一部の明細行がエラーでスキップされている可能性があります。"));
+        }
     }
 
     /**

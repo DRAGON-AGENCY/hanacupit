@@ -2,6 +2,7 @@ package com.cupit.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -14,8 +15,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.cupit.model.ImportBatch;
+import com.cupit.model.SettlementFeeRate;
 import com.cupit.model.SteraStore;
 import com.cupit.repository.ImportBatchRepository;
+import com.cupit.repository.SettlementFeeRateRepository;
 import com.cupit.repository.SteraCodeSettlementDetailRepository;
 import com.cupit.repository.SteraCodeSettlementDetailRepository.SteraCodeGroupAggregate;
 import com.cupit.repository.SteraCreditSalesDetailRepository;
@@ -55,6 +58,9 @@ class SteraTransferCalculationServiceTest {
     @Mock
     private SteraStoreRepository steraStoreRepository;
 
+    @Mock
+    private SettlementFeeRateRepository settlementFeeRateRepository;
+
     private SteraTransferCalculationService service;
 
     @BeforeEach
@@ -64,7 +70,19 @@ class SteraTransferCalculationServiceTest {
                 steraJcbSalesDetailRepository,
                 steraCodeSettlementDetailRepository,
                 steraCreditSalesDetailRepository,
-                steraStoreRepository);
+                steraStoreRepository,
+                settlementFeeRateRepository);
+        // findTargetImportBatches()系のテストは手数料率マスタを引かないため、
+        // ここでのスタブはlenient()にする（Mockitoの厳格スタブ検査対策）。
+        lenient().when(settlementFeeRateRepository.findByPaymentCompanyAndCardBrand("stera terminal", "共通"))
+                .thenReturn(Optional.of(feeRate("0.0275", "0.002")));
+    }
+
+    private SettlementFeeRate feeRate(String acquirerFeeRate, String companyFeeRate) {
+        SettlementFeeRate rate = new SettlementFeeRate();
+        rate.setAcquirerFeeRate(new java.math.BigDecimal(acquirerFeeRate));
+        rate.setOurFeeRateBase(new java.math.BigDecimal(companyFeeRate));
+        return rate;
     }
 
     private void givenNoUnprocessedBatches(String paymentType) {
@@ -90,6 +108,36 @@ class SteraTransferCalculationServiceTest {
         store.setAccountNo("1234567");
         store.setAccountHolderKana("ﾊﾅｷﾕ-ﾋﾟﾂﾄ");
         when(steraStoreRepository.findByTradeCode(tradeCode)).thenReturn(Optional.of(store));
+    }
+
+    private SteraJcbGroupAggregate jcbAggregate(
+            String tradeCode, String cardName, String paymentMethod, String paymentType, long totalSalesAmount) {
+        return new SteraJcbGroupAggregate() {
+            @Override
+            public String getTradeCode() {
+                return tradeCode;
+            }
+
+            @Override
+            public String getCardName() {
+                return cardName;
+            }
+
+            @Override
+            public String getPaymentMethod() {
+                return paymentMethod;
+            }
+
+            @Override
+            public String getPaymentType() {
+                return paymentType;
+            }
+
+            @Override
+            public Long getTotalSalesAmount() {
+                return totalSalesAmount;
+            }
+        };
     }
 
     private SteraCreditGroupAggregate creditAggregate(
@@ -174,6 +222,38 @@ class SteraTransferCalculationServiceTest {
         assertThat(item.getCompanyFee()).isEqualTo(627);
     }
 
+    /**
+     * 取引コード「73-022」（クレジット1回払340,140円＋クレジットリボルビング33,000円＋
+     * QUICPay1回払3,300円）。同一お取扱カード名・お支払方法（クレジット）でも支払区分
+     * （1回払い/リボルビング）ごとに別グループとして丸めないと実データと1円ズレることを
+     * 確認した回帰テスト（課題表項番26、集計_251205振込.xlsx JCB集計シートで検証）。
+     * 支払区分を分けずに合算(340,140+33,000)して丸めると10,261円になり、QUICPay分91円と
+     * 合わせて10,352円になってしまう（正解は10,353円）。
+     */
+    @Test
+    void matchesReferenceDataForTradeCode73022GroupingByPaymentType() {
+        givenNoUnprocessedBatches(PAYMENT_TYPE_CODE);
+        givenNoUnprocessedBatches(PAYMENT_TYPE_CREDIT);
+        ImportBatch jcbBatch = new ImportBatch();
+        jcbBatch.setBatchId(JCB_BATCH_ID);
+        when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull(PAYMENT_TYPE_JCB))
+                .thenReturn(List.of(jcbBatch));
+        when(steraJcbSalesDetailRepository.sumByTradeCodeCardNameAndPaymentMethodAndPaymentType(
+                List.of(JCB_BATCH_ID)))
+                .thenReturn(List.of(
+                        jcbAggregate("73-022", "【ＪＣＢカード】", "◆クレジット", "１回払い", 340140),
+                        jcbAggregate("73-022", "【ＪＣＢカード】", "◆クレジット", "リボルビング払い", 33000),
+                        jcbAggregate("73-022", "【ＱＵＩＣＰａｙ】", "◆ポストペイ", "１回払い", 3300)));
+        givenStore("73-022", "0100");
+
+        List<SteraTransferLineItem> result = service.calculateAllLineItems();
+
+        assertThat(result).hasSize(1);
+        SteraTransferLineItem item = result.get(0);
+        assertThat(item.getGrossAmount()).isEqualTo(340140 + 33000 + 3300);
+        assertThat(item.getAcquirerFee()).isEqualTo(10353);
+    }
+
     @Test
     void transferFeeIsZeroForGmoAozoraBankCode0310() {
         givenNoUnprocessedBatches(PAYMENT_TYPE_JCB);
@@ -201,28 +281,9 @@ class SteraTransferCalculationServiceTest {
                 .thenReturn(List.of(codeBatch));
         givenUnprocessedCreditBatch();
 
-        when(steraJcbSalesDetailRepository.sumByTradeCodeCardNameAndPaymentMethod(List.of(JCB_BATCH_ID)))
-                .thenReturn(List.of(new SteraJcbGroupAggregate() {
-                    @Override
-                    public String getTradeCode() {
-                        return "03-300";
-                    }
-
-                    @Override
-                    public String getCardName() {
-                        return "【ＪＣＢカード】";
-                    }
-
-                    @Override
-                    public String getPaymentMethod() {
-                        return "１回払い";
-                    }
-
-                    @Override
-                    public Long getTotalSalesAmount() {
-                        return 1000L;
-                    }
-                }));
+        when(steraJcbSalesDetailRepository.sumByTradeCodeCardNameAndPaymentMethodAndPaymentType(
+                List.of(JCB_BATCH_ID)))
+                .thenReturn(List.of(jcbAggregate("03-300", "【ＪＣＢカード】", "◆クレジット", "１回払い", 1000)));
         when(steraCodeSettlementDetailRepository.sumByTradeCodeAndBrand(List.of(CODE_BATCH_ID)))
                 .thenReturn(List.of(new SteraCodeGroupAggregate() {
                     @Override
@@ -263,6 +324,41 @@ class SteraTransferCalculationServiceTest {
         assertThatThrownBy(() -> service.calculateAllLineItems())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("振込先口座情報");
+    }
+
+    @Test
+    void feeRateComesFromMasterNotHardcodedValue() {
+        // 手数料率マスタ（m_settlement_fee_rate）の値を旧ハードコード値（2.75%/0.2%）とは
+        // 異なる値に差し替え、計算結果がマスタ側の値に追従することを確認する
+        // （固定値を参照しているのではないことの証明）。
+        when(settlementFeeRateRepository.findByPaymentCompanyAndCardBrand("stera terminal", "共通"))
+                .thenReturn(Optional.of(feeRate("0.03", "0.005")));
+        givenNoUnprocessedBatches(PAYMENT_TYPE_JCB);
+        givenNoUnprocessedBatches(PAYMENT_TYPE_CODE);
+        givenUnprocessedCreditBatch();
+        when(steraCreditSalesDetailRepository.sumByTradeCodeCardBrandAndTransactionType(List.of(CREDIT_BATCH_ID)))
+                .thenReturn(List.of(creditAggregate("01-030", "VM", "1回払", 2000)));
+        givenStore("01-030", "0100");
+
+        List<SteraTransferLineItem> result = service.calculateAllLineItems();
+
+        assertThat(result).hasSize(1);
+        SteraTransferLineItem item = result.get(0);
+        assertThat(item.getAcquirerFee()).isEqualTo(60);
+        assertThat(item.getCompanyFee()).isEqualTo(10);
+    }
+
+    @Test
+    void throwsWhenFeeRateMasterRowMissing() {
+        when(settlementFeeRateRepository.findByPaymentCompanyAndCardBrand("stera terminal", "共通"))
+                .thenReturn(Optional.empty());
+        givenNoUnprocessedBatches(PAYMENT_TYPE_JCB);
+        givenNoUnprocessedBatches(PAYMENT_TYPE_CODE);
+        givenUnprocessedCreditBatch();
+
+        assertThatThrownBy(() -> service.calculateAllLineItems())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("手数料率マスタ");
     }
 
     @Test

@@ -11,7 +11,9 @@ import java.util.List;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.model.CalculationChain;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCalcChain;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -33,8 +35,8 @@ public class ApplicationFormJcbWriter {
 
     private static final List<ApplicationFormFieldMapping> MAPPINGS = List.of(
         new ApplicationFormFieldMapping(
-                2, ApplicationFormFieldMapping.SourceType.DERIVE,
-                List.of("NEW_CHANGE_CANCEL_FLAG_JCB"), ApplicationFormFieldMapping.Transform.DIRECT),
+                2, ApplicationFormFieldMapping.SourceType.INPUT,
+                List.of("jcb_application_classification"), ApplicationFormFieldMapping.Transform.DIRECT),
         new ApplicationFormFieldMapping(
                 3, ApplicationFormFieldMapping.SourceType.MEMBER_INFO,
                 List.of("store_name"), ApplicationFormFieldMapping.Transform.DIRECT),
@@ -220,12 +222,33 @@ public class ApplicationFormJcbWriter {
             for (int i = 0; i < rows.size(); i++) {
                 writeDataRow(sheet, DATA_START_ROW + i, rows.get(i));
             }
+            clearCalculationChain(workbook);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException("ApplicationFormJcbWriter: 出力Excelの作成に失敗しました。", e);
+        }
+    }
+
+    /**
+     * データ行の書き込みでテンプレートの数式セルを上書き・削除すると、ブックの
+     * 計算チェーン（xl/calcChain.xml）が実際のセル構成と不整合になり、Excelで
+     * 開いた際に「一部の内容に問題が見つかりました」という修復ダイアログが
+     * 表示されてしまう（実際にSMCC加盟店申込書で発生した不具合と同根のため、
+     * 全Writerで対策する）。POIは計算チェーンの項目数が0件の場合のみ書き込み時に
+     * このパートを自動的に除去するため、明示的に全項目をクリアして0件にする
+     * （計算チェーンが無くてもExcelは開くたびに再計算するため問題ない）。
+     */
+    private void clearCalculationChain(XSSFWorkbook workbook) {
+        CalculationChain calcChain = workbook.getCalculationChain();
+        if (calcChain == null) {
+            return;
+        }
+        CTCalcChain ctCalcChain = calcChain.getCTCalcChain();
+        while (ctCalcChain.sizeOfCArray() > 0) {
+            ctCalcChain.removeC(0);
         }
     }
 

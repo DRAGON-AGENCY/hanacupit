@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>手数料率一覧 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<!-- 取得前でも代替フォントで即座に画面を表示し、応答性を確保する。 -->
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
+<style>
+  :root {
+    /* === 色トークン (他画面と統一) === */
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-search: #eef3fa;
+    --bg-label: #ede8db;
+    --bg-label-soft: #f5f2eb;
+    --bg-white: #ffffff;
+    --bg-hover: #faf8f2;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-table: #e5e2d8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+    --text-subtle: #9a9a9a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+
+    /* === フォントトークン === */
+    --font-jp: "Inter", "Noto Sans JP", sans-serif;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+
+    /* === フォントサイズトークン === */
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 22px;
+
+    /* === レイアウトトークン === */
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    min-height: 100vh;
+  }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ページ全体のカスタムスクロールバー */
+  body::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  body::-webkit-scrollbar-track {
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-table);
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid var(--bg-page);
+    border-radius: 8px;
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  .page-title {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  /* 検索エリア */
+  .search-box {
+    background-color: var(--bg-search);
+    border: 1px solid #dde5f0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 14px;
+  }
+
+  .search-label {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    width: 280px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-family: var(--font-jp);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: var(--fs-base);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+  }
+
+  .btn-search {
+    background-color: var(--accent-blue-light);
+    border: 1px solid var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .btn-search:hover {
+    background-color: #d5e4f6;
+  }
+
+  .btn-clear {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    color: var(--text-main);
+  }
+
+  .btn-clear:hover {
+    background-color: var(--bg-hover);
+  }
+
+  /* 新規登録ツールバー */
+  .toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .btn-new {
+    background-color: #faeeda;
+    border: 1px solid #ecd9b0;
+    color: #8a5a1a;
+    font-weight: 600;
+  }
+
+  .btn-new:hover {
+    background-color: #f3e2c4;
+    border-color: #c08a3e;
+  }
+
+  /* 結果ヘッダー */
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .result-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-left: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  /* データテーブル */
+  .data-table-wrapper {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .data-scroll {
+    overflow-y: auto;
+    /* テーブルが幅にあふれたときは横スクロールで全列表示する */
+    overflow-x: auto;
+    max-height: 560px;
+  }
+
+  .data-scroll::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+
+  .data-scroll::-webkit-scrollbar-track {
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-table);
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid var(--bg-page);
+    border-radius: 8px;
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  .data-table {
+    width: 100%;
+    /* 画面が狭くても各列が読める最小幅を確保し、 */
+    /* これ以下では .data-scroll の横スクロールで全列を表示する */
+    min-width: 1080px;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  /* 列幅は比率指定にして画面幅に合わせて自動調整する (合計100%) */
+  .data-table col.c-company { width: 12%; }
+  .data-table col.c-brand { width: 16%; }
+  .data-table col.c-model { width: 16%; }
+  .data-table col.c-acquirer { width: 12%; }
+  .data-table col.c-base { width: 12%; }
+  .data-table col.c-tax { width: 12%; }
+  .data-table col.c-updater { width: 12%; }
+  .data-table col.c-updated { width: 8%; }
+
+  .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #FAEEDA;
+    color: var(--text-label);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .data-table thead th:last-child {
+    border-right: none;
+  }
+
+  .data-table tbody td {
+    padding: 11px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: var(--font-jp);
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .data-table tbody td:last-child {
+    border-right: none;
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .data-table tbody td.rate,
+  .data-table tbody td.updated {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table tbody td.rate.empty {
+    color: var(--text-subtle);
+    font-family: var(--font-jp);
+  }
+
+  .data-table tbody tr.data-row:hover td {
+    background: var(--bg-hover);
+    cursor: pointer;
+  }
+
+  /* 絞込み結果が0件のときの空状態 */
+  .data-table tbody td.empty-cell {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-jp);
+    padding: 28px 16px;
+    white-space: normal;
+  }
+
+  .data-table tbody tr.empty-row:hover td {
+    background: var(--bg-white);
+    cursor: default;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- タイトル -->
+    <h1 class="page-title">手数料率一覧</h1>
+
+    <!-- ログイン中ユーザーの権限コード (行クリックの権限制御で参照する) -->
+    <input type="hidden" id="authority-code" th:value="${authorityCode}" />
+
+    <!-- 権限不足エラー (担当者・閲覧のみが明細を選択したときに表示) -->
+    <div id="permission-error" role="alert"
+         style="display:none; margin-bottom:12px; padding:10px 14px;
+                border-radius:6px; background:#fbeaea; border:1px solid #f0c4c4;
+                color:#c64a4a; font-size:14px;">
+      権限がありません。
+    </div>
+
+    <!-- 新規登録 (管理者のみ表示) -->
+    <div class="toolbar">
+      <button class="btn btn-new" type="button" id="new-fee-rate-btn"
+              th:if="${authorityCode == '01'}">
+        <span>＋</span>
+        <span>新規登録</span>
+      </button>
+    </div>
+
+    <!-- 検索エリア -->
+    <div class="search-box">
+      <label class="search-label" for="fee-rate-company">決済会社</label>
+      <div class="search-row">
+        <input type="text" id="fee-rate-company" class="search-input" placeholder="決済会社名を入力" />
+        <button class="btn btn-search" type="button">
+          <span>🔍</span>
+          <span>絞込み</span>
+        </button>
+        <button class="btn btn-clear" type="button">クリア</button>
+      </div>
+    </div>
+
+    <!-- 結果ヘッダー (件数が少なく緩やかにしか増減しないマスタ画面のため、
+         ページ送りは行わず絞込み結果の件数のみを表示する) -->
+    <div class="result-header">
+      <span class="result-summary" id="result-summary"></span>
+    </div>
+
+    <!-- 手数料率一覧テーブル -->
+    <div class="data-table-wrapper">
+      <div class="data-scroll">
+        <table class="data-table">
+          <colgroup>
+            <col class="c-company">
+            <col class="c-brand">
+            <col class="c-model">
+            <col class="c-acquirer">
+            <col class="c-base">
+            <col class="c-tax">
+            <col class="c-updater">
+            <col class="c-updated">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>決済会社</th>
+              <th>カードブランド</th>
+              <th>計算モデル</th>
+              <th>仕入手数料率</th>
+              <th>当社手数料率(本体)</th>
+              <th>当社手数料率(消費税)</th>
+              <th>更新者</th>
+              <th>更新日</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="data-row" th:each="feeRate : ${feeRates}"
+                th:attr="data-fee-rate-id=${feeRate.feeRateId}">
+              <td class="company" th:text="${feeRate.paymentCompany}"></td>
+              <td class="brand" th:text="${feeRate.cardBrand}"></td>
+              <td class="model"
+                  th:text="${feeRate.calcModel == 'STRAIGHT' ? '直線式' : (feeRate.calcModel == 'PURCHASE_COLLECT' ? '仕入・収代二段階式' : (feeRate.calcModel == 'SBI_RESIDUAL' ? '住信SBI残差式' : feeRate.calcModel))}"></td>
+              <td th:class="${feeRate.acquirerFeeRate != null ? 'rate' : 'rate empty'}"
+                  th:text="${feeRate.acquirerFeeRate != null ? feeRate.acquirerFeeRate : '—'}"></td>
+              <td class="rate" th:text="${feeRate.ourFeeRateBase}"></td>
+              <td th:class="${feeRate.ourFeeRateTax != null ? 'rate' : 'rate empty'}"
+                  th:text="${feeRate.ourFeeRateTax != null ? feeRate.ourFeeRateTax : '—'}"></td>
+              <td class="updater" th:text="${feeRate.updateEmployee}"></td>
+              <td class="updated"
+                  th:text="${feeRate.updatedDate != null ? #temporals.format(feeRate.updatedDate, 'yyyy/MM/dd') : '—'}"></td>
+            </tr>
+            <!-- 絞込み結果が0件のときに表示する空状態の行 -->
+            <tr id="empty-row" class="empty-row" style="display:none;">
+              <td class="empty-cell" colspan="8">該当する手数料率がありません。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ログイン中ユーザーの権限コード ('01'=管理者 / '02'=担当者 / '03'=閲覧のみ)
+    var authorityCodeInput = document.getElementById('authority-code');
+    var currentAuthorityCode =
+        authorityCodeInput ? authorityCodeInput.value : '';
+    var ADMINISTRATOR_AUTHORITY_CODE = '01';
+    var permissionError = document.getElementById('permission-error');
+
+    // 新規登録ボタン: 管理者のみ表示されるため存在する場合だけ処理を割り当てる
+    var newFeeRateButton = document.getElementById('new-fee-rate-btn');
+    if (newFeeRateButton) {
+      newFeeRateButton.addEventListener('click', function () {
+        window.location.href = '/settlement_fee_rate_edit?mode=new';
+      });
+    }
+
+    // 表の手数料率 (行) を選択したら、同じ枠 (iframe) 内で編集画面へ遷移する
+    // 新規タブを開かず現在のウィンドウを遷移させることで、
+    // 親シェル (menu) の左サイドバーを表示したまま編集画面を表示する
+    // ただしメンテナンスは管理者のみのため、管理者以外は遷移させず
+    // 「権限がありません。」を表示する
+    document.querySelectorAll('.data-table tbody tr.data-row').forEach(function (row) {
+      row.addEventListener('click', function () {
+        if (currentAuthorityCode !== ADMINISTRATOR_AUTHORITY_CODE) {
+          permissionError.style.display = 'block';
+          return;
+        }
+        permissionError.style.display = 'none';
+        var feeRateId = row.getAttribute('data-fee-rate-id');
+        window.location.href =
+            '/settlement_fee_rate_edit?feeRateId=' + encodeURIComponent(feeRateId);
+      });
+    });
+
+    // 絞込み (決済会社)。件数が少なく緩やかにしか増減しないマスタ画面のため、
+    // ページ送りは行わず絞込み結果を常に全件スクロール表示する
+    (function () {
+      var allRows = Array.prototype.slice.call(
+        document.querySelectorAll('.data-table tbody tr.data-row')
+      );
+      var companyInput = document.getElementById('fee-rate-company');
+      var searchButton = document.querySelector('.btn-search');
+      var clearButton = document.querySelector('.btn-clear');
+      var emptyRow = document.getElementById('empty-row');
+      var summaryEl = document.getElementById('result-summary');
+
+      // 検索文字列を比較用に正規化する (前後・途中の空白を除去)
+      function normalizeText(text) {
+        if (!text) {
+          return '';
+        }
+        return text.replace(/[\s　]+/g, '');
+      }
+
+      // 絞込み条件に応じて行の表示・件数概要を再描画する (全件表示、ページ送りなし)
+      function render(filteredRows) {
+        allRows.forEach(function (row) {
+          row.style.display = 'none';
+        });
+        filteredRows.forEach(function (row) {
+          row.style.display = '';
+        });
+
+        // 絞込み結果が0件のときは空状態の行を表示する
+        if (emptyRow) {
+          emptyRow.style.display = (filteredRows.length === 0) ? '' : 'none';
+        }
+
+        summaryEl.textContent = filteredRows.length + ' 件';
+      }
+
+      // 入力された決済会社名で一覧を絞り込む。
+      // 部分一致 (入力が決済会社名のどこかに含まれる) で判定する
+      function applyFilter() {
+        var query = normalizeText(companyInput.value);
+        var filteredRows = query === '' ? allRows.slice() : allRows.filter(function (row) {
+          var companyCell = row.querySelector('td.company');
+          var company = companyCell ? normalizeText(companyCell.textContent) : '';
+          return company.indexOf(query) !== -1;
+        });
+        render(filteredRows);
+      }
+
+      // 絞込みを解除し、入力を消して全件を表示する
+      function clearFilter() {
+        companyInput.value = '';
+        render(allRows.slice());
+      }
+
+      searchButton.addEventListener('click', applyFilter);
+      clearButton.addEventListener('click', clearFilter);
+
+      // 入力欄で Enter キーを押したときも絞込みを実行する
+      companyInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          applyFilter();
+        }
+      });
+
+      render(allRows.slice());
+    })();
+  </script>
+</body>
+</html>

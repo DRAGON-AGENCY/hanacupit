@@ -823,6 +823,12 @@ CREATE TABLE IF NOT EXISTS m_settlement_fee_rate (
 -- （消費税分は含まない。消費税は本体金額×10%を計算時に別途算出するため）。
 -- ネットスターズ(PayPay・d払い)・楽天ペイの生データで、本体を四捨五入・消費税を
 -- 本体×10%の切り捨てで計算すると実データと一致することを検証済み。
+-- stera terminal（stera JCB/stera code/steraクレジットの3フォーマット共通、
+-- payment_company='stera terminal', card_brand='共通'の1行のみ）は、仕入手数料・
+-- 当社手数料とも本体・消費税に分けずそれぞれ単純に四捨五入するモデルのため、
+-- calc_modelはSTRAIGHTを流用するが実際にはSettlementFeeCalculatorを経由せず
+-- acquirer_fee_rate・our_fee_rate_baseの値を直接参照するだけに留める
+-- （our_fee_rate_taxは本モデルでは使わないためNULL）。
 INSERT INTO m_settlement_fee_rate
     (payment_company, card_brand, calc_model, acquirer_fee_rate, our_fee_rate_base, our_fee_rate_tax) VALUES
     ('JCB', '【ＪＣＢカード】', 'STRAIGHT', 0.0275, 0.0018, 0.0002),
@@ -840,7 +846,8 @@ INSERT INTO m_settlement_fee_rate
     ('ネットスターズ', 'd払い', 'PURCHASE_COLLECT', 0.026, 0.0008, 0.0001),
     ('ネットスターズ', 'WeChatPay', 'STRAIGHT', 0.017, 0.0025, 0.0003),
     ('楽天ペイ', '楽天ペイ', 'PURCHASE_COLLECT', 0.028, 0.0015, 0.0001),
-    ('住信SBI', 'Visa/Master', 'SBI_RESIDUAL', NULL, 0.0032, NULL)
+    ('住信SBI', 'Visa/Master', 'SBI_RESIDUAL', NULL, 0.0032, NULL),
+    ('stera terminal', '共通', 'STRAIGHT', 0.0275, 0.002, NULL)
 ON CONFLICT (payment_company, card_brand) DO NOTHING;
 
 -- JFTD統合振込CSV作成・帳票出力の帳票（支払明細書）に印字する会社情報・振込先情報。

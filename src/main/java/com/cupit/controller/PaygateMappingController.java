@@ -1,8 +1,13 @@
 package com.cupit.controller;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -12,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.cupit.csv.writer.PaygateMappingCsvWriter;
 import com.cupit.dto.CsvValidationResponse;
 import com.cupit.dto.ImportResponse;
 import com.cupit.interceptor.AuthenticationInterceptor;
@@ -23,19 +29,26 @@ import jakarta.servlet.http.HttpSession;
 
 /**
  * 取引コード紐付データ作成・照会のコントローラ。
- * CSV アップロード（フォーマット検証・取引コード単位での洗い替え登録）と取引コード検索を処理する。
+ * CSV アップロード（フォーマット検証・取引コード単位での洗い替え登録）、取引コード検索、
+ * 現在の登録データのCSVダウンロードを処理する。
  */
 @Controller
 public class PaygateMappingController {
 
+    private static final DateTimeFormatter FILENAME_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMdd");
+
     private final PaygateMappingService paygateMappingService;
     private final PaygateMappingRepository paygateMappingRepository;
+    private final PaygateMappingCsvWriter paygateMappingCsvWriter;
 
     public PaygateMappingController(
             PaygateMappingService paygateMappingService,
-            PaygateMappingRepository paygateMappingRepository) {
+            PaygateMappingRepository paygateMappingRepository,
+            PaygateMappingCsvWriter paygateMappingCsvWriter) {
         this.paygateMappingService = paygateMappingService;
         this.paygateMappingRepository = paygateMappingRepository;
+        this.paygateMappingCsvWriter = paygateMappingCsvWriter;
     }
 
     /**
@@ -121,6 +134,30 @@ public class PaygateMappingController {
         List<PaygateStoreMapping> result =
                 paygateMappingRepository.findByTradeCodeOrderByTerminalId(tradeCode.trim());
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * m_paygate_store_mapping の全件を「取引コード紐付データ作成」CSVフォーマットと
+     * 同じ13列でCSVダウンロードする。ダウンロードしたファイルはそのまま編集して
+     * 再アップロードできる。
+     *
+     * @return CSVファイル（UTF-8 BOM付き）
+     */
+    @GetMapping("/paygate_mapping/download")
+    public ResponseEntity<byte[]> download() {
+        List<PaygateStoreMapping> records =
+                paygateMappingRepository.findAllByOrderByTradeCodeAscTerminalIdAsc();
+        byte[] csvBytes = paygateMappingCsvWriter.writeCsv(records);
+
+        String filename = "paygate_mapping_" + LocalDate.now().format(FILENAME_DATE_FORMAT) + ".csv";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8)
+                .build());
+        return ResponseEntity.ok()
+                .headers(headers)
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csvBytes);
     }
 
 }

@@ -102,4 +102,15 @@ public class SettlementItemCode {
     public void setUpdatedDate(LocalDate updatedDate) {
         this.updatedDate = updatedDate;
     }
+
+    @Override
+    public String toString() {
+        return "SettlementItemCode{"
+                + "itemCodeId=" + itemCodeId
+                + ", paymentCompany=" + paymentCompany
+                + ", cardBrand=" + cardBrand
+                + ", amountType=" + amountType
+                + ", itemCode=" + itemCode
+                + "}";
+    }
 }

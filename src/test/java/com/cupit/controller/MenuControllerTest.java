@@ -27,6 +27,8 @@ import com.cupit.repository.SteraTerminalRepository;
 import com.cupit.service.EmployeeService;
 import com.cupit.service.JftdReportDataService;
 import com.cupit.service.MemberInfoService;
+import com.cupit.service.SettlementFeeRateService;
+import com.cupit.service.SettlementItemCodeService;
 
 /**
  * MenuController のテスト。会員情報照会(/member_info)・
@@ -58,13 +60,20 @@ class MenuControllerTest {
     @Mock
     private SmccMerchantNoRepository smccMerchantNoRepository;
 
+    @Mock
+    private SettlementFeeRateService settlementFeeRateService;
+
+    @Mock
+    private SettlementItemCodeService settlementItemCodeService;
+
     private MenuController menuController;
 
     @BeforeEach
     void setUp() {
         menuController = new MenuController(
                 memberInfoService, employeeService, jftdReportDataService,
-                steraStoreRepository, steraTerminalRepository, smccMerchantNoRepository);
+                steraStoreRepository, steraTerminalRepository, smccMerchantNoRepository,
+                settlementFeeRateService, settlementItemCodeService);
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.cupit.config;
 
+import org.springframework.boot.web.servlet.ServletContextInitializer;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -52,5 +54,20 @@ public class WebConfig implements WebMvcConfigurer {
                         PATTERN_STATIC_IMAGES,
                         PATTERN_FAVICON,
                         PATTERN_ERROR);
+    }
+
+    /**
+     * セッションが一定時間操作されないだけで自動的にログイン画面へ戻される挙動を
+     * 廃止する。本プロジェクトにはweb.xmlが無く、放置していたのはTomcatサーバー側の
+     * デフォルトのセッションタイムアウト（未設定時は30分）だった。
+     * ServletContext#setSessionTimeout()は0以下を指定するとセッションが
+     * タイムアウトしなくなる仕様（Jakarta Servlet仕様）のため、これを使う。
+     * ログイン自体（AuthenticationInterceptor）は引き続き必須で、
+     * 「ログアウト」操作やブラウザ・Tomcat再起動によるセッション破棄では
+     * 通常どおりログイン画面に戻る。
+     */
+    @Bean
+    public ServletContextInitializer sessionTimeoutInitializer() {
+        return servletContext -> servletContext.setSessionTimeout(-1);
     }
 }

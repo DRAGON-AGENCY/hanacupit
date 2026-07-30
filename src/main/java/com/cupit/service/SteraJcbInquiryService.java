@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 
 import com.cupit.dto.SteraJcbRow;
 import com.cupit.model.ImportBatch;
+import com.cupit.model.SettlementFeeRate;
 import com.cupit.repository.ImportBatchRepository;
+import com.cupit.repository.SettlementFeeRateRepository;
 import com.cupit.repository.SteraJcbSalesDetailRepository;
 import com.cupit.repository.SteraJcbSalesDetailRepository.SteraJcbStoreGroupAggregate;
 
@@ -23,38 +25,46 @@ import com.cupit.repository.SteraJcbSalesDetailRepository.SteraJcbStoreGroupAggr
  * 明細の粒度は取引コード×支店（store_number）×カード名×お支払方法×支払区分×締め日
  * （1取引コードに複数の支店が存在する運用があり、支店ごとに店舗名も異なるため）。
  *
- * 手数料率（仕入手数料2.75%・当社手数料0.2%）は{@link SteraTransferCalculationService}で
- * 実データ全件検証済みの値と同じものを使う。ただし{@link SteraTransferCalculationService}は
- * 統合振込CSV作成用に取引コード単位まで合算し、かつ振込手数料（129円、口座により0円）を
- * 差し引いた最終振込金額を算出するのに対し、本画面は支店単位の明細を見せるための照会
- * であり、振込手数料（取引コード＝1回の銀行振込につき1回だけ発生する）は対象外とする
- * （支店ごとの行にまで振込手数料を配分すると二重計上になるため）。
+ * 手数料率（仕入手数料2.75%・当社手数料0.2%）はm_settlement_fee_rate
+ * （payment_company='stera terminal', card_brand='共通'の1行）を参照する
+ * （{@link SteraTransferCalculationService}と同じマスタ行を使う）。以前はコード内の
+ * 定数だったが、手数料率マスタの値を反映できるようマスタ参照に変更した。ただし
+ * {@link SteraTransferCalculationService}は統合振込CSV作成用に取引コード単位まで合算し、
+ * かつ振込手数料（129円、口座により0円）を差し引いた最終振込金額を算出するのに対し、
+ * 本画面は支店単位の明細を見せるための照会であり、振込手数料（取引コード＝1回の銀行振込
+ * につき1回だけ発生する）は対象外とする（支店ごとの行にまで振込手数料を配分すると
+ * 二重計上になるため）。
  */
 @Service
 public class SteraJcbInquiryService {
 
     private static final String PAYMENT_TYPE_STERA_JCB = "stera JCB";
 
-    /** 仕入手数料率2.75%。{@link SteraTransferCalculationService}と同じ実データ検証済みの値。 */
-    private static final BigDecimal ACQUIRER_FEE_RATE = new BigDecimal("0.0275");
-
-    /** 当社手数料率0.2%。{@link SteraTransferCalculationService}と同じ実データ検証済みの値。 */
-    private static final BigDecimal COMPANY_FEE_RATE = new BigDecimal("0.002");
+    private static final String FEE_RATE_PAYMENT_COMPANY = "stera terminal";
+    private static final String FEE_RATE_CARD_BRAND = "共通";
 
     private final ImportBatchRepository importBatchRepository;
     private final SteraJcbSalesDetailRepository steraJcbSalesDetailRepository;
+    private final SettlementFeeRateRepository settlementFeeRateRepository;
 
     public SteraJcbInquiryService(
             ImportBatchRepository importBatchRepository,
-            SteraJcbSalesDetailRepository steraJcbSalesDetailRepository) {
+            SteraJcbSalesDetailRepository steraJcbSalesDetailRepository,
+            SettlementFeeRateRepository settlementFeeRateRepository) {
         this.importBatchRepository = importBatchRepository;
         this.steraJcbSalesDetailRepository = steraJcbSalesDetailRepository;
+        this.settlementFeeRateRepository = settlementFeeRateRepository;
     }
 
     public List<SteraJcbRow> findAll() {
         List<ImportBatch> batches = importBatchRepository.findAll().stream()
                 .filter(b -> PAYMENT_TYPE_STERA_JCB.equals(b.getPaymentType()))
                 .toList();
+
+        // ループの内側で毎回マスタを引かないよう、手数料率は事前に1回だけ取得する。
+        SettlementFeeRate feeRate = findFeeRate();
+        BigDecimal acquirerFeeRate = feeRate.getAcquirerFeeRate();
+        BigDecimal companyFeeRate = feeRate.getOurFeeRateBase();
 
         List<SteraJcbRow> rows = new ArrayList<>();
         for (Map.Entry<LocalDate, List<Integer>> group : groupBatchIdsByCutoffDate(batches).entrySet()) {
@@ -63,7 +73,7 @@ public class SteraJcbInquiryService {
 
             for (SteraJcbStoreGroupAggregate aggregate
                     : steraJcbSalesDetailRepository.sumByStoreCardNameAndPaymentMethod(batchIds)) {
-                rows.add(buildRow(aggregate, cutoffDate));
+                rows.add(buildRow(aggregate, cutoffDate, acquirerFeeRate, companyFeeRate));
             }
         }
 
@@ -71,6 +81,15 @@ public class SteraJcbInquiryService {
                 .comparing(SteraJcbRow::getTradeCode)
                 .thenComparing(SteraJcbRow::getStoreNumber, Comparator.nullsLast(Comparator.naturalOrder())));
         return rows;
+    }
+
+    private SettlementFeeRate findFeeRate() {
+        return settlementFeeRateRepository
+                .findByPaymentCompanyAndCardBrand(FEE_RATE_PAYMENT_COMPANY, FEE_RATE_CARD_BRAND)
+                .orElseThrow(() -> new IllegalStateException(
+                        "手数料率マスタにstera terminal分の設定（payment_company='"
+                                + FEE_RATE_PAYMENT_COMPANY + "', card_brand='" + FEE_RATE_CARD_BRAND
+                                + "'）がありません。"));
     }
 
     /**
@@ -87,10 +106,12 @@ public class SteraJcbInquiryService {
         return result;
     }
 
-    private SteraJcbRow buildRow(SteraJcbStoreGroupAggregate aggregate, LocalDate cutoffDate) {
+    private SteraJcbRow buildRow(
+            SteraJcbStoreGroupAggregate aggregate, LocalDate cutoffDate,
+            BigDecimal acquirerFeeRate, BigDecimal companyFeeRate) {
         int salesAmount = aggregate.getTotalSalesAmount().intValue();
-        int acquirerFee = roundHalfUp(salesAmount, ACQUIRER_FEE_RATE);
-        int companyFee = roundHalfUp(salesAmount, COMPANY_FEE_RATE);
+        int acquirerFee = roundHalfUp(salesAmount, acquirerFeeRate);
+        int companyFee = roundHalfUp(salesAmount, companyFeeRate);
         int settlementAmount = salesAmount - acquirerFee - companyFee;
         return new SteraJcbRow(
                 aggregate.getTradeCode(), aggregate.getStoreNumber(), aggregate.getStoreName(),

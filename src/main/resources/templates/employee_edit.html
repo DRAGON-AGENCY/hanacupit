@@ -396,10 +396,17 @@
     <div class="form-box">
       <div class="form-section-title">基本情報</div>
 
-      <!-- 編集対象を一意に識別するユーザー ID (画面では非表示) -->
+      <!-- 編集対象を一意に識別するユーザー ID (送信用。表示用は下のemployee-userid-view) -->
       <input type="hidden" id="employee-userid" th:value="${employee?.userId}" />
 
       <div class="form-row">
+        <div class="form-field">
+          <label>ユーザID</label>
+          <input type="text" id="employee-userid-view" class="mono" readonly
+                 th:value="${employee?.userId}"
+                 placeholder="登録時に自動採番されます" />
+          <div class="field-hint">ログイン時に使用するIDです（自動採番のため変更できません）</div>
+        </div>
         <div class="form-field">
           <label>メールアドレス <span class="required">必須</span></label>
           <input type="email" id="employee-email" class="mono"

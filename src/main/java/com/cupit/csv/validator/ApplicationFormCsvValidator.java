@@ -11,22 +11,23 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.cupit.csv.ApplicationFormColumn;
 import com.cupit.csv.CsvValidationError;
 import com.cupit.csv.CsvValidationResult;
 
 /**
- * 各決済会社所定申込フォーム作成のINPUT CSV（230列）のフォーマットを検証するクラス。
- * 230列固定、1行目は内容によらず常にヘッダー行として扱う（列名の一致チェックは行わない）。
- * 取引コード（JFTD取引コード、4列目）は必須。1行＝1店舗の申込データのため、
- * CSV内で取引コードが重複する場合はどちらの行が正しいか判断できないため、
+ * 各決済会社所定申込フォーム作成のINPUT CSV（{@link ApplicationFormColumn}で定義した列数）の
+ * フォーマットを検証するクラス。列数固定、1行目は内容によらず常にヘッダー行として扱う
+ * （列名の一致チェックは行わない）。取引コード（JFTD取引コード）は必須。1行＝1店舗の
+ * 申込データのため、CSV内で取引コードが重複する場合はどちらの行が正しいか判断できないため、
  * 該当する取引コードの行を（先着1件目も含めて）全てエラーとする。
  * 取引コード以外の全項目は任意とする。
  */
 @Component
 public class ApplicationFormCsvValidator extends AbstractCsvFormatValidator {
 
-    private static final int EXPECTED_COLUMN_COUNT = 230;
-    private static final int IDX_TRADE_CODE = 3;
+    private static final int EXPECTED_COLUMN_COUNT = ApplicationFormColumn.values().length;
+    private static final int IDX_TRADE_CODE = ApplicationFormColumn.TRADE_CODE.ordinal();
 
     @Override
     public CsvValidationResult validate(MultipartFile file) throws IOException {

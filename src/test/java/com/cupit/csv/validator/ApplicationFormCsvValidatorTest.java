@@ -8,17 +8,18 @@ import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
+import com.cupit.csv.ApplicationFormColumn;
 import com.cupit.csv.CsvValidationResult;
 
 /**
- * {@link ApplicationFormCsvValidator} のテスト。230列固定チェック、取引コード
- * （4列目、JFTD取引コード）必須チェック、CSV内取引コード重複の検出を検証する。
+ * {@link ApplicationFormCsvValidator} のテスト。列数固定チェック、取引コード
+ * （JFTD取引コード）必須チェック、CSV内取引コード重複の検出を検証する。
  * 取引コード以外の全項目は任意とする。
  */
 class ApplicationFormCsvValidatorTest {
 
-    private static final int COLUMN_COUNT = 230;
-    private static final int IDX_TRADE_CODE = 3;
+    private static final int COLUMN_COUNT = ApplicationFormColumn.values().length;
+    private static final int IDX_TRADE_CODE = ApplicationFormColumn.TRADE_CODE.ordinal();
 
     private final ApplicationFormCsvValidator validator = new ApplicationFormCsvValidator();
 

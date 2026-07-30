@@ -8,19 +8,21 @@ import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
+import com.cupit.csv.ApplicationFormColumn;
 import com.cupit.model.ApplicationFormInput;
 
 /**
- * {@link ApplicationFormCsvParser} のテスト。230列パース、取引コード必須チェック、
+ * {@link ApplicationFormCsvParser} のテスト。全列パース、取引コード必須チェック、
  * CSV内取引コード重複行のスキップ、列数不正行のスキップを検証する。
  * DBへの永続化は行わないため、解析結果は{@link ApplicationFormInput}のリストとして
- * 直接検証する。
+ * 直接検証する。列位置は{@link ApplicationFormColumn}のordinal()から取得し、
+ * 列の追加・削除があっても本テストの数値を手動で更新しなくて済むようにする。
  */
 class ApplicationFormCsvParserTest {
 
-    private static final int COLUMN_COUNT = 230;
-    private static final int IDX_TRADE_CODE = 3;
-    private static final int IDX_STORE_NAME = 6;
+    private static final int COLUMN_COUNT = ApplicationFormColumn.values().length;
+    private static final int IDX_TRADE_CODE = ApplicationFormColumn.TRADE_CODE.ordinal();
+    private static final int IDX_STORE_NAME = ApplicationFormColumn.STORE_NAME.ordinal();
 
     private final ApplicationFormCsvParser parser = new ApplicationFormCsvParser();
 
@@ -82,7 +84,8 @@ class ApplicationFormCsvParserTest {
 
     @Test
     void skipsRowWithInvalidDateValue() throws Exception {
-        MockMultipartFile file = csvFile(rowWithField(75, "not-a-date"));
+        MockMultipartFile file = csvFile(
+                rowWithField(ApplicationFormColumn.SERVICE_START_DESIRED_DATE.ordinal(), "not-a-date"));
 
         ApplicationFormCsvParser.ParseResult result = parser.parse(file);
 
@@ -92,7 +95,8 @@ class ApplicationFormCsvParserTest {
 
     @Test
     void skipsRowWithInvalidIntegerValue() throws Exception {
-        MockMultipartFile file = csvFile(rowWithField(142, "abc"));
+        MockMultipartFile file = csvFile(
+                rowWithField(ApplicationFormColumn.TERMINAL_COUNT.ordinal(), "abc"));
 
         ApplicationFormCsvParser.ParseResult result = parser.parse(file);
 
@@ -102,7 +106,8 @@ class ApplicationFormCsvParserTest {
 
     @Test
     void skipsRowWithInvalidDecimalValue() throws Exception {
-        MockMultipartFile file = csvFile(rowWithField(110, "abc"));
+        MockMultipartFile file = csvFile(
+                rowWithField(ApplicationFormColumn.FEE_RATE_RAKUTEN_PAY.ordinal(), "abc"));
 
         ApplicationFormCsvParser.ParseResult result = parser.parse(file);
 

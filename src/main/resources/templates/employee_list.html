@@ -398,12 +398,13 @@
   }
 
   /* 列幅は比率指定にして画面幅に合わせて自動調整する (合計100%) */
-  .data-table col.c-email { width: 22%; }
-  .data-table col.c-name { width: 17%; }
-  .data-table col.c-kana { width: 20%; }
-  .data-table col.c-dept { width: 14%; }
-  .data-table col.c-tel { width: 14%; }
-  .data-table col.c-fax { width: 13%; }
+  .data-table col.c-userid { width: 10%; }
+  .data-table col.c-email { width: 20%; }
+  .data-table col.c-name { width: 15%; }
+  .data-table col.c-kana { width: 18%; }
+  .data-table col.c-dept { width: 13%; }
+  .data-table col.c-tel { width: 12%; }
+  .data-table col.c-fax { width: 12%; }
 
   .data-table thead th {
     position: sticky;
@@ -451,6 +452,11 @@
 
   .data-table tbody tr:last-child td {
     border-bottom: none;
+  }
+
+  .data-table tbody td.userid {
+    font-family: var(--font-mono);
+    font-weight: 600;
   }
 
   .data-table tbody td.email {
@@ -555,6 +561,7 @@
       <div class="data-scroll">
         <table class="data-table">
           <colgroup>
+            <col class="c-userid">
             <col class="c-email">
             <col class="c-name">
             <col class="c-kana">
@@ -564,6 +571,7 @@
           </colgroup>
           <thead>
             <tr>
+              <th>ユーザID</th>
               <th>メールアドレス</th>
               <th>社員名</th>
               <th>社員名 (カナ)</th>
@@ -574,6 +582,7 @@
           </thead>
           <tbody>
             <tr class="data-row" th:each="employee : ${employees}">
+              <td class="userid" th:text="${employee.userId}"></td>
               <td class="email" th:text="${employee.email}"></td>
               <td class="name" th:text="${employee.employeeName}"></td>
               <td class="kana" th:text="${employee.employeeNameKana}"></td>
@@ -584,7 +593,7 @@
             </tr>
             <!-- 絞込み結果が0件のときに表示する空状態の行 -->
             <tr id="empty-row" class="empty-row" style="display:none;">
-              <td class="empty-cell" colspan="6">該当する社員がいません。</td>
+              <td class="empty-cell" colspan="7">該当する社員がいません。</td>
             </tr>
           </tbody>
         </table>

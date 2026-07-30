@@ -11,8 +11,10 @@ import org.junit.jupiter.api.Test;
 import com.cupit.model.ApplicationFormInput;
 
 /**
- * {@link ApplicationFormDeriveLogic} のテスト。新規/変更/解約フラグの自動算出
- * （既存契約有無とPAYGATEの継続利用の値による判定）、システム日付、既定値等を検証する。
+ * {@link ApplicationFormDeriveLogic} のテスト。新規/変更/解約フラグ自体はINPUT列
+ * （jcb_application_classification・smcc_application_classification）を直接使う方式に
+ * 変更されたため（自動算出は廃止）、このクラスが引き続き自動算出する既存契約有無・
+ * 解約意思・システム日付・既定値等のみを検証する。
  */
 class ApplicationFormDeriveLogicTest {
 
@@ -21,39 +23,33 @@ class ApplicationFormDeriveLogicTest {
     private final ApplicationFormDeriveLogic deriveLogic = new ApplicationFormDeriveLogic();
 
     @Test
-    void newApplicationWhenNoExistingContractAndNoCancelIntent() {
+    void existingContractFlagIsMuWhenNoExistingContract() {
         ApplicationFormInput input = new ApplicationFormInput();
         input.setPaygateContinuationStatus("利用を継続する");
 
         Map<String, String> values = deriveLogic.compute(input, false);
 
-        assertThat(values.get("NEW_CHANGE_CANCEL_FLAG_JCB")).isEqualTo("新規");
-        assertThat(values.get("NEW_CHANGE_CANCEL_FLAG_SMCC")).isEqualTo("1：新規加盟店");
         assertThat(values.get("EXISTING_CONTRACT_FLAG")).isEqualTo("無");
         assertThat(values.get("CANCEL_INTENTION")).isEmpty();
     }
 
     @Test
-    void changeApplicationWhenExistingContractAndNoCancelIntent() {
+    void existingContractFlagIsAriWhenExistingContract() {
         ApplicationFormInput input = new ApplicationFormInput();
         input.setPaygateContinuationStatus("利用を継続する");
 
         Map<String, String> values = deriveLogic.compute(input, true);
 
-        assertThat(values.get("NEW_CHANGE_CANCEL_FLAG_JCB")).isEqualTo("変更");
-        assertThat(values.get("NEW_CHANGE_CANCEL_FLAG_SMCC")).isEqualTo("4：加盟店情報変更");
         assertThat(values.get("EXISTING_CONTRACT_FLAG")).isEqualTo("有");
     }
 
     @Test
-    void cancelApplicationWhenPaygateContinuationStatusIndicatesStop() {
+    void cancelIntentionIsDetectedWhenPaygateContinuationStatusIndicatesStop() {
         ApplicationFormInput input = new ApplicationFormInput();
         input.setPaygateContinuationStatus("利用を停止する");
 
         Map<String, String> values = deriveLogic.compute(input, true);
 
-        assertThat(values.get("NEW_CHANGE_CANCEL_FLAG_JCB")).isEqualTo("解約");
-        assertThat(values.get("NEW_CHANGE_CANCEL_FLAG_SMCC")).isEqualTo("5：解約");
         assertThat(values.get("CANCEL_INTENTION")).isEqualTo("解約意思あり");
     }
 

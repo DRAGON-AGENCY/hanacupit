@@ -133,6 +133,14 @@
 
   .btn-browse:hover:not(:disabled) { background-color: #faf8f2; }
 
+  .btn-download {
+    background-color: var(--bg-white);
+    border-color: var(--border-input);
+    color: var(--text-main);
+  }
+
+  .btn-download:hover { background-color: #faf8f2; }
+
   .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 
   .btn-upload {
@@ -252,6 +260,9 @@
         </div>
       </div>
       <div class="form-actions">
+        <button class="btn btn-download" type="button" id="btn-download">
+          <span>⬇</span><span>ダウンロード</span>
+        </button>
         <button class="btn btn-upload" type="button" id="btn-upload" disabled>
           <span id="upload-icon">&#11014;</span>
           <span id="upload-label">アップロード</span>
@@ -286,6 +297,7 @@
       </div>
       <ol class="notice-list">
         <li>インプットファイルは「会員コード紐付データ」を CSV 形式で保存したファイルです。</li>
+        <li>「ダウンロード」ボタンで現在登録されている全件を CSV 出力できます。列構成はアップロード用フォーマットと同じため、そのまま編集して再アップロードできます。</li>
         <li>ファイル選択後、フォーマットチェックが自動で実行されます。エラーがない場合にアップロードボタンが有効になります。</li>
         <li>アップロードすると、CSVに含まれる取引コードは<strong>新規登録または上書き更新</strong>されます。CSVに含まれない取引コードの既存データは削除されません。</li>
         <li>1行目は内容によらず常にヘッダー行として扱われます（列名はチェックされません）。1行目からデータとして取り込みたい場合でも、必ずヘッダー行を追加してください。</li>
@@ -311,7 +323,12 @@
     var errorBody     = document.getElementById('error-table-body');
     var errorLimitNote = document.getElementById('error-limit-note');
     var btnClearResult = document.getElementById('btn-clear-result');
+    var btnDownload   = document.getElementById('btn-download');
     var selectedFile  = null;
+
+    btnDownload.addEventListener('click', function () {
+      window.location.href = '/paygate_mapping/download';
+    });
 
     btnBrowse.addEventListener('click', function () { fileHidden.click(); });
 
