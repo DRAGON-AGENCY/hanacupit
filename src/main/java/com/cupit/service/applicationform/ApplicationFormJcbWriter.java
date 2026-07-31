@@ -196,10 +196,7 @@ public class ApplicationFormJcbWriter {
                 List.of("edy_contract_flag"), ApplicationFormFieldMapping.Transform.DIRECT),
         new ApplicationFormFieldMapping(
                 48, ApplicationFormFieldMapping.SourceType.DERIVE,
-                List.of("CANCEL_INTENTION"), ApplicationFormFieldMapping.Transform.DIRECT),
-        new ApplicationFormFieldMapping(
-                49, ApplicationFormFieldMapping.SourceType.DERIVE,
-                List.of("CANCEL_STATUS"), ApplicationFormFieldMapping.Transform.DIRECT)
+                List.of("CANCEL_INTENTION"), ApplicationFormFieldMapping.Transform.DIRECT)
     );
 
     private final String templateDir;

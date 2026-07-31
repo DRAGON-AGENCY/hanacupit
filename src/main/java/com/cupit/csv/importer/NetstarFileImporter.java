@@ -81,7 +81,7 @@ public class NetstarFileImporter extends AbstractFileImporter {
                 if (mapping.isEmpty()) {
                     errors.add(new CsvValidationError(rowNum, "店舗コード",
                             "店舗コード「" + storeCode
-                                    + "」に対応する取引コードがm_paygate_store_mappingに存在しません。"));
+                                    + "」に対応する取引コードが取引コード紐付データに存在しません。"));
                     continue;
                 }
 

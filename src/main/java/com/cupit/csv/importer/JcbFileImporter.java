@@ -80,7 +80,7 @@ public class JcbFileImporter extends AbstractFileImporter {
                 if (mapping.isEmpty()) {
                     errors.add(new CsvValidationError(rowNum, "加盟店番号",
                             "加盟店番号「" + merchantNo
-                                    + "」に対応する取引コードがm_paygate_store_mappingに存在しません。"));
+                                    + "」に対応する取引コードが取引コード紐付データに存在しません。"));
                     continue;
                 }
 

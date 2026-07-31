@@ -23,7 +23,7 @@ import com.cupit.repository.SteraStoreRepository;
 
 /**
  * steraクレジット売上件別明細CSVを解析してm_stera_credit_sales_detailに登録する。
- * 取引コードはm_smcc_merchant_no.merchant_no（ファイル列：利用加盟店番号）から解決する。
+ * 取引コードは加盟店番号データ.merchant_no（ファイル列：利用加盟店番号）から解決する。
  */
 @Component
 public class SteraCreditFileImporter extends AbstractFileImporter {
@@ -186,13 +186,13 @@ public class SteraCreditFileImporter extends AbstractFileImporter {
             return true;
         }
         errors.add(new CsvValidationError(rowNum, columnName,
-                "取引コード「" + tradeCode + "」に対応する振込先口座情報がm_stera_storeに"
+                "取引コード「" + tradeCode + "」に対応する振込先口座情報が店舗データに"
                         + "存在しません。"));
         return false;
     }
 
     /**
-     * 検索結果を一意に絞り込む。m_smcc_merchant_noはmerchant_noに一意制約が無く、
+     * 検索結果を一意に絞り込む。加盟店番号データはmerchant_noに一意制約が無く、
      * かつm_stera_terminalと異なり有効期間・ステータス列も持たないため、複数件ヒットは
      * マスタデータの不整合として扱い、どちらを採用すべきか決め打ちせずエラーとして
      * その行をスキップする。
@@ -203,13 +203,13 @@ public class SteraCreditFileImporter extends AbstractFileImporter {
         if (candidates.isEmpty()) {
             errors.add(new CsvValidationError(rowNum, "利用加盟店番号",
                     "利用加盟店番号「" + merchantId
-                            + "」に対応する取引コードがm_smcc_merchant_noに存在しません。"));
+                            + "」に対応する取引コードが加盟店番号データに存在しません。"));
             return Optional.empty();
         }
         if (candidates.size() > 1) {
             errors.add(new CsvValidationError(rowNum, "利用加盟店番号",
                     "利用加盟店番号「" + merchantId
-                            + "」に対応するデータがm_smcc_merchant_noに複数件存在するため"
+                            + "」に対応するデータが加盟店番号データに複数件存在するため"
                             + "取引コードを一意に決定できません。マスタデータをご確認ください。"));
             return Optional.empty();
         }

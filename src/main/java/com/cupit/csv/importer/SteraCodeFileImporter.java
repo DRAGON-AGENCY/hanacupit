@@ -227,12 +227,12 @@ public class SteraCodeFileImporter extends AbstractFileImporter {
         if (active.isEmpty()) {
             errors.add(new CsvValidationError(rowNum, columnName,
                     keyLabel + "「" + keyValue
-                            + "」に対応する有効な端末情報（終了日未設定）がm_stera_terminalに"
+                            + "」に対応する有効な端末情報（終了日未設定）が端末データに"
                             + "存在しません。"));
         } else {
             errors.add(new CsvValidationError(rowNum, columnName,
                     keyLabel + "「" + keyValue
-                            + "」に対応する有効な端末情報がm_stera_terminalに複数件存在するため"
+                            + "」に対応する有効な端末情報が端末データに複数件存在するため"
                             + "取引コードを一意に決定できません。マスタデータをご確認ください。"));
         }
         return Optional.empty();
@@ -249,7 +249,7 @@ public class SteraCodeFileImporter extends AbstractFileImporter {
             return true;
         }
         errors.add(new CsvValidationError(rowNum, columnName,
-                "取引コード「" + tradeCode + "」に対応する振込先口座情報がm_stera_storeに"
+                "取引コード「" + tradeCode + "」に対応する振込先口座情報が店舗データに"
                         + "存在しません。"));
         return false;
     }

@@ -455,11 +455,16 @@
         currentPaymentType = opt.dataset.value;
         selectEl.classList.remove('open');
 
-        // 決済種類変更でファイル・チェック結果・締め日をリセット
-        resetFileAndResult();
+        // 決済種類の変更では、選択済みファイル・締め日は保持する
+        // （毎回選び直す必要があると操作性が悪いため）。ファイルを選択済みの場合は
+        // 新しい決済種類のフォーマットで再チェックし、未選択の場合は
+        // 参照ダイアログのフィルタ（accept）だけ更新する。
         updateFileAccept();
-        cutoffDateInput.value = '';
-        updateUploadButtonState();
+        if (selectedFile) {
+          runFrontendCheck(selectedFile);
+        } else {
+          updateUploadButtonState();
+        }
       });
     });
 
@@ -730,6 +735,9 @@
     ============================================= */
     btnUpload.addEventListener('click', function() {
       if (!selectedFile) return;
+      if (!window.confirm('このファイルをアップロードし、データを登録しますか？')) {
+        return;
+      }
       submitImport(false);
     });
 

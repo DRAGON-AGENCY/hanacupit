@@ -57,7 +57,7 @@ class ApplicationFormJcbWriterTest {
         input.setJcbApplicationClassification("新規");
         ApplicationFormRowContext ctx = new ApplicationFormRowContext(
                 input, null, null,
-                Map.of("EXISTING_CONTRACT_FLAG", "無", "CANCEL_INTENTION", "", "CANCEL_STATUS", ""), 1);
+                Map.of("EXISTING_CONTRACT_FLAG", "無", "CANCEL_INTENTION", ""), 1);
 
         byte[] bytes = writer.write(List.of(ctx));
 

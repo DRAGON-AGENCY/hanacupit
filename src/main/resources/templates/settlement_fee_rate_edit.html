@@ -524,6 +524,13 @@
         return;
       }
 
+      var confirmMessage = mode === 'new'
+          ? 'この内容で手数料率を登録しますか？'
+          : 'この内容で手数料率を更新しますか？';
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+
       var payload = {
         mode: mode,
         feeRateId: feeRateIdInput.value ? parseInt(feeRateIdInput.value, 10) : 0,

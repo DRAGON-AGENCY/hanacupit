@@ -655,6 +655,13 @@
         return;
       }
 
+      var confirmMessage = mode === 'new'
+          ? 'この内容で社員を登録しますか？'
+          : 'この内容で社員情報を更新しますか？';
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+
       var payload = {
         mode: mode,
         userId: userIdInput.value,

@@ -85,7 +85,7 @@ public class RakutenpayFileImporter extends AbstractFileImporter {
                 if (mapping.isEmpty()) {
                     errors.add(new CsvValidationError(rowNum, "STORE_NO",
                             "STORE_NO「" + storeNo
-                                    + "」に対応する取引コードがm_paygate_store_mappingに存在しません。"));
+                                    + "」に対応する取引コードが取引コード紐付データに存在しません。"));
                     continue;
                 }
 

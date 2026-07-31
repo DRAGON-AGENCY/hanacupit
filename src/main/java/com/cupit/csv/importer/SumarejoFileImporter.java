@@ -79,7 +79,7 @@ public class SumarejoFileImporter extends AbstractFileImporter {
                 if (mapping.isEmpty()) {
                     errors.add(new CsvValidationError(rowNum, "端末識別番号",
                             "端末識別番号「" + terminalId
-                                    + "」に対応する取引コードがm_paygate_store_mappingに存在しません。"));
+                                    + "」に対応する取引コードが取引コード紐付データに存在しません。"));
                     continue;
                 }
 

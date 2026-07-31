@@ -72,14 +72,4 @@ class ApplicationFormDeriveLogicTest {
         assertThat(values.get("DEFAULT_REPRESENTATIVE_STORE_FLAG")).isEqualTo("有");
     }
 
-    @Test
-    void passesThroughStatusForCancelStatus() {
-        ApplicationFormInput input = new ApplicationFormInput();
-        input.setStatus("未処理");
-
-        Map<String, String> values = deriveLogic.compute(input, false);
-
-        assertThat(values.get("CANCEL_STATUS")).isEqualTo("未処理");
-    }
-
 }

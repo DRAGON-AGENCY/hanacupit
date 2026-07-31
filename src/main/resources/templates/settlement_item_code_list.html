@@ -229,6 +229,102 @@
     letter-spacing: 0.02em;
   }
 
+  .per-page-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .per-page-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-select {
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    font-family: var(--font-jp);
+    font-size: var(--fs-xs);
+    color: var(--text-main);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .per-page-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* ページネーション */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .page-numbers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .page-btn:hover:not(:disabled):not(.is-active) {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .page-number.is-active {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .page-ellipsis {
+    min-width: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+  }
+
+  .page-nav {
+    font-weight: 600;
+  }
+
   /* データテーブル */
   .data-table-wrapper {
     background-color: var(--bg-white);
@@ -239,10 +335,8 @@
   }
 
   .data-scroll {
-    overflow-y: auto;
     /* テーブルが幅にあふれたときは横スクロールで全列表示する */
     overflow-x: auto;
-    max-height: 560px;
   }
 
   .data-scroll::-webkit-scrollbar {
@@ -389,10 +483,19 @@
       </div>
     </div>
 
-    <!-- 結果ヘッダー (件数が少なく緩やかにしか増減しないマスタ画面のため、
-         ページ送りは行わず絞込み結果の件数のみを表示する) -->
+    <!-- 結果ヘッダー -->
     <div class="result-header">
       <span class="result-summary" id="result-summary"></span>
+      <div class="per-page-control">
+        <label class="per-page-label" for="per-page-select">表示件数</label>
+        <select id="per-page-select" class="per-page-select">
+          <option value="10" selected>10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+        </select>
+      </div>
     </div>
 
     <!-- 項目コード一覧テーブル -->
@@ -438,6 +541,13 @@
       </div>
     </div>
 
+    <!-- ページネーション -->
+    <div class="pagination" id="pagination">
+      <button class="page-btn page-nav" type="button" data-nav="prev" aria-label="前のページ">‹</button>
+      <div class="page-numbers" id="page-numbers"></div>
+      <button class="page-btn page-nav" type="button" data-nav="next" aria-label="次のページ">›</button>
+    </div>
+
   </div>
 
   <script>
@@ -474,17 +584,25 @@
       });
     });
 
-    // 絞込み (決済会社)。件数が少なく緩やかにしか増減しないマスタ画面のため、
-    // ページ送りは行わず絞込み結果を常に全件スクロール表示する
+    // 絞込み (決済会社) とページネーション
     (function () {
       var allRows = Array.prototype.slice.call(
         document.querySelectorAll('.data-table tbody tr.data-row')
       );
+      var filteredRows = allRows.slice();
       var companyInput = document.getElementById('item-code-company');
       var searchButton = document.querySelector('.btn-search');
       var clearButton = document.querySelector('.btn-clear');
       var emptyRow = document.getElementById('empty-row');
+      var perPageSelect = document.getElementById('per-page-select');
+      var pageNumbersEl = document.getElementById('page-numbers');
       var summaryEl = document.getElementById('result-summary');
+      var pagination = document.getElementById('pagination');
+      var prevBtn = pagination.querySelector('[data-nav="prev"]');
+      var nextBtn = pagination.querySelector('[data-nav="next"]');
+
+      var perPage = parseInt(perPageSelect.value, 10);
+      var currentPage = 1;
 
       // 検索文字列を比較用に正規化する (前後・途中の空白を除去)
       function normalizeText(text) {
@@ -494,39 +612,134 @@
         return text.replace(/[\s　]+/g, '');
       }
 
-      // 絞込み条件に応じて行の表示・件数概要を再描画する (全件表示、ページ送りなし)
-      function render(filteredRows) {
+      // 総ページ数 (最低1ページ)
+      function getTotalPages() {
+        return Math.max(1, Math.ceil(filteredRows.length / perPage));
+      }
+
+      // 表示するページ番号の並びを生成 (両端と現在ページ周辺、省略は'...')
+      function buildPageItems(current, total) {
+        var items = [];
+        if (total <= 7) {
+          for (var i = 1; i <= total; i++) {
+            items.push(i);
+          }
+          return items;
+        }
+        items.push(1);
+        var left = Math.max(2, current - 1);
+        var right = Math.min(total - 1, current + 1);
+        if (left > 2) {
+          items.push('...');
+        }
+        for (var page = left; page <= right; page++) {
+          items.push(page);
+        }
+        if (right < total - 1) {
+          items.push('...');
+        }
+        items.push(total);
+        return items;
+      }
+
+      // 現在ページに応じて行の表示・概要・ページUIを再描画する
+      function render() {
+        var totalItems = filteredRows.length;
+        var totalPages = getTotalPages();
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+        var startIndex = (currentPage - 1) * perPage;
+        var endIndex = Math.min(startIndex + perPage, totalItems);
+
+        // いったん全行を隠し、該当ページの行だけを表示する
         allRows.forEach(function (row) {
           row.style.display = 'none';
         });
-        filteredRows.forEach(function (row) {
-          row.style.display = '';
-        });
+        for (var index = startIndex; index < endIndex; index++) {
+          filteredRows[index].style.display = '';
+        }
 
         // 絞込み結果が0件のときは空状態の行を表示する
         if (emptyRow) {
-          emptyRow.style.display = (filteredRows.length === 0) ? '' : 'none';
+          emptyRow.style.display = (totalItems === 0) ? '' : 'none';
         }
 
-        summaryEl.textContent = filteredRows.length + ' 件';
+        if (totalItems === 0) {
+          summaryEl.textContent = '0 件';
+        } else {
+          summaryEl.textContent =
+            (startIndex + 1) + '-' + endIndex + ' / ' + totalItems + ' 件';
+        }
+
+        pageNumbersEl.innerHTML = '';
+        buildPageItems(currentPage, totalPages).forEach(function (item) {
+          if (item === '...') {
+            var ellipsis = document.createElement('span');
+            ellipsis.className = 'page-ellipsis';
+            ellipsis.textContent = '…';
+            pageNumbersEl.appendChild(ellipsis);
+            return;
+          }
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className =
+            'page-btn page-number' + (item === currentPage ? ' is-active' : '');
+          button.textContent = item;
+          button.addEventListener('click', function () {
+            currentPage = item;
+            render();
+          });
+          pageNumbersEl.appendChild(button);
+        });
+
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage === totalPages;
       }
 
-      // 入力された決済会社名で一覧を絞り込む。
+      prevBtn.addEventListener('click', function () {
+        if (currentPage > 1) {
+          currentPage--;
+          render();
+        }
+      });
+
+      nextBtn.addEventListener('click', function () {
+        if (currentPage < getTotalPages()) {
+          currentPage++;
+          render();
+        }
+      });
+
+      perPageSelect.addEventListener('change', function () {
+        perPage = parseInt(perPageSelect.value, 10);
+        currentPage = 1;
+        render();
+      });
+
+      // 入力された決済会社名で一覧を絞り込み、1ページ目から再表示する。
       // 部分一致 (入力が決済会社名のどこかに含まれる) で判定する
       function applyFilter() {
         var query = normalizeText(companyInput.value);
-        var filteredRows = query === '' ? allRows.slice() : allRows.filter(function (row) {
-          var companyCell = row.querySelector('td.company');
-          var company = companyCell ? normalizeText(companyCell.textContent) : '';
-          return company.indexOf(query) !== -1;
-        });
-        render(filteredRows);
+        if (query === '') {
+          filteredRows = allRows.slice();
+        } else {
+          filteredRows = allRows.filter(function (row) {
+            var companyCell = row.querySelector('td.company');
+            var company = companyCell ? normalizeText(companyCell.textContent) : '';
+            return company.indexOf(query) !== -1;
+          });
+        }
+        currentPage = 1;
+        render();
       }
 
-      // 絞込みを解除し、入力を消して全件を表示する
+      // 絞込みを解除し、入力を消して全件を1ページ目から再表示する
       function clearFilter() {
         companyInput.value = '';
-        render(allRows.slice());
+        filteredRows = allRows.slice();
+        currentPage = 1;
+        render();
       }
 
       searchButton.addEventListener('click', applyFilter);
@@ -540,7 +753,7 @@
         }
       });
 
-      render(allRows.slice());
+      render();
     })();
   </script>
 </body>

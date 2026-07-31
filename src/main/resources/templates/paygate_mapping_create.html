@@ -461,6 +461,9 @@
     ============================================= */
     btnUpload.addEventListener('click', function () {
       if (!selectedFile) { return; }
+      if (!window.confirm('このファイルをアップロードし、データを登録しますか？')) {
+        return;
+      }
 
       var uploadIcon  = document.getElementById('upload-icon');
       var uploadLabel = document.getElementById('upload-label');

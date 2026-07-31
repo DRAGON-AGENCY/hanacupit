@@ -36,7 +36,6 @@ public class ApplicationFormDeriveLogic {
         values.put("SYSTEM_DATE_SLASH", today);
         values.put("EXISTING_CONTRACT_FLAG", existingContract ? "有" : "無");
         values.put("CANCEL_INTENTION", cancelIntent ? "解約意思あり" : "");
-        values.put("CANCEL_STATUS", trimToEmpty(input.getStatus()));
         values.put("DEFAULT_STORE_COUNT_1", "1");
         values.put("DEFAULT_REPRESENTATIVE_STORE_FLAG", "有");
         return values;
@@ -45,10 +44,6 @@ public class ApplicationFormDeriveLogic {
     private boolean isCancelIntent(ApplicationFormInput input) {
         String v = input.getPaygateContinuationStatus();
         return v != null && v.contains("停止");
-    }
-
-    private String trimToEmpty(String s) {
-        return s == null ? "" : s.trim();
     }
 
 }

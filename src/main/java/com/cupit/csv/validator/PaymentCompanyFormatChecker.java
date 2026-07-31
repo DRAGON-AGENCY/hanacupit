@@ -91,7 +91,7 @@ public class PaymentCompanyFormatChecker {
      */
     public void check(List<String> fields, int rowNum, List<CsvValidationError> errors) {
         checkOptionalMaxLength(fields, rowNum, errors, IDX_MGMT_TYPE, "経営区分", 20,
-                "m_member_info.mgmt_typeのDB上限（VARCHAR(20)）");
+                "システムの登録上限（20桁）");
         checkRequiredMaxLength(fields, rowNum, errors, IDX_STORE_NAME, "店舗名", 16,
                 "JCB仕様書 最大20桁 / SMCC steracode仕様書 最大16桁 / SMCC店舗情報一覧 最大20桁");
         checkRequiredMaxLength(fields, rowNum, errors, IDX_STORE_NAME_KANA, "店名カナ", 23,

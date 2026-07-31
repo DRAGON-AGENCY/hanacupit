@@ -848,14 +848,6 @@ private String updatedBy;
   - 前・次ナビボタンを設ける。
   - 実装パターンは `employee_list.html` に準拠する。
 
-- ただし、決済会社×カードブランドの組み合わせのように**件数が少なく、緩やかにしか
-  増減しないマスタ画面**（手数料率管理・項目コード管理等）は、上記のページ送り式
-  ページネーションを実装せず、**絞込み結果も含めて全件を1画面（スクロール表示）で
-  表示する**。表示件数セレクト・ページ番号ボタン・前後ナビは設けない。件数が
-  多い場合の可読性は、既存の「テーブル領域に `overflow-x: auto`・`max-height` を
-  設定し、ヘッダー行を `position: sticky` で固定する」規約でスクロール表示により
-  担保する。
-
 - 明細行は**できるだけ 1 行で収まる**ようレイアウトを調整する。
   - `table-layout: fixed` で列幅を明示的に指定する。
   - 各セルに `white-space: nowrap; overflow: hidden; text-overflow: ellipsis;` を設定し、
@@ -864,4 +856,28 @@ private String updatedBy;
   - テーブル領域に `overflow-x: auto` と `max-height` を設定し、ヘッダー行は `position: sticky` で固定する。
   - 日本語テキスト列（店名・ステータス等）はフォントを `var(--font-base)`、
     数値・コード列は `var(--font-mono)` を使い、`font-variant-numeric: tabular-nums` を設定する。
+
+### データ更新前の確認ダイアログ
+
+削除操作だけでなく、**データベースへの登録・更新を行う操作すべて**（新規登録・
+更新の保存ボタン、CSVアップロードによる一括登録）で、実行前に `window.confirm()`
+による確認ダイアログを表示する。削除確認（例：「この社員を削除しますか？」）と
+同じ考え方を、登録・更新側にも一貫して適用する。
+
+- **対象**：単票の登録・更新フォーム（`employee_edit.html`・
+  `settlement_fee_rate_edit.html`・`settlement_item_code_edit.html`等）の保存
+  ボタン押下時、および CSV アップロードでデータを登録する画面
+  （`paygate_mapping_create.html`・`member_master.html`・
+  `shop_data_create.html`・`jftd_settlement.html`・`other_settlement.html`等）の
+  アップロードボタン押下時。
+- 確認は**入力チェック（`validateForm()`等）に通った後**、実際にサーバーへ
+  送信する直前に行う。入力エラーがある状態で確認ダイアログを出さない。
+- メッセージは新規登録・更新でどちらの操作かが分かる文言にする
+  （例：「この内容で〇〇を登録しますか？」／「この内容で〇〇を更新しますか？」）。
+  アップロード系は「このファイルをアップロードし、データを登録しますか？」のように、
+  ファイルアップロードであることが分かる文言にする。
+- **対象外**：DB へ保存しない操作（`application_form.html` の Excel 生成
+  `/application_form/generate` 等、生成・ダウンロードのみで登録を伴わない処理）。
+- 新しい登録・更新フォームや CSV アップロード機能を追加する場合も、保存・
+  アップロード実行前に確認ダイアログを表示することを忘れないこと。
 

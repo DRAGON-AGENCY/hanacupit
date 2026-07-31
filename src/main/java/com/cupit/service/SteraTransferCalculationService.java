@@ -131,7 +131,7 @@ public class SteraTransferCalculationService {
             Map<String, Long> acquirerFeeByTradeCode, Map<String, Long> companyFeeByTradeCode) {
         SteraStore store = steraStoreRepository.findByTradeCode(tradeCode)
                 .orElseThrow(() -> new IllegalStateException(
-                        "取引コード「" + tradeCode + "」に対応する振込先口座情報がm_stera_storeに"
+                        "取引コード「" + tradeCode + "」に対応する振込先口座情報が店舗データに"
                                 + "存在しません。その他精算データ作成の時点で突合済みのはずのため、"
                                 + "確定処理までの間にマスタが削除された可能性があります。"));
 

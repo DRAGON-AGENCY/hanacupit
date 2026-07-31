@@ -107,7 +107,7 @@ public class JushinSbiFileImporter extends AbstractFileImporter {
                     if (mapping.isEmpty()) {
                         errors.add(new CsvValidationError(rowNum, "加盟店ID",
                                 "加盟店ID「" + merchantId
-                                        + "」に対応する取引コードがm_paygate_store_mappingに存在しません。"));
+                                        + "」に対応する取引コードが取引コード紐付データに存在しません。"));
                         currentHeaderId = null;
                         currentTradeCode = null;
                         currentMerchantId = null;
