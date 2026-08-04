@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>振込手数料一覧 | キャッシュレス管理システム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 外部フォント CSS はレンダリングをブロックしないよう非同期で読み込む。 -->
+<!-- 取得前でも代替フォントで即座に画面を表示し、応答性を確保する。 -->
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap"
+    media="print" onload="this.media='all'">
+<noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+</noscript>
+<style>
+  :root {
+    /* === 色トークン (他画面と統一) === */
+    --bg-page: #ffffff;
+    --bg-card: #ffffff;
+    --bg-search: #eef3fa;
+    --bg-label: #ede8db;
+    --bg-label-soft: #f5f2eb;
+    --bg-white: #ffffff;
+    --bg-hover: #faf8f2;
+    --border-color: #e8e4da;
+    --border-input: #d8d4c8;
+    --border-table: #e5e2d8;
+    --text-main: #2a2a2a;
+    --text-sub: #4a4a4a;
+    --text-muted: #8a8a8a;
+    --text-label: #5a5a5a;
+    --text-subtle: #9a9a9a;
+    --accent-blue: #3a6db5;
+    --accent-blue-light: #e3edfb;
+    --accent-blue-border: #b9d0ec;
+
+    /* === フォントトークン === */
+    --font-jp: "Inter", "Noto Sans JP", sans-serif;
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Menlo", monospace;
+
+    /* === フォントサイズトークン === */
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 22px;
+
+    /* === レイアウトトークン === */
+    --container-min: 1200px;
+    --container-max: 1760px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    min-height: 100vh;
+  }
+
+  body {
+    font-family: var(--font-base);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-font-smoothing: antialiased;
+    font-size: var(--fs-base);
+    font-feature-settings: "palt";
+  }
+
+  .container {
+    min-width: var(--container-min);
+    max-width: var(--container-max);
+    width: 100%;
+    margin: 0 auto;
+    background-color: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    padding: 10px 32px 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ページ全体のカスタムスクロールバー */
+  body::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  body::-webkit-scrollbar-track {
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-table);
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid var(--bg-page);
+    border-radius: 8px;
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  .page-title {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  /* 検索エリア */
+  .search-box {
+    background-color: var(--bg-search);
+    border: 1px solid #dde5f0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 14px;
+  }
+
+  .search-label {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    width: 280px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    font-family: var(--font-jp);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: var(--fs-base);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+  }
+
+  .btn-search {
+    background-color: var(--accent-blue-light);
+    border: 1px solid var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 500;
+  }
+
+  .btn-search:hover {
+    background-color: #d5e4f6;
+  }
+
+  .btn-clear {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-input);
+    color: var(--text-main);
+  }
+
+  .btn-clear:hover {
+    background-color: var(--bg-hover);
+  }
+
+  /* 新規登録ツールバー */
+  .toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .btn-new {
+    background-color: #faeeda;
+    border: 1px solid #ecd9b0;
+    color: #8a5a1a;
+    font-weight: 600;
+  }
+
+  .btn-new:hover {
+    background-color: #f3e2c4;
+    border-color: #c08a3e;
+  }
+
+  /* 結果ヘッダー */
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .result-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-left: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .per-page-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-label);
+    letter-spacing: 0.02em;
+  }
+
+  .per-page-select {
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    font-family: var(--font-jp);
+    font-size: var(--fs-xs);
+    color: var(--text-main);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .per-page-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(58, 109, 181, 0.15);
+  }
+
+  /* ページネーション */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .page-numbers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    background-color: var(--bg-white);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .page-btn:hover:not(:disabled):not(.is-active) {
+    background-color: var(--bg-hover);
+    border-color: #c4bfae;
+  }
+
+  .page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .page-number.is-active {
+    background-color: var(--accent-blue-light);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+    font-weight: 700;
+    cursor: default;
+  }
+
+  .page-ellipsis {
+    min-width: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+  }
+
+  .page-nav {
+    font-weight: 600;
+  }
+
+  /* データテーブル */
+  .data-table-wrapper {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-table);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .data-scroll {
+    /* テーブルが幅にあふれたときは横スクロールで全列表示する */
+    overflow-x: auto;
+  }
+
+  .data-scroll::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+
+  .data-scroll::-webkit-scrollbar-track {
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-table);
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb {
+    background: #c9c4b4;
+    border: 3px solid var(--bg-page);
+    border-radius: 8px;
+  }
+
+  .data-scroll::-webkit-scrollbar-thumb:hover {
+    background: #aea892;
+  }
+
+  .data-table {
+    width: 100%;
+    /* 画面が狭くても各列が読める最小幅を確保し、 */
+    /* これ以下では .data-scroll の横スクロールで全列を表示する */
+    min-width: 960px;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  /* 列幅は比率指定にして画面幅に合わせて自動調整する (合計100%)。
+     備考は他の列より長い文言が入るため広めに確保する。 */
+  .data-table col.c-bank-code { width: 10%; }
+  .data-table col.c-fee { width: 10%; }
+  .data-table col.c-note { width: 50%; }
+  .data-table col.c-updater { width: 15%; }
+  .data-table col.c-updated { width: 15%; }
+
+  .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #FAEEDA;
+    color: var(--text-label);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .data-table thead th:last-child {
+    border-right: none;
+  }
+
+  .data-table tbody td {
+    padding: 11px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
+    font-size: var(--fs-base);
+    color: var(--text-main);
+    font-family: var(--font-jp);
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .data-table tbody td:last-child {
+    border-right: none;
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .data-table tbody td.bank-code,
+  .data-table tbody td.fee,
+  .data-table tbody td.updated {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table tbody tr.data-row:hover td {
+    background: var(--bg-hover);
+    cursor: pointer;
+  }
+
+  /* 絞込み結果が0件のときの空状態 */
+  .data-table tbody td.empty-cell {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--font-jp);
+    padding: 28px 16px;
+    white-space: normal;
+  }
+
+  .data-table tbody tr.empty-row:hover td {
+    background: var(--bg-white);
+    cursor: default;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- タイトル -->
+    <h1 class="page-title">振込手数料一覧</h1>
+
+    <!-- ログイン中ユーザーの権限コード (行クリックの権限制御で参照する) -->
+    <input type="hidden" id="authority-code" th:value="${authorityCode}" />
+
+    <!-- 権限不足エラー (担当者・閲覧のみが明細を選択したときに表示) -->
+    <div id="permission-error" role="alert"
+         style="display:none; margin-bottom:12px; padding:10px 14px;
+                border-radius:6px; background:#fbeaea; border:1px solid #f0c4c4;
+                color:#c64a4a; font-size:14px;">
+      権限がありません。
+    </div>
+
+    <!-- 新規登録 (管理者のみ表示) -->
+    <div class="toolbar">
+      <button class="btn btn-new" type="button" id="new-transfer-fee-rate-btn"
+              th:if="${authorityCode == '01'}">
+        <span>＋</span>
+        <span>新規登録</span>
+      </button>
+    </div>
+
+    <!-- 検索エリア -->
+    <div class="search-box">
+      <label class="search-label" for="transfer-fee-rate-bank-code">銀行コード</label>
+      <div class="search-row">
+        <input type="text" id="transfer-fee-rate-bank-code" class="search-input" placeholder="銀行コードを入力" />
+        <button class="btn btn-search" type="button">
+          <span>🔍</span>
+          <span>絞込み</span>
+        </button>
+        <button class="btn btn-clear" type="button">クリア</button>
+      </div>
+    </div>
+
+    <!-- 結果ヘッダー -->
+    <div class="result-header">
+      <span class="result-summary" id="result-summary"></span>
+      <div class="per-page-control">
+        <label class="per-page-label" for="per-page-select">表示件数</label>
+        <select id="per-page-select" class="per-page-select">
+          <option value="10" selected>10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 振込手数料一覧テーブル -->
+    <div class="data-table-wrapper">
+      <div class="data-scroll">
+        <table class="data-table">
+          <colgroup>
+            <col class="c-bank-code">
+            <col class="c-fee">
+            <col class="c-note">
+            <col class="c-updater">
+            <col class="c-updated">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>銀行コード</th>
+              <th>振込手数料(円)</th>
+              <th>備考</th>
+              <th>更新者</th>
+              <th>更新日</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="data-row" th:each="transferFeeRate : ${transferFeeRates}"
+                th:attr="data-transfer-fee-id=${transferFeeRate.transferFeeId}">
+              <td class="bank-code" th:text="${transferFeeRate.bankCode}"></td>
+              <td class="fee" th:text="${transferFeeRate.transferFee}"></td>
+              <td class="note" th:text="${transferFeeRate.note}" th:title="${transferFeeRate.note}"></td>
+              <td class="updater" th:text="${transferFeeRate.updateEmployee}"></td>
+              <td class="updated"
+                  th:text="${transferFeeRate.updatedDate != null ? #temporals.format(transferFeeRate.updatedDate, 'yyyy/MM/dd') : '—'}"></td>
+            </tr>
+            <!-- 絞込み結果が0件のときに表示する空状態の行 -->
+            <tr id="empty-row" class="empty-row" style="display:none;">
+              <td class="empty-cell" colspan="5">該当する振込手数料がありません。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ページネーション -->
+    <div class="pagination" id="pagination">
+      <button class="page-btn page-nav" type="button" data-nav="prev" aria-label="前のページ">‹</button>
+      <div class="page-numbers" id="page-numbers"></div>
+      <button class="page-btn page-nav" type="button" data-nav="next" aria-label="次のページ">›</button>
+    </div>
+
+  </div>
+
+  <script>
+    // ログイン中ユーザーの権限コード ('01'=管理者 / '02'=担当者 / '03'=閲覧のみ)
+    var authorityCodeInput = document.getElementById('authority-code');
+    var currentAuthorityCode =
+        authorityCodeInput ? authorityCodeInput.value : '';
+    var ADMINISTRATOR_AUTHORITY_CODE = '01';
+    var permissionError = document.getElementById('permission-error');
+
+    // 新規登録ボタン: 管理者のみ表示されるため存在する場合だけ処理を割り当てる
+    var newTransferFeeRateButton = document.getElementById('new-transfer-fee-rate-btn');
+    if (newTransferFeeRateButton) {
+      newTransferFeeRateButton.addEventListener('click', function () {
+        window.location.href = '/transfer_fee_rate_edit?mode=new';
+      });
+    }
+
+    // 表の振込手数料 (行) を選択したら、同じ枠 (iframe) 内で編集画面へ遷移する
+    // 新規タブを開かず現在のウィンドウを遷移させることで、
+    // 親シェル (menu) の左サイドバーを表示したまま編集画面を表示する
+    // ただしメンテナンスは管理者のみのため、管理者以外は遷移させず
+    // 「権限がありません。」を表示する
+    document.querySelectorAll('.data-table tbody tr.data-row').forEach(function (row) {
+      row.addEventListener('click', function () {
+        if (currentAuthorityCode !== ADMINISTRATOR_AUTHORITY_CODE) {
+          permissionError.style.display = 'block';
+          return;
+        }
+        permissionError.style.display = 'none';
+        var transferFeeId = row.getAttribute('data-transfer-fee-id');
+        window.location.href =
+            '/transfer_fee_rate_edit?transferFeeId=' + encodeURIComponent(transferFeeId);
+      });
+    });
+
+    // 絞込み (銀行コード) とページネーション
+    (function () {
+      var allRows = Array.prototype.slice.call(
+        document.querySelectorAll('.data-table tbody tr.data-row')
+      );
+      var filteredRows = allRows.slice();
+      var bankCodeInput = document.getElementById('transfer-fee-rate-bank-code');
+      var searchButton = document.querySelector('.btn-search');
+      var clearButton = document.querySelector('.btn-clear');
+      var emptyRow = document.getElementById('empty-row');
+      var perPageSelect = document.getElementById('per-page-select');
+      var pageNumbersEl = document.getElementById('page-numbers');
+      var summaryEl = document.getElementById('result-summary');
+      var pagination = document.getElementById('pagination');
+      var prevBtn = pagination.querySelector('[data-nav="prev"]');
+      var nextBtn = pagination.querySelector('[data-nav="next"]');
+
+      var perPage = parseInt(perPageSelect.value, 10);
+      var currentPage = 1;
+
+      // 検索文字列を比較用に正規化する (前後・途中の空白を除去)
+      function normalizeText(text) {
+        if (!text) {
+          return '';
+        }
+        return text.replace(/[\s　]+/g, '');
+      }
+
+      // 総ページ数 (最低1ページ)
+      function getTotalPages() {
+        return Math.max(1, Math.ceil(filteredRows.length / perPage));
+      }
+
+      // 表示するページ番号の並びを生成 (両端と現在ページ周辺、省略は'...')
+      function buildPageItems(current, total) {
+        var items = [];
+        if (total <= 7) {
+          for (var i = 1; i <= total; i++) {
+            items.push(i);
+          }
+          return items;
+        }
+        items.push(1);
+        var left = Math.max(2, current - 1);
+        var right = Math.min(total - 1, current + 1);
+        if (left > 2) {
+          items.push('...');
+        }
+        for (var page = left; page <= right; page++) {
+          items.push(page);
+        }
+        if (right < total - 1) {
+          items.push('...');
+        }
+        items.push(total);
+        return items;
+      }
+
+      // 現在ページに応じて行の表示・概要・ページUIを再描画する
+      function render() {
+        var totalItems = filteredRows.length;
+        var totalPages = getTotalPages();
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+        var startIndex = (currentPage - 1) * perPage;
+        var endIndex = Math.min(startIndex + perPage, totalItems);
+
+        // いったん全行を隠し、該当ページの行だけを表示する
+        allRows.forEach(function (row) {
+          row.style.display = 'none';
+        });
+        for (var index = startIndex; index < endIndex; index++) {
+          filteredRows[index].style.display = '';
+        }
+
+        // 絞込み結果が0件のときは空状態の行を表示する
+        if (emptyRow) {
+          emptyRow.style.display = (totalItems === 0) ? '' : 'none';
+        }
+
+        if (totalItems === 0) {
+          summaryEl.textContent = '0 件';
+        } else {
+          summaryEl.textContent =
+            (startIndex + 1) + '-' + endIndex + ' / ' + totalItems + ' 件';
+        }
+
+        pageNumbersEl.innerHTML = '';
+        buildPageItems(currentPage, totalPages).forEach(function (item) {
+          if (item === '...') {
+            var ellipsis = document.createElement('span');
+            ellipsis.className = 'page-ellipsis';
+            ellipsis.textContent = '…';
+            pageNumbersEl.appendChild(ellipsis);
+            return;
+          }
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className =
+            'page-btn page-number' + (item === currentPage ? ' is-active' : '');
+          button.textContent = item;
+          button.addEventListener('click', function () {
+            currentPage = item;
+            render();
+          });
+          pageNumbersEl.appendChild(button);
+        });
+
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage === totalPages;
+      }
+
+      prevBtn.addEventListener('click', function () {
+        if (currentPage > 1) {
+          currentPage--;
+          render();
+        }
+      });
+
+      nextBtn.addEventListener('click', function () {
+        if (currentPage < getTotalPages()) {
+          currentPage++;
+          render();
+        }
+      });
+
+      perPageSelect.addEventListener('change', function () {
+        perPage = parseInt(perPageSelect.value, 10);
+        currentPage = 1;
+        render();
+      });
+
+      // 入力された銀行コードで一覧を絞り込み、1ページ目から再表示する。
+      // 部分一致 (入力が銀行コードのどこかに含まれる) で判定する
+      function applyFilter() {
+        var query = normalizeText(bankCodeInput.value);
+        if (query === '') {
+          filteredRows = allRows.slice();
+        } else {
+          filteredRows = allRows.filter(function (row) {
+            var bankCodeCell = row.querySelector('td.bank-code');
+            var bankCode = bankCodeCell ? normalizeText(bankCodeCell.textContent) : '';
+            return bankCode.indexOf(query) !== -1;
+          });
+        }
+        currentPage = 1;
+        render();
+      }
+
+      // 絞込みを解除し、入力を消して全件を1ページ目から再表示する
+      function clearFilter() {
+        bankCodeInput.value = '';
+        filteredRows = allRows.slice();
+        currentPage = 1;
+        render();
+      }
+
+      searchButton.addEventListener('click', applyFilter);
+      clearButton.addEventListener('click', clearFilter);
+
+      // 入力欄で Enter キーを押したときも絞込みを実行する
+      bankCodeInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          applyFilter();
+        }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
