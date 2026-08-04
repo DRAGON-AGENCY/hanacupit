@@ -392,19 +392,20 @@
     width: 100%;
     /* 画面が狭くても各列が読める最小幅を確保し、 */
     /* これ以下では .data-scroll の横スクロールで全列を表示する */
-    min-width: 920px;
+    min-width: 1000px;
     border-collapse: collapse;
     table-layout: fixed;
   }
 
   /* 列幅は比率指定にして画面幅に合わせて自動調整する (合計100%) */
-  .data-table col.c-userid { width: 10%; }
-  .data-table col.c-email { width: 20%; }
-  .data-table col.c-name { width: 15%; }
-  .data-table col.c-kana { width: 18%; }
-  .data-table col.c-dept { width: 13%; }
+  .data-table col.c-userid { width: 9%; }
+  .data-table col.c-email { width: 18%; }
+  .data-table col.c-name { width: 13%; }
+  .data-table col.c-kana { width: 16%; }
+  .data-table col.c-dept { width: 11%; }
+  .data-table col.c-authority { width: 10%; }
   .data-table col.c-tel { width: 12%; }
-  .data-table col.c-fax { width: 12%; }
+  .data-table col.c-fax { width: 11%; }
 
   .data-table thead th {
     position: sticky;
@@ -566,6 +567,7 @@
             <col class="c-name">
             <col class="c-kana">
             <col class="c-dept">
+            <col class="c-authority">
             <col class="c-tel">
             <col class="c-fax">
           </colgroup>
@@ -576,6 +578,7 @@
               <th>社員名</th>
               <th>社員名 (カナ)</th>
               <th>部署</th>
+              <th>権限</th>
               <th>電話番号</th>
               <th>FAX</th>
             </tr>
@@ -587,13 +590,15 @@
               <td class="name" th:text="${employee.employeeName}"></td>
               <td class="kana" th:text="${employee.employeeNameKana}"></td>
               <td th:text="${employee.department}"></td>
+              <td class="authority"
+                  th:text="${employee.authorityCode == '01' ? '01：管理者' : (employee.authorityCode == '02' ? '02：担当者' : (employee.authorityCode == '03' ? '03：閲覧のみ' : employee.authorityCode))}"></td>
               <td class="tel" th:text="${employee.phoneNumber}"></td>
               <td th:class="${#strings.isEmpty(employee.faxNumber) ? 'fax empty' : 'fax'}"
                   th:text="${#strings.isEmpty(employee.faxNumber) ? '—' : employee.faxNumber}"></td>
             </tr>
             <!-- 絞込み結果が0件のときに表示する空状態の行 -->
             <tr id="empty-row" class="empty-row" style="display:none;">
-              <td class="empty-cell" colspan="7">該当する社員がいません。</td>
+              <td class="empty-cell" colspan="8">該当する社員がいません。</td>
             </tr>
           </tbody>
         </table>

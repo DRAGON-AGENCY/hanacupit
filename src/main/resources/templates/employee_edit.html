@@ -396,16 +396,14 @@
     <div class="form-box">
       <div class="form-section-title">基本情報</div>
 
-      <!-- 編集対象を一意に識別するユーザー ID (送信用。表示用は下のemployee-userid-view) -->
-      <input type="hidden" id="employee-userid" th:value="${employee?.userId}" />
-
       <div class="form-row">
         <div class="form-field">
-          <label>ユーザID</label>
-          <input type="text" id="employee-userid-view" class="mono" readonly
+          <label>ユーザID <span class="required">必須</span></label>
+          <input type="text" id="employee-userid" class="mono" maxlength="50"
                  th:value="${employee?.userId}"
-                 placeholder="登録時に自動採番されます" />
-          <div class="field-hint">ログイン時に使用するIDです（自動採番のため変更できません）</div>
+                 th:readonly="${mode != 'new'}"
+                 placeholder="例: user012" />
+          <div class="field-hint" id="userid-hint">登録後は変更できません</div>
         </div>
         <div class="form-field">
           <label>メールアドレス <span class="required">必須</span></label>
@@ -540,6 +538,9 @@
     // 電話番号・FAX の形式チェック用 (半角数字とハイフンのみ)
     var PHONE_NUMBER_PATTERN = /^[0-9-]+$/;
 
+    // ユーザID の形式チェック用 (サーバー側と同じ条件。半角英数字のみ)
+    var USER_ID_PATTERN = /^[A-Za-z0-9]{1,50}$/;
+
     // 登録モード (mode=new) と編集モード (既定) を URL で判定する
     var searchParams = new URLSearchParams(window.location.search);
     var mode = searchParams.get('mode') === 'new' ? 'new' : 'edit';
@@ -557,6 +558,7 @@
     // 画面の入力内容を新規登録時の初期値に戻す
     // (登録モードの初期化とクリアボタンで共用)
     function clearEmployeeForm() {
+      userIdInput.value = '';
       emailInput.value = '';
       nameInput.value = '';
       kanaInput.value = '';
@@ -569,7 +571,7 @@
       // 直前のエラー表示と登録ボタンの無効化も初期状態に戻す
       hideError();
       submitButton.disabled = false;
-      emailInput.focus();
+      userIdInput.focus();
     }
 
     // 戻るボタン: 同じ枠 (iframe) 内で社員一覧へ戻る
@@ -579,6 +581,16 @@
 
     // 入力チェック。問題があればメッセージを返す (問題なければ null)
     function validateForm() {
+      // ユーザID は登録モードでのみ入力・検査する (編集モードは読み取り専用)
+      if (mode === 'new') {
+        var userId = userIdInput.value.trim();
+        if (userId === '') {
+          return 'ユーザIDを入力してください。';
+        }
+        if (!USER_ID_PATTERN.test(userId)) {
+          return 'ユーザIDは半角英数字50文字以内で入力してください。';
+        }
+      }
       var email = emailInput.value.trim();
       if (email === '') {
         return 'メールアドレスを入力してください。';
@@ -664,7 +676,7 @@
 
       var payload = {
         mode: mode,
-        userId: userIdInput.value,
+        userId: userIdInput.value.trim(),
         email: emailInput.value.trim(),
         employeeName: nameInput.value.trim(),
         employeeNameKana: kanaInput.value.trim(),
@@ -740,6 +752,11 @@
     if (mode === 'new') {
       // 見出しに登録モードであることを示す
       document.getElementById('mode-indicator').textContent = '（登録モード）';
+
+      // 登録モードではユーザIDを入力可能にする (編集モードは読み取り専用のまま)
+      userIdInput.readOnly = false;
+      document.getElementById('userid-hint').textContent =
+          '半角英数字50文字以内で入力してください。登録後は変更できません。';
 
       // 登録モードでは削除対象が無いため削除ボタンを隠し、
       // 代わりに入力内容を消去するクリアボタンを表示する

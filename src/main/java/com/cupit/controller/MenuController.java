@@ -19,6 +19,7 @@ import com.cupit.model.SettlementItemCode;
 import com.cupit.model.SmccMerchantNo;
 import com.cupit.model.SteraStore;
 import com.cupit.model.SteraTerminal;
+import com.cupit.model.TransferFeeRate;
 import com.cupit.repository.SmccMerchantNoRepository;
 import com.cupit.repository.SteraStoreRepository;
 import com.cupit.repository.SteraTerminalRepository;
@@ -27,6 +28,7 @@ import com.cupit.service.JftdReportDataService;
 import com.cupit.service.MemberInfoService;
 import com.cupit.service.SettlementFeeRateService;
 import com.cupit.service.SettlementItemCodeService;
+import com.cupit.service.TransferFeeRateService;
 
 @Controller
 public class MenuController {
@@ -46,6 +48,8 @@ public class MenuController {
     private static final String ATTRIBUTE_NAME_FEE_RATE = "feeRate";
     private static final String ATTRIBUTE_NAME_ITEM_CODES = "itemCodes";
     private static final String ATTRIBUTE_NAME_ITEM_CODE = "itemCode";
+    private static final String ATTRIBUTE_NAME_TRANSFER_FEE_RATES = "transferFeeRates";
+    private static final String ATTRIBUTE_NAME_TRANSFER_FEE_RATE = "transferFeeRate";
     private static final String MODE_NEW = "new";
     private static final String AUTHORITY_ADMINISTRATOR = "01";
     private static final String REDIRECT_EMPLOYEE_LIST =
@@ -54,6 +58,8 @@ public class MenuController {
             "redirect:/settlement_fee_rate_list";
     private static final String REDIRECT_SETTLEMENT_ITEM_CODE_LIST =
             "redirect:/settlement_item_code_list";
+    private static final String REDIRECT_TRANSFER_FEE_RATE_LIST =
+            "redirect:/transfer_fee_rate_list";
     private static final String VIEW_NAME_LOGIN = "login";
     private static final String VIEW_NAME_MENU = "menu";
     private static final String VIEW_NAME_MEMBER_INFO = "member_info";
@@ -81,6 +87,10 @@ public class MenuController {
             "settlement_item_code_list";
     private static final String VIEW_NAME_SETTLEMENT_ITEM_CODE_EDIT =
             "settlement_item_code_edit";
+    private static final String VIEW_NAME_TRANSFER_FEE_RATE_LIST =
+            "transfer_fee_rate_list";
+    private static final String VIEW_NAME_TRANSFER_FEE_RATE_EDIT =
+            "transfer_fee_rate_edit";
 
     private final MemberInfoService memberInfoService;
     private final EmployeeService employeeService;
@@ -90,6 +100,7 @@ public class MenuController {
     private final SmccMerchantNoRepository smccMerchantNoRepository;
     private final SettlementFeeRateService settlementFeeRateService;
     private final SettlementItemCodeService settlementItemCodeService;
+    private final TransferFeeRateService transferFeeRateService;
 
     public MenuController(
             MemberInfoService memberInfoService,
@@ -99,7 +110,8 @@ public class MenuController {
             SteraTerminalRepository steraTerminalRepository,
             SmccMerchantNoRepository smccMerchantNoRepository,
             SettlementFeeRateService settlementFeeRateService,
-            SettlementItemCodeService settlementItemCodeService) {
+            SettlementItemCodeService settlementItemCodeService,
+            TransferFeeRateService transferFeeRateService) {
         this.memberInfoService = memberInfoService;
         this.employeeService = employeeService;
         this.jftdReportDataService = jftdReportDataService;
@@ -108,6 +120,7 @@ public class MenuController {
         this.smccMerchantNoRepository = smccMerchantNoRepository;
         this.settlementFeeRateService = settlementFeeRateService;
         this.settlementItemCodeService = settlementItemCodeService;
+        this.transferFeeRateService = transferFeeRateService;
     }
 
     @GetMapping({"/", "/login"})
@@ -324,6 +337,38 @@ public class MenuController {
         model.addAttribute(ATTRIBUTE_NAME_MODE, mode);
         model.addAttribute(ATTRIBUTE_NAME_AUTHORITY_CODE, authorityCode);
         return VIEW_NAME_SETTLEMENT_ITEM_CODE_EDIT;
+    }
+
+    @GetMapping("/transfer_fee_rate_list")
+    public String transferFeeRateList(HttpSession session, Model model) {
+        model.addAttribute(
+                ATTRIBUTE_NAME_TRANSFER_FEE_RATES, transferFeeRateService.findAllTransferFeeRates());
+        model.addAttribute(
+                ATTRIBUTE_NAME_AUTHORITY_CODE, getAuthorityCode(session));
+        return VIEW_NAME_TRANSFER_FEE_RATE_LIST;
+    }
+
+    @GetMapping("/transfer_fee_rate_edit")
+    public String transferFeeRateEdit(
+            @RequestParam(name = "mode", required = false) String mode,
+            @RequestParam(name = "transferFeeId", required = false) Integer transferFeeId,
+            HttpSession session,
+            Model model) {
+        String authorityCode = getAuthorityCode(session);
+
+        // メンテナンスは管理者 (01) のみ。それ以外は一覧へ戻す
+        if (!AUTHORITY_ADMINISTRATOR.equals(authorityCode)) {
+            return REDIRECT_TRANSFER_FEE_RATE_LIST;
+        }
+
+        // 編集モードでは選択された振込手数料の内容を読み込む
+        if (!MODE_NEW.equals(mode) && transferFeeId != null) {
+            TransferFeeRate transferFeeRate = transferFeeRateService.findById(transferFeeId);
+            model.addAttribute(ATTRIBUTE_NAME_TRANSFER_FEE_RATE, transferFeeRate);
+        }
+        model.addAttribute(ATTRIBUTE_NAME_MODE, mode);
+        model.addAttribute(ATTRIBUTE_NAME_AUTHORITY_CODE, authorityCode);
+        return VIEW_NAME_TRANSFER_FEE_RATE_EDIT;
     }
 
     /**

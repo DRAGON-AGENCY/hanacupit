@@ -2,7 +2,6 @@ package com.cupit.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.regex.Pattern;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,9 +24,13 @@ public class EmployeeService {
     private static final String AUTHORITY_ADMINISTRATOR = "01";
     private static final String AUTHORITY_OPERATOR = "02";
     private static final String AUTHORITY_VIEWER = "03";
-    private static final String USER_ID_PREFIX = "user";
-    private static final int USER_ID_NUMBER_DIGITS = 3;
-    private static final int FIRST_USER_ID_NUMBER = 1;
+
+    // ユーザIDは半角英数字のみ許可する。m_employee.user_idはVARCHAR(255)だが、
+    // 他テーブルの更新者記録カラム(update_employee等)がVARCHAR(50)のため、
+    // コピー先で切り詰められないよう50文字以内に制限する。
+    private static final int USER_ID_MAX_LENGTH = 50;
+    private static final Pattern USER_ID_PATTERN =
+            Pattern.compile("^[A-Za-z0-9]{1," + USER_ID_MAX_LENGTH + "}$");
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[A-Za-z0-9._+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$");
@@ -53,6 +56,12 @@ public class EmployeeService {
 
     private static final String MESSAGE_INVALID_INPUT =
             "入力内容が正しくありません。";
+    private static final String MESSAGE_USER_ID_REQUIRED =
+            "ユーザIDを入力してください。";
+    private static final String MESSAGE_USER_ID_FORMAT =
+            "ユーザIDは半角英数字50文字以内で入力してください。";
+    private static final String MESSAGE_USER_ID_DUPLICATED =
+            "入力されたユーザIDは既に登録されています。";
     private static final String MESSAGE_EMAIL_REQUIRED =
             "メールアドレスを入力してください。";
     private static final String MESSAGE_EMAIL_FORMAT =
@@ -147,6 +156,7 @@ public class EmployeeService {
             return new EmployeeResponse(false, MESSAGE_INVALID_INPUT);
         }
 
+        String userId = trimToEmpty(request.getUserId());
         String email = trimToEmpty(request.getEmail());
         String employeeName = trimToEmpty(request.getEmployeeName());
         String employeeNameKana = trimToEmpty(request.getEmployeeNameKana());
@@ -156,6 +166,17 @@ public class EmployeeService {
         String faxNumber = trimToEmpty(request.getFaxNumber());
         String password = request.getPassword();
 
+        boolean isNewMode = MODE_NEW.equals(request.getMode());
+        // ユーザIDは新規登録時のみ画面からの入力値を検査する。
+        // 編集時は既存社員を識別するIDとして使うのみで、形式は登録時に検査済みのため
+        // 再検査しない。
+        if (isNewMode) {
+            String userIdMessage = validateUserId(userId);
+            if (userIdMessage != null) {
+                return new EmployeeResponse(false, userIdMessage);
+            }
+        }
+
         String validationMessage = validateInput(
                 email, employeeName, employeeNameKana, department,
                 authorityCode, phoneNumber, faxNumber,
@@ -164,15 +185,14 @@ public class EmployeeService {
             return new EmployeeResponse(false, validationMessage);
         }
 
-        boolean isNewMode = MODE_NEW.equals(request.getMode());
         if (isNewMode) {
             return createEmployee(
-                    email, employeeName, employeeNameKana, department,
+                    userId, email, employeeName, employeeNameKana, department,
                     authorityCode, phoneNumber, faxNumber, password,
                     request.getPasswordErrorCount(), loginUserId);
         }
         return updateEmployee(
-                trimToEmpty(request.getUserId()), email, employeeName,
+                userId, email, employeeName,
                 employeeNameKana, department, authorityCode, phoneNumber,
                 faxNumber, password, request.getPasswordErrorCount(),
                 loginUserId);
@@ -196,13 +216,16 @@ public class EmployeeService {
     }
 
     /**
-     * 新規社員を登録する。メールアドレスの重複とパスワード必須を検査する。
+     * 新規社員を登録する。ユーザIDとメールアドレスの重複、パスワード必須を検査する。
      */
     private EmployeeResponse createEmployee(
-            String email, String employeeName, String employeeNameKana,
+            String userId, String email, String employeeName, String employeeNameKana,
             String department, String authorityCode, String phoneNumber,
             String faxNumber, String password, int passwordErrorCount,
             String loginUserId) {
+        if (employeeRepository.existsById(userId)) {
+            return new EmployeeResponse(false, MESSAGE_USER_ID_DUPLICATED);
+        }
         if (employeeRepository.existsByEmail(email)) {
             return new EmployeeResponse(false, MESSAGE_EMAIL_DUPLICATED);
         }
@@ -212,7 +235,7 @@ public class EmployeeService {
         }
 
         Employee employee = new Employee();
-        employee.setUserId(generateNextUserId());
+        employee.setUserId(userId);
         employee.setEmail(email);
         employee.setEmployeeName(employeeName);
         employee.setEmployeeNameKana(employeeNameKana);
@@ -369,36 +392,19 @@ public class EmployeeService {
     }
 
     /**
-     * 既存の最大ユーザー ID を基に、次のユーザー ID を採番する。
-     * 形式は「user」+ 0 埋め 3 桁の連番 (例: user011)。
+     * ユーザIDの必須・形式を検査する。新規登録時のみ呼び出す。
      *
-     * @return 新しいユーザー ID
+     * @param userId 検査対象のユーザID
+     * @return 問題があればエラーメッセージ。問題が無ければ null
      */
-    private String generateNextUserId() {
-        Optional<Employee> latest =
-                employeeRepository.findFirstByOrderByUserIdDesc();
-        int nextNumber = FIRST_USER_ID_NUMBER;
-        if (latest.isPresent()) {
-            nextNumber = extractUserIdNumber(latest.get().getUserId()) + 1;
+    private String validateUserId(String userId) {
+        if (userId.isEmpty()) {
+            return MESSAGE_USER_ID_REQUIRED;
         }
-        return String.format(
-                "%s%0" + USER_ID_NUMBER_DIGITS + "d",
-                USER_ID_PREFIX, nextNumber);
-    }
-
-    /**
-     * ユーザー ID から末尾の数値部分を取り出す。
-     * 数値として解釈できない場合は 0 を返す。
-     *
-     * @param userId ユーザー ID
-     * @return 数値部分
-     */
-    private int extractUserIdNumber(String userId) {
-        String digits = userId.replaceAll("\\D", "");
-        if (digits.isEmpty()) {
-            return 0;
+        if (!USER_ID_PATTERN.matcher(userId).matches()) {
+            return MESSAGE_USER_ID_FORMAT;
         }
-        return Integer.parseInt(digits);
+        return null;
     }
 
     /**

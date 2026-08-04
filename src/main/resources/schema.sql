@@ -850,6 +850,34 @@ INSERT INTO m_settlement_fee_rate
     ('stera terminal', '共通', 'STRAIGHT', 0.0275, 0.002, NULL)
 ON CONFLICT (payment_company, card_brand) DO NOTHING;
 
+-- 振込手数料マスタ（その他統合振込CSV作成が最終振込金額の算出に使う、
+-- 振込先の金融機関コードごとの振込手数料）。以前はSteraTransferCalculationService
+-- 内のコード定数だったが、銀行の手数料改定に画面から対応できるようマスタ化した
+-- （課題表項番34）。bank_code='DEFAULT'は該当する銀行コードの行が無い場合に使う
+-- 既定値の特別行で、必ず1件だけ存在する前提とする（削除・銀行コードの変更は
+-- TransferFeeRateService側で禁止する）。
+CREATE TABLE IF NOT EXISTS m_transfer_fee_rate (
+    transfer_fee_id  SERIAL          NOT NULL,
+    bank_code        VARCHAR(10)     NOT NULL,
+    transfer_fee     INTEGER         NOT NULL,
+    note             VARCHAR(100),
+    update_employee  VARCHAR(50),
+    create_date      DATE            NOT NULL DEFAULT CURRENT_DATE,
+    updated_date     DATE,
+    CONSTRAINT pk_m_transfer_fee_rate PRIMARY KEY (transfer_fee_id),
+    CONSTRAINT uq_transfer_fee_rate UNIQUE (bank_code)
+);
+
+-- 初期データは、GMOあおぞらネット銀行「振込料金とくとく会員」（花キューピットの
+-- 振込元銀行と推定。課題表項番35で確認中）の公式料金（他行宛121円、同行宛0円、
+-- 2026年5月10日時点 https://gmo-aozora.com/business/service/aozoraprime.html）を
+-- 使用する。項番18の実データ検証時点（129円）から銀行側の料金改定があったため、
+-- マスタの値を最新の公式料金に更新済み（2026-08-04）。
+INSERT INTO m_transfer_fee_rate (bank_code, transfer_fee, note) VALUES
+    ('DEFAULT', 121, '既定の振込手数料（GMOあおぞらネット銀行「振込料金とくとく会員」他行宛121円、2026年5月10日時点。該当する銀行コードの行が無い場合に使用）'),
+    ('0310', 0, 'ＧＭＯあおぞらネット銀行（同行宛は0円と仮定。振込元銀行と同一のため）')
+ON CONFLICT (bank_code) DO NOTHING;
+
 -- JFTD統合振込CSV作成・帳票出力の帳票（支払明細書）に印字する会社情報・振込先情報。
 -- 1行のみを想定した設定マスタ（company_info_id=1固定）。頻繁に変わらない情報のため
 -- 画面は用意せず、値の変更が必要な場合はSQLで直接更新する。

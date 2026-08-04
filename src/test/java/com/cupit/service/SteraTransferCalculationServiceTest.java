@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.cupit.model.ImportBatch;
 import com.cupit.model.SettlementFeeRate;
 import com.cupit.model.SteraStore;
+import com.cupit.model.TransferFeeRate;
 import com.cupit.repository.ImportBatchRepository;
 import com.cupit.repository.SettlementFeeRateRepository;
 import com.cupit.repository.SteraCodeSettlementDetailRepository;
@@ -26,6 +27,7 @@ import com.cupit.repository.SteraCreditSalesDetailRepository.SteraCreditGroupAgg
 import com.cupit.repository.SteraJcbSalesDetailRepository;
 import com.cupit.repository.SteraJcbSalesDetailRepository.SteraJcbGroupAggregate;
 import com.cupit.repository.SteraStoreRepository;
+import com.cupit.repository.TransferFeeRateRepository;
 import com.cupit.service.settlement.SteraTransferLineItem;
 
 /**
@@ -61,6 +63,9 @@ class SteraTransferCalculationServiceTest {
     @Mock
     private SettlementFeeRateRepository settlementFeeRateRepository;
 
+    @Mock
+    private TransferFeeRateRepository transferFeeRateRepository;
+
     private SteraTransferCalculationService service;
 
     @BeforeEach
@@ -71,17 +76,27 @@ class SteraTransferCalculationServiceTest {
                 steraCodeSettlementDetailRepository,
                 steraCreditSalesDetailRepository,
                 steraStoreRepository,
-                settlementFeeRateRepository);
-        // findTargetImportBatches()系のテストは手数料率マスタを引かないため、
+                settlementFeeRateRepository,
+                transferFeeRateRepository);
+        // findTargetImportBatches()系のテストは手数料率マスタ・振込手数料マスタを引かないため、
         // ここでのスタブはlenient()にする（Mockitoの厳格スタブ検査対策）。
         lenient().when(settlementFeeRateRepository.findByPaymentCompanyAndCardBrand("stera terminal", "共通"))
                 .thenReturn(Optional.of(feeRate("0.0275", "0.002")));
+        lenient().when(transferFeeRateRepository.findByBankCode("DEFAULT"))
+                .thenReturn(Optional.of(transferFeeRate("DEFAULT", 129)));
     }
 
     private SettlementFeeRate feeRate(String acquirerFeeRate, String companyFeeRate) {
         SettlementFeeRate rate = new SettlementFeeRate();
         rate.setAcquirerFeeRate(new java.math.BigDecimal(acquirerFeeRate));
         rate.setOurFeeRateBase(new java.math.BigDecimal(companyFeeRate));
+        return rate;
+    }
+
+    private TransferFeeRate transferFeeRate(String bankCode, int fee) {
+        TransferFeeRate rate = new TransferFeeRate();
+        rate.setBankCode(bankCode);
+        rate.setTransferFee(fee);
         return rate;
     }
 
@@ -262,6 +277,8 @@ class SteraTransferCalculationServiceTest {
         when(steraCreditSalesDetailRepository.sumByTradeCodeCardBrandAndTransactionType(List.of(CREDIT_BATCH_ID)))
                 .thenReturn(List.of(creditAggregate("02-200", "VM", "1回払", 10000)));
         givenStore("02-200", "0310");
+        when(transferFeeRateRepository.findByBankCode("0310"))
+                .thenReturn(Optional.of(transferFeeRate("0310", 0)));
 
         List<SteraTransferLineItem> result = service.calculateAllLineItems();
 

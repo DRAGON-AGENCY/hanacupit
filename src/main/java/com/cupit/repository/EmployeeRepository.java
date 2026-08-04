@@ -34,13 +34,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, String> {
     List<Employee> findAllByOrderByUserIdAsc();
 
     /**
-     * ユーザー ID が最大の社員を 1 件取得する。新規登録時の自動採番に使用する。
-     *
-     * @return ユーザー ID が最大の社員。社員が存在しない場合は空
-     */
-    Optional<Employee> findFirstByOrderByUserIdDesc();
-
-    /**
      * 指定したメールアドレスの社員が存在するかどうかを返す。
      *
      * @param email メールアドレス

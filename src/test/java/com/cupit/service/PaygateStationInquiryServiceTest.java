@@ -97,7 +97,8 @@ class PaygateStationInquiryServiceTest {
 
         lenient().when(paygateMappingRepository.findAllByOrderByTradeCodeAscTerminalIdAsc()).thenReturn(List.of());
         lenient().when(settlementItemCodeRepository.findAll()).thenReturn(List.of());
-        lenient().when(jftdTransferCalculationService.calculateJcbLineItems(anyIntList())).thenReturn(List.of());
+        lenient().when(jftdTransferCalculationService.calculateJcbLineItemsForInquiry(anyIntList()))
+                .thenReturn(List.of());
         lenient().when(jftdTransferCalculationService.calculateNetstarLineItems(anyIntList())).thenReturn(List.of());
         lenient().when(jftdTransferCalculationService.calculateSumarejoLineItems(anyIntList())).thenReturn(List.of());
         lenient().when(jftdTransferCalculationService.calculateRakutenPayLineItems(anyIntList())).thenReturn(List.of());
@@ -159,7 +160,44 @@ class PaygateStationInquiryServiceTest {
     private TransferLineItem lineItem(
             String tradeCode, String itemCode, int amount, int grossAmount,
             int feeTaxFree, int feeBase, int feeTax) {
-        return new TransferLineItem(tradeCode, itemCode, 1, amount, grossAmount, feeTaxFree, feeBase, feeTax, 100);
+        return lineItem(tradeCode, itemCode, amount, grossAmount, feeTaxFree, feeBase, feeTax, 100);
+    }
+
+    private TransferLineItem lineItem(
+            String tradeCode, String itemCode, int amount, int grossAmount,
+            int feeTaxFree, int feeBase, int feeTax, int batchId) {
+        return new TransferLineItem(
+                tradeCode, itemCode, 1, amount, grossAmount, feeTaxFree, feeBase, feeTax, batchId);
+    }
+
+    private JcbBrandAggregate jcbAggregate(
+            String tradeCode, String cardName, int batchId, long salesCount, long salesAmount) {
+        return new JcbBrandAggregate() {
+            @Override
+            public String getTradeCode() {
+                return tradeCode;
+            }
+
+            @Override
+            public String getCardName() {
+                return cardName;
+            }
+
+            @Override
+            public Integer getBatchId() {
+                return batchId;
+            }
+
+            @Override
+            public Long getTotalSalesCount() {
+                return salesCount;
+            }
+
+            @Override
+            public Long getTotalSalesAmount() {
+                return salesAmount;
+            }
+        };
     }
 
     @Test
@@ -186,7 +224,7 @@ class PaygateStationInquiryServiceTest {
         // Collectors.groupingByはnullキーで例外を投げるため、これを再現するテスト。
         when(importBatchRepository.findAll()).thenReturn(List.of(batch(100, "JCB", null)));
         givenCardBrand("3300024", "【ＪＣＢカード】");
-        when(jftdTransferCalculationService.calculateJcbLineItems(List.of(100)))
+        when(jftdTransferCalculationService.calculateJcbLineItemsForInquiry(List.of(100)))
                 .thenReturn(List.of(lineItem("01-001", "3300024", 1000, 1000, 0, 0, 0)));
 
         List<PaygateStationRow> rows = service.findAll();
@@ -200,7 +238,7 @@ class PaygateStationInquiryServiceTest {
         when(importBatchRepository.findAll()).thenReturn(List.of(batch(100, "JCB", CUTOFF_DATE)));
         givenStoreName("01-001", "花のいのうえ");
         givenCardBrand("3300024", "【ＪＣＢカード】");
-        when(jftdTransferCalculationService.calculateJcbLineItems(List.of(100)))
+        when(jftdTransferCalculationService.calculateJcbLineItemsForInquiry(List.of(100)))
                 .thenReturn(List.of(lineItem("01-001", "3300024", 14150, 14550, 400, 0, 0)));
 
         JcbBrandAggregate aggregate = new JcbBrandAggregate() {
@@ -246,6 +284,49 @@ class PaygateStationInquiryServiceTest {
         assertThat(row.getPayableAmount()).isEqualTo(14150);
     }
 
+    /**
+     * 同一取引コード・同一カードブランド・同一締め日で複数ファイル（インポートバッチ）
+     * 分のデータが確定・アップロードされている場合、集計行は合算されて1行になるが、
+     * その内訳（{@link PaygateStationRow#getDetails()}）で元ファイル単位の金額を
+     * 確認できることを検証する（実際にユーザーから「合算された金額の内訳が
+     * わからない」という指摘を受けて追加した機能の回帰テスト）。
+     */
+    @Test
+    void findAllPopulatesDetailsForEachContributingBatch() {
+        when(importBatchRepository.findAll()).thenReturn(List.of(
+                batch(100, "JCB", CUTOFF_DATE), batch(101, "JCB", CUTOFF_DATE)));
+        givenCardBrand("3300024", "【ＪＣＢカード】");
+        when(jftdTransferCalculationService.calculateJcbLineItemsForInquiry(List.of(100, 101)))
+                .thenReturn(List.of(
+                        lineItem("IT-001", "3300024", 17505, 18000, 495, 0, 0, 100),
+                        lineItem("IT-001", "3300024", 24313, 25000, 687, 0, 0, 101)));
+        when(jcbSalesDetailRepository.sumByTradeCodeAndCardName(List.of(100, 101))).thenReturn(List.of(
+                jcbAggregate("IT-001", "【ＪＣＢカード】", 100, 1L, 18000L),
+                jcbAggregate("IT-001", "【ＪＣＢカード】", 101, 1L, 25000L)));
+
+        List<PaygateStationRow> rows = service.findAll();
+
+        assertThat(rows).hasSize(1);
+        PaygateStationRow row = rows.get(0);
+        assertThat(row.getSalesCount()).isEqualTo(2);
+        assertThat(row.getSalesAmount()).isEqualTo(43000);
+        assertThat(row.getPayableAmount()).isEqualTo(41818);
+
+        assertThat(row.getDetails()).hasSize(2);
+        assertThat(row.getDetails()).extracting(PaygateStationRow::getPayableAmount)
+                .containsExactlyInAnyOrder(17505, 24313);
+        // 内訳の合算が親行と一致すること
+        assertThat(row.getDetails().stream().mapToInt(PaygateStationRow::getSalesAmount).sum())
+                .isEqualTo(row.getSalesAmount());
+        assertThat(row.getDetails().stream().mapToInt(PaygateStationRow::getPayableAmount).sum())
+                .isEqualTo(row.getPayableAmount());
+        // 内訳行も画面表示に必要な決済会社・決済種類(カードブランド)を持つ
+        assertThat(row.getDetails()).allSatisfy(detail -> {
+            assertThat(detail.getPaymentCompany()).isEqualTo("JCB");
+            assertThat(detail.getCardBrand()).isEqualTo("【ＪＣＢカード】");
+        });
+    }
+
     @Test
     void findAllGroupsJcbBatchesByCutoffDateSeparately() {
         LocalDate otherDate = LocalDate.of(2026, 6, 30);
@@ -253,9 +334,9 @@ class PaygateStationInquiryServiceTest {
                 batch(100, "JCB", CUTOFF_DATE),
                 batch(101, "JCB", otherDate)));
         givenCardBrand("3300024", "【ＪＣＢカード】");
-        when(jftdTransferCalculationService.calculateJcbLineItems(List.of(100)))
+        when(jftdTransferCalculationService.calculateJcbLineItemsForInquiry(List.of(100)))
                 .thenReturn(List.of(lineItem("01-001", "3300024", 1000, 1000, 0, 0, 0)));
-        when(jftdTransferCalculationService.calculateJcbLineItems(List.of(101)))
+        when(jftdTransferCalculationService.calculateJcbLineItemsForInquiry(List.of(101)))
                 .thenReturn(List.of(lineItem("01-001", "3300024", 2000, 2000, 0, 0, 0)));
 
         List<PaygateStationRow> rows = service.findAll();
@@ -436,28 +517,36 @@ class PaygateStationInquiryServiceTest {
     }
 
     /**
-     * 手数料率マスタ・項目コードマスタに存在しないカードブランド名（表記ゆれ等）を持つ
-     * JCBデータが1件あると、JftdTransferCalculationService.calculateJcbLineItems()が
-     * IllegalStateExceptionを投げる（findFeeRate/findItemCodeの仕様）。この例外で
-     * 画面全体がcrashしないよう、JCB分だけ0件になり、他の決済会社（楽天ペイ）の行は
-     * 通常どおり返ることを検証する（実際に本番データで発生した不具合の回帰テスト）。
+     * 手数料率マスタ・項目コードマスタに存在しないカードブランド名を持つJCBデータが
+     * あっても、JCB分の照会（{@code calculateJcbLineItemsForInquiry}）は例外を投げず、
+     * 該当ブランドを手数料0円・支払金額＝売上金額として表示する。他の正常なブランド・
+     * 他の決済会社の表示に影響しないことを検証する（実際に本番データで発生した
+     * 不具合の回帰テスト。以前はJCB分が丸ごと非表示になっていた）。
      */
     @Test
-    void findAllSkipsOnlyTheFailingCompanyWhenCalculationThrows() {
+    void findAllShowsUnregisteredCardBrandWithZeroFeeInsteadOfHidingWholeCompany() {
         when(importBatchRepository.findAll()).thenReturn(List.of(
                 batch(500, "JCB", CUTOFF_DATE),
                 batch(501, "楽天ペイ", CUTOFF_DATE)));
-        when(jftdTransferCalculationService.calculateJcbLineItems(List.of(500)))
-                .thenThrow(new IllegalStateException(
-                        "手数料率マスタにカードブランド「JCBカード」の設定がありません。"));
+        when(jftdTransferCalculationService.calculateJcbLineItemsForInquiry(List.of(500)))
+                .thenReturn(List.of(lineItem("35-232", "【結合テスト用ブランド】", 5000, 5000, 0, 0, 0)));
         when(jftdTransferCalculationService.calculateRakutenPayLineItems(List.of(501)))
                 .thenReturn(List.of(lineItem("01-024", "3300062", 21856, 22550, 0, 631, 63)));
         when(rakutenPayTransactionRepository.sumByTradeCode(List.of(501))).thenReturn(List.of());
 
         List<PaygateStationRow> rows = service.findAll();
 
-        assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getPaymentCompany()).isEqualTo("楽天ペイ");
+        assertThat(rows).hasSize(2);
+        PaygateStationRow jcbRow = rows.stream()
+                .filter(r -> "JCB".equals(r.getPaymentCompany()))
+                .findFirst().orElseThrow();
+        // 項目コードマスタに存在しない値のため、itemCode代わりに入れたカードブランド名が
+        // そのまま表示される（cardBrandByItemCodeで解決できないためitemCode自体を使う）。
+        assertThat(jcbRow.getCardBrand()).isEqualTo("【結合テスト用ブランド】");
+        assertThat(jcbRow.getSalesAmount()).isEqualTo(5000);
+        assertThat(jcbRow.getAcquirerFee()).isZero();
+        assertThat(jcbRow.getPayableAmount()).isEqualTo(5000);
+        assertThat(rows.stream().anyMatch(r -> "楽天ペイ".equals(r.getPaymentCompany()))).isTrue();
     }
 
     private TerminalFeeAggregate terminalFeeAggregate(

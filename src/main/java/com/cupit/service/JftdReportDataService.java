@@ -143,12 +143,35 @@ public class JftdReportDataService {
     }
 
     /**
-     * 確定前のプレビュー表示用に、集計サービスが計算した明細（未保存）から
-     * 直接帳票相当のデータを集計する。項目コードマスタは明細行ごとに問い合わせず、
+     * 確定済みデータ（帳票出力画面からのダウンロード）用に、集計サービスが計算した
+     * 明細から帳票相当のデータを集計する。項目コードマスタは明細行ごとに問い合わせず、
      * 事前に全件取得してMapを作ることでN+1クエリを避ける
      * （マスタ自体は少数固定のため、全件取得しても1クエリで済む）。
+     * 確定済みデータは確定時点で項目コードマスタとの整合性を検証済みのはずなので、
+     * 該当する項目コードが見つからない場合はマスタ側の不整合（確定後に削除された等）
+     * を示すため、従来通り例外を投げて止める。
      */
     public List<ReportRow> summarize(List<TransferLineItem> lineItems) {
+        return summarize(lineItems, true);
+    }
+
+    /**
+     * JFTD・その他統合振込CSV作成画面の「JFTD CSV作成」ボタン押下時（確定前の
+     * プレビュー表示専用）に使う。{@link #summarize(List)}と異なり、項目コードマスタに
+     * 存在しない項目コード（{@link JftdTransferCalculationService#calculateJcbLineItemsForInquiry}
+     * が未登録カードブランドの代わりに設定したカードブランド名）でも例外を投げず、
+     * 決済会社をJCB固定・カードブランドを項目コードの値そのものとして集計を継続する
+     * （実際に発生した不具合の修正：確定処理と同じ厳密な集計・帳票化ロジックを
+     * プレビューにそのまま使っていたため、未登録ブランドを含むデータをアップロードすると
+     * プレビュー取得の時点でHTTP 500になっていた）。
+     */
+    public List<ReportRow> summarizeForPreview(List<TransferLineItem> lineItems) {
+        return summarize(lineItems, false);
+    }
+
+    private static final String FALLBACK_PAYMENT_COMPANY = "JCB";
+
+    private List<ReportRow> summarize(List<TransferLineItem> lineItems, boolean strict) {
         Map<String, SettlementItemCode> itemCodeByCode = settlementItemCodeRepository.findAll().stream()
                 .collect(Collectors.toMap(SettlementItemCode::getItemCode, Function.identity()));
 
@@ -157,20 +180,23 @@ public class JftdReportDataService {
 
         for (TransferLineItem detail : lineItems) {
             SettlementItemCode itemCode = itemCodeByCode.get(detail.getItemCode());
-            if (itemCode == null) {
+            if (itemCode == null && strict) {
                 throw new IllegalStateException(
                         "項目コードマスタに項目コード「" + detail.getItemCode() + "」の設定がありません。");
             }
 
-            String key = itemCode.getPaymentCompany() + " " + itemCode.getCardBrand();
-            companyBrandByKey.putIfAbsent(
-                    key, new String[] {itemCode.getPaymentCompany(), itemCode.getCardBrand()});
+            String paymentCompany = itemCode != null ? itemCode.getPaymentCompany() : FALLBACK_PAYMENT_COMPANY;
+            String cardBrand = itemCode != null ? itemCode.getCardBrand() : detail.getItemCode();
+            String amountType = itemCode != null ? itemCode.getAmountType() : "PAYMENT";
+
+            String key = paymentCompany + " " + cardBrand;
+            companyBrandByKey.putIfAbsent(key, new String[] {paymentCompany, cardBrand});
             // [0]件数, [1]決済金額合計, [2]事業者手数料(非課税), [3]事業者手数料(課税本体),
             // [4]事業者手数料(消費税), [5]支払金額1(PAYMENT amount計), [6]弊社手数料本体, [7]弊社手数料消費税
             int[] totals = totalsByKey.computeIfAbsent(key, unused -> new int[8]);
 
             totals[0] += detail.getQuantity();
-            switch (itemCode.getAmountType()) {
+            switch (amountType) {
                 case "PAYMENT" -> {
                     totals[1] += detail.getGrossAmount();
                     totals[2] += detail.getAcquirerFeeTaxFree();
@@ -181,7 +207,7 @@ public class JftdReportDataService {
                 case "FEE_BASE" -> totals[6] += detail.getAmount();
                 case "FEE_TAX" -> totals[7] += detail.getAmount();
                 default -> throw new IllegalStateException(
-                        "不明な金額種別です: " + itemCode.getAmountType());
+                        "不明な金額種別です: " + amountType);
             }
         }
 

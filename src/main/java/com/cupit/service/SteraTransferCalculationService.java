@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.cupit.model.ImportBatch;
 import com.cupit.model.SettlementFeeRate;
 import com.cupit.model.SteraStore;
+import com.cupit.model.TransferFeeRate;
 import com.cupit.repository.ImportBatchRepository;
 import com.cupit.repository.SettlementFeeRateRepository;
 import com.cupit.repository.SteraCodeSettlementDetailRepository;
@@ -21,6 +22,7 @@ import com.cupit.repository.SteraCreditSalesDetailRepository.SteraCreditGroupAgg
 import com.cupit.repository.SteraJcbSalesDetailRepository;
 import com.cupit.repository.SteraJcbSalesDetailRepository.SteraJcbGroupAggregate;
 import com.cupit.repository.SteraStoreRepository;
+import com.cupit.repository.TransferFeeRateRepository;
 import com.cupit.service.settlement.SteraTransferLineItem;
 
 /**
@@ -41,17 +43,13 @@ public class SteraTransferCalculationService {
     private static final String FEE_RATE_PAYMENT_COMPANY = "stera terminal";
     private static final String FEE_RATE_CARD_BRAND = "共通";
 
-    /** 振込手数料129円が0円になる振込先金融機関コード（ＧＭＯあおぞらネット銀行）。 */
-    private static final String ZERO_TRANSFER_FEE_BANK_CODE = "0310";
-
-    private static final int TRANSFER_FEE = 129;
-
     private final ImportBatchRepository importBatchRepository;
     private final SteraJcbSalesDetailRepository steraJcbSalesDetailRepository;
     private final SteraCodeSettlementDetailRepository steraCodeSettlementDetailRepository;
     private final SteraCreditSalesDetailRepository steraCreditSalesDetailRepository;
     private final SteraStoreRepository steraStoreRepository;
     private final SettlementFeeRateRepository settlementFeeRateRepository;
+    private final TransferFeeRateRepository transferFeeRateRepository;
 
     public SteraTransferCalculationService(
             ImportBatchRepository importBatchRepository,
@@ -59,13 +57,15 @@ public class SteraTransferCalculationService {
             SteraCodeSettlementDetailRepository steraCodeSettlementDetailRepository,
             SteraCreditSalesDetailRepository steraCreditSalesDetailRepository,
             SteraStoreRepository steraStoreRepository,
-            SettlementFeeRateRepository settlementFeeRateRepository) {
+            SettlementFeeRateRepository settlementFeeRateRepository,
+            TransferFeeRateRepository transferFeeRateRepository) {
         this.importBatchRepository = importBatchRepository;
         this.steraJcbSalesDetailRepository = steraJcbSalesDetailRepository;
         this.steraCodeSettlementDetailRepository = steraCodeSettlementDetailRepository;
         this.steraCreditSalesDetailRepository = steraCreditSalesDetailRepository;
         this.steraStoreRepository = steraStoreRepository;
         this.settlementFeeRateRepository = settlementFeeRateRepository;
+        this.transferFeeRateRepository = transferFeeRateRepository;
     }
 
     private SettlementFeeRate findFeeRate() {
@@ -75,6 +75,21 @@ public class SteraTransferCalculationService {
                         "手数料率マスタにstera terminal分の設定（payment_company='"
                                 + FEE_RATE_PAYMENT_COMPANY + "', card_brand='" + FEE_RATE_CARD_BRAND
                                 + "'）がありません。"));
+    }
+
+    /**
+     * 指定した振込先銀行コードに対応する振込手数料（円）を取得する。該当する銀行コードの
+     * 行が無い場合はbank_code='DEFAULT'の既定値行を使う（課題表項番34でマスタ化）。
+     */
+    private int findTransferFee(String bankCode) {
+        return transferFeeRateRepository.findByBankCode(bankCode)
+                .or(() -> transferFeeRateRepository.findByBankCode(
+                        TransferFeeRateService.DEFAULT_BANK_CODE))
+                .map(TransferFeeRate::getTransferFee)
+                .orElseThrow(() -> new IllegalStateException(
+                        "振込手数料マスタに既定値（bank_code='"
+                                + TransferFeeRateService.DEFAULT_BANK_CODE
+                                + "'）の設定がありません。"));
     }
 
     /**
@@ -138,7 +153,7 @@ public class SteraTransferCalculationService {
         int grossAmount = grossAmountByTradeCode.get(tradeCode).intValue();
         int acquirerFee = acquirerFeeByTradeCode.getOrDefault(tradeCode, 0L).intValue();
         int companyFee = companyFeeByTradeCode.getOrDefault(tradeCode, 0L).intValue();
-        int transferFee = ZERO_TRANSFER_FEE_BANK_CODE.equals(store.getBankCode()) ? 0 : TRANSFER_FEE;
+        int transferFee = findTransferFee(store.getBankCode());
         int netAmount = grossAmount - acquirerFee - companyFee - transferFee;
 
         return new SteraTransferLineItem(tradeCode, grossAmount, acquirerFee, companyFee, transferFee, netAmount,

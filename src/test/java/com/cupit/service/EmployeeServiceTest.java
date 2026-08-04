@@ -91,14 +91,52 @@ class EmployeeServiceTest {
     void saveEmployeeCreatesWhenPasswordSatisfiesPolicy() {
         when(employeeRepository.existsByEmail("taro@example.com"))
                 .thenReturn(false);
-        when(employeeRepository.findFirstByOrderByUserIdDesc())
-                .thenReturn(Optional.empty());
 
         EmployeeResponse response = employeeService.saveEmployee(
                 createValidRequest("new", VALID_PASSWORD), EXISTING_USER_ID);
 
         assertThat(response.isSuccess()).isTrue();
         verify(employeeRepository).save(any());
+    }
+
+    @Test
+    void saveEmployeeRejectsBlankUserIdOnCreate() {
+        EmployeeRequest request = createValidRequest("new", VALID_PASSWORD);
+        request.setUserId("  ");
+
+        EmployeeResponse response =
+                employeeService.saveEmployee(request, EXISTING_USER_ID);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).isEqualTo("ユーザIDを入力してください。");
+        verify(employeeRepository, never()).save(any());
+    }
+
+    @Test
+    void saveEmployeeRejectsInvalidUserIdFormatOnCreate() {
+        EmployeeRequest request = createValidRequest("new", VALID_PASSWORD);
+        request.setUserId("ユーザー１");
+
+        EmployeeResponse response =
+                employeeService.saveEmployee(request, EXISTING_USER_ID);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage())
+                .isEqualTo("ユーザIDは半角英数字50文字以内で入力してください。");
+        verify(employeeRepository, never()).save(any());
+    }
+
+    @Test
+    void saveEmployeeRejectsDuplicatedUserIdOnCreate() {
+        when(employeeRepository.existsById(EXISTING_USER_ID)).thenReturn(true);
+
+        EmployeeResponse response = employeeService.saveEmployee(
+                createValidRequest("new", VALID_PASSWORD), EXISTING_USER_ID);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage())
+                .isEqualTo("入力されたユーザIDは既に登録されています。");
+        verify(employeeRepository, never()).save(any());
     }
 
     @Test

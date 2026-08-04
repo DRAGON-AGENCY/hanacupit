@@ -1,6 +1,7 @@
 package com.cupit.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -290,6 +291,165 @@ class JftdTransferCalculationServiceTest {
         List<TransferLineItem> result = service.calculateJcbLineItems();
 
         assertThat(result).isEmpty();
+    }
+
+    /**
+     * calculateJcbLineItemsForInquiry()はPAYGATE Station精算情報照会（参照専用）から
+     * 使われる。calculateJcbLineItems()と異なり、手数料率・項目コードマスタに存在しない
+     * カードブランドでも例外を投げず、手数料0円・支払金額＝売上金額の行を生成する
+     * （実際に本番データで発生した不具合の回帰テスト。項目コードが無いため、
+     * TransferLineItem#getItemCode()にはカードブランド名をそのまま入れる）。
+     */
+    @Test
+    void calculateJcbLineItemsForInquiryReturnsZeroFeeRowWhenBrandNotRegistered() {
+        JcbBrandAggregate aggregate = jcbAggregate("35-232", "【結合テスト用ブランド】", JCB_BATCH_ID, 3L, 5000L);
+        when(jcbSalesDetailRepository.sumByTradeCodeAndCardName(List.of(JCB_BATCH_ID)))
+                .thenReturn(List.of(aggregate));
+
+        List<TransferLineItem> result = service.calculateJcbLineItemsForInquiry(List.of(JCB_BATCH_ID));
+
+        assertThat(result).hasSize(1);
+        TransferLineItem item = result.get(0);
+        assertThat(item.getTradeCode()).isEqualTo("35-232");
+        assertThat(item.getItemCode()).isEqualTo("【結合テスト用ブランド】");
+        assertThat(item.getGrossAmount()).isEqualTo(5000);
+        assertThat(item.getAcquirerFeeTaxFree()).isZero();
+        assertThat(item.getAcquirerFeeBase()).isZero();
+        assertThat(item.getAcquirerFeeTax()).isZero();
+        assertThat(item.getAmount()).isEqualTo(5000);
+    }
+
+    /**
+     * 手数料率マスタには登録済みだが項目コードマスタには未登録、という中間状態
+     * （課題表項番24〜26の確定処理と同じ2段階の不足パターン）でも、照会は
+     * 例外を投げず0円行を生成する。項目コードが引けないため、itemCodeには
+     * カードブランド名を使う。
+     */
+    @Test
+    void calculateJcbLineItemsForInquiryReturnsZeroFeeRowWhenOnlyItemCodeMissing() {
+        givenFeeRate("JCB", "【結合テスト用ブランド】", "STRAIGHT", "0.0275");
+        JcbBrandAggregate aggregate = jcbAggregate("35-232", "【結合テスト用ブランド】", JCB_BATCH_ID, 3L, 5000L);
+        when(jcbSalesDetailRepository.sumByTradeCodeAndCardName(List.of(JCB_BATCH_ID)))
+                .thenReturn(List.of(aggregate));
+
+        List<TransferLineItem> result = service.calculateJcbLineItemsForInquiry(List.of(JCB_BATCH_ID));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getItemCode()).isEqualTo("【結合テスト用ブランド】");
+        assertThat(result.get(0).getAcquirerFeeTaxFree()).isZero();
+    }
+
+    /**
+     * マスタが揃っているブランドは、従来通りcalculateJcbLineItems()と同じ手数料計算結果を
+     * 返す（照会専用メソッドでも計算ロジック自体は変わらないことの確認）。
+     */
+    @Test
+    void calculateJcbLineItemsForInquiryCalculatesNormallyWhenMasterDataExists() {
+        givenFeeRateAndItemCode("JCB", JCB_BRAND, "STRAIGHT", "0.0275", JCB_PAYMENT_ITEM_CODE);
+        JcbBrandAggregate aggregate = jcbAggregate("01-001", JCB_BRAND, JCB_BATCH_ID, 5L, 14550L);
+        when(jcbSalesDetailRepository.sumByTradeCodeAndCardName(List.of(JCB_BATCH_ID)))
+                .thenReturn(List.of(aggregate));
+
+        List<TransferLineItem> result = service.calculateJcbLineItemsForInquiry(List.of(JCB_BATCH_ID));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getItemCode()).isEqualTo(JCB_PAYMENT_ITEM_CODE);
+        assertThat(result.get(0).getAcquirerFeeTaxFree()).isEqualTo(400);
+        assertThat(result.get(0).getAmount()).isEqualTo(14150);
+    }
+
+    /**
+     * 交通系電子マネー等（計算式未検証のためcalculateJcbLineItems()でもスキップする
+     * ブランド）は、照会専用メソッドでも同様にスキップする（0円行として表示すると
+     * 誤った金額に見えるため、行自体を出さない方が適切）。
+     */
+    @Test
+    void calculateJcbLineItemsForInquirySkipsBrandsWithUnverifiedPurchaseCollectFormula() {
+        JcbBrandAggregate aggregate = jcbAggregate("35-026", "【交通系電子マネー】", JCB_BATCH_ID, 35L, 41877L);
+        when(jcbSalesDetailRepository.sumByTradeCodeAndCardName(List.of(JCB_BATCH_ID)))
+                .thenReturn(List.of(aggregate));
+
+        List<TransferLineItem> result = service.calculateJcbLineItemsForInquiry(List.of(JCB_BATCH_ID));
+
+        assertThat(result).isEmpty();
+    }
+
+    /**
+     * calculateAllLineItemsForPreview()（JFTD CSV作成ボタンのプレビュー用）は、JCBに
+     * 未登録カードブランドがあっても例外を投げずに他社分と合わせて返す
+     * （実際に発生した不具合の回帰テスト：/jftd_transfer/previewがHTTP 500になり、
+     * フロントエンドが「対象データ0件」と誤表示していた）。
+     */
+    @Test
+    void calculateAllLineItemsForPreviewReturnsZeroFeeJcbRowInsteadOfThrowing() {
+        givenUnprocessedBatch("JCB", JCB_BATCH_ID);
+        JcbBrandAggregate aggregate = jcbAggregate("35-232", "【結合テスト用ブランド】", JCB_BATCH_ID, 3L, 5000L);
+        when(jcbSalesDetailRepository.sumByTradeCodeAndCardName(List.of(JCB_BATCH_ID)))
+                .thenReturn(List.of(aggregate));
+
+        List<TransferLineItem> result = service.calculateAllLineItemsForPreview();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTradeCode()).isEqualTo("35-232");
+        assertThat(result.get(0).getAcquirerFeeTaxFree()).isZero();
+    }
+
+    /**
+     * calculateAllLineItemsForPreview()でJCBだけ例外を投げないようにした変更が、
+     * 他決済会社（ネットスターズ等）のマスタ未整備チェックまで緩めてしまっていない
+     * ことを確認する回帰テスト（他のエラーチェックへの影響が無いことの確認）。
+     * ネットスターズのfindFeeRate/findItemCodeは従来通りIllegalStateExceptionを
+     * 投げる必要がある。
+     */
+    @Test
+    void calculateAllLineItemsForPreviewStillThrowsWhenNetstarBrandNotRegistered() {
+        // calculateAllLineItemsForPreview()はJCB・スマレジ・ネットスターズ...の順で集計するため、
+        // ネットスターズより前の決済種別も未処理バッチの検索が必ず呼ばれる。Mockitoの
+        // 厳格スタブ検査に引っかからないよう、事前に空リストを明示的にスタブしておく。
+        when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull("JCB"))
+                .thenReturn(List.of());
+        when(importBatchRepository.findByPaymentTypeAndTransferBatchIdIsNull("スマレジ"))
+                .thenReturn(List.of());
+        givenUnprocessedBatch("ネットスターズ", NETSTAR_BATCH_ID);
+        NetstarSalesSummary row = new NetstarSalesSummary();
+        row.setTradeCode("01-001");
+        row.setAlipayNetAmount(660);
+        when(netstarSalesSummaryRepository.findByBatchIdIn(List.of(NETSTAR_BATCH_ID)))
+                .thenReturn(List.of(row));
+
+        assertThatThrownBy(() -> service.calculateAllLineItemsForPreview())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Alipay");
+    }
+
+    private JcbBrandAggregate jcbAggregate(
+            String tradeCode, String cardName, int batchId, long salesCount, long salesAmount) {
+        return new JcbBrandAggregate() {
+            @Override
+            public String getTradeCode() {
+                return tradeCode;
+            }
+
+            @Override
+            public String getCardName() {
+                return cardName;
+            }
+
+            @Override
+            public Integer getBatchId() {
+                return batchId;
+            }
+
+            @Override
+            public Long getTotalSalesCount() {
+                return salesCount;
+            }
+
+            @Override
+            public Long getTotalSalesAmount() {
+                return salesAmount;
+            }
+        };
     }
 
     @Test

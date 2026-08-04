@@ -482,7 +482,10 @@
         valueSpan.textContent = opt.dataset.value;
         currentDestination = opt.dataset.enum;
         select.classList.remove('open');
-        resetFileAndResult();
+        // 申請先を切り替えても、選択済みのファイル・フォーマットチェック結果は
+        // クリアしない（INPUTファイルは申請先によらず同一レイアウトのCSVのため、
+        // 選び直す必要はない。誤操作で申請先をクリックしただけでファイル選択が
+        // 消えてしまう運用上の問題があったため）。
       });
     });
 

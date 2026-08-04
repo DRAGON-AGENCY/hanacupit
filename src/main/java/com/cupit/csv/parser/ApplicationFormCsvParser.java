@@ -130,6 +130,7 @@ public class ApplicationFormCsvParser {
 
         int errorCountBeforeRow = errors.size();
         ApplicationFormInput record = new ApplicationFormInput();
+        record.setRowNumber(rowNum);
         record.setRecordNumber(trim(fields.get(ApplicationFormColumn.RECORD_NUMBER.ordinal())));
         record.setReaderSerialNo(trim(fields.get(ApplicationFormColumn.READER_SERIAL_NO.ordinal())));
         record.setTerminalId(trim(fields.get(ApplicationFormColumn.TERMINAL_ID.ordinal())));

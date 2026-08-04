@@ -94,12 +94,17 @@ public class ApplicationFormService {
                     parseResult.getErrors());
         }
 
-        List<ApplicationFormRowContext> rows = buildRowContexts(parseResult.getRecords());
+        List<CsvValidationError> errors = new ArrayList<>(parseResult.getErrors());
+        List<ApplicationFormRowContext> rows = buildRowContexts(parseResult.getRecords(), errors);
+        if (rows.isEmpty()) {
+            return ApplicationFormGenerateResult.error(
+                    buildNoRegistrableRowsMessage(errors), errors);
+        }
+
         byte[] excelBytes = writeExcel(destination, rows);
 
         return ApplicationFormGenerateResult.success(
-                excelBytes, rows.size(), parseResult.getTotalRowCount(),
-                parseResult.getErrors());
+                excelBytes, rows.size(), parseResult.getTotalRowCount(), errors);
     }
 
     private byte[] writeExcel(Destination destination, List<ApplicationFormRowContext> rows) {
@@ -110,11 +115,23 @@ public class ApplicationFormService {
         };
     }
 
-    private List<ApplicationFormRowContext> buildRowContexts(List<ApplicationFormInput> records) {
+    /**
+     * 取引コードでm_member_infoと突き合わせ、Excel生成対象の行を組み立てる。
+     * m_member_infoに存在しない取引コードの行は、他のCSVインポート機能と同様に
+     * その行だけをエラーとして収集しスキップする（ファイル全体は止めない）。
+     */
+    private List<ApplicationFormRowContext> buildRowContexts(
+            List<ApplicationFormInput> records, List<CsvValidationError> errors) {
         List<ApplicationFormRowContext> rows = new ArrayList<>();
         int rowSequence = 1;
         for (ApplicationFormInput input : records) {
             MemberInfo memberInfo = memberInfoRepository.findById(input.getTradeCode()).orElse(null);
+            if (memberInfo == null) {
+                errors.add(new CsvValidationError(input.getRowNumber(), "取引コード",
+                        "取引コード「" + input.getTradeCode() + "」: 会員情報に登録されていないため"
+                                + "生成対象から除外しました。"));
+                continue;
+            }
             List<PaygateStoreMapping> paygateList =
                     paygateMappingRepository.findByTradeCodeOrderByTerminalId(input.getTradeCode());
             PaygateStoreMapping paygate = resolvePaygate(paygateList);

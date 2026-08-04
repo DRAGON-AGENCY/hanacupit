@@ -25,6 +25,7 @@ import com.cupit.csv.CsvValidationResult;
 import com.cupit.csv.parser.ApplicationFormCsvParser;
 import com.cupit.csv.validator.ApplicationFormCsvValidator;
 import com.cupit.model.ApplicationFormInput;
+import com.cupit.model.MemberInfo;
 import com.cupit.model.PaygateStoreMapping;
 import com.cupit.repository.MemberInfoRepository;
 import com.cupit.repository.PaygateMappingRepository;
@@ -142,7 +143,7 @@ class ApplicationFormServiceTest {
 
     @Test
     void callsJcbWriterForJcbDestination() throws Exception {
-        setUpSingleRecordNoMemberInfoNoPaygate("35-232");
+        setUpSingleRecordWithMemberInfoNoPaygate("35-232");
         when(jcbWriter.write(any())).thenReturn(new byte[] {9});
 
         ApplicationFormGenerateResult result = service.generate(Destination.JCB, file);
@@ -156,7 +157,7 @@ class ApplicationFormServiceTest {
 
     @Test
     void callsSmccKameiWriterForSmccKameiDestination() throws Exception {
-        setUpSingleRecordNoMemberInfoNoPaygate("35-232");
+        setUpSingleRecordWithMemberInfoNoPaygate("35-232");
         when(smccKameiWriter.write(any())).thenReturn(new byte[] {9});
 
         ApplicationFormGenerateResult result = service.generate(Destination.SMCC_KAMEI, file);
@@ -169,7 +170,7 @@ class ApplicationFormServiceTest {
 
     @Test
     void callsSmccTenpoWriterForSmccTenpoDestination() throws Exception {
-        setUpSingleRecordNoMemberInfoNoPaygate("35-232");
+        setUpSingleRecordWithMemberInfoNoPaygate("35-232");
         when(smccTenpoWriter.write(any())).thenReturn(new byte[] {9});
 
         ApplicationFormGenerateResult result = service.generate(Destination.SMCC_TENPO, file);
@@ -182,7 +183,7 @@ class ApplicationFormServiceTest {
 
     @Test
     void looksUpMemberInfoAndPaygateByTradeCode() throws Exception {
-        setUpSingleRecordNoMemberInfoNoPaygate("35-232");
+        setUpSingleRecordWithMemberInfoNoPaygate("35-232");
         when(jcbWriter.write(any())).thenReturn(new byte[0]);
 
         service.generate(Destination.JCB, file);
@@ -198,7 +199,7 @@ class ApplicationFormServiceTest {
         when(csvValidator.validate(file)).thenReturn(new CsvValidationResult());
         when(csvParser.parse(file)).thenReturn(
                 new ApplicationFormCsvParser.ParseResult(List.of(input), List.of(), 1));
-        when(memberInfoRepository.findById("35-232")).thenReturn(Optional.empty());
+        when(memberInfoRepository.findById("35-232")).thenReturn(Optional.of(new MemberInfo()));
         PaygateStoreMapping paygate = new PaygateStoreMapping();
         paygate.setJcbMerchantNo("1234567890");
         when(paygateMappingRepository.findByTradeCodeOrderByTerminalId("35-232"))
@@ -218,7 +219,7 @@ class ApplicationFormServiceTest {
         when(csvValidator.validate(file)).thenReturn(new CsvValidationResult());
         when(csvParser.parse(file)).thenReturn(
                 new ApplicationFormCsvParser.ParseResult(List.of(input), List.of(), 1));
-        when(memberInfoRepository.findById("35-232")).thenReturn(Optional.empty());
+        when(memberInfoRepository.findById("35-232")).thenReturn(Optional.of(new MemberInfo()));
         PaygateStoreMapping blank = new PaygateStoreMapping();
         blank.setJcbMerchantNo("");
         blank.setTerminalId("T1");
@@ -241,6 +242,58 @@ class ApplicationFormServiceTest {
     }
 
     @Test
+    void returnsErrorWhenMemberInfoNotFoundForOnlyRecord() throws Exception {
+        ApplicationFormInput input = new ApplicationFormInput();
+        input.setRowNumber(2);
+        input.setTradeCode("IT-999");
+        when(csvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(csvParser.parse(file)).thenReturn(
+                new ApplicationFormCsvParser.ParseResult(List.of(input), List.of(), 1));
+        when(memberInfoRepository.findById("IT-999")).thenReturn(Optional.empty());
+
+        ApplicationFormGenerateResult result = service.generate(Destination.JCB, file);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getErrorMessage()).contains("IT-999");
+        assertThat(result.getErrorMessage()).contains("会員情報に登録されていない");
+        assertThat(result.getErrors()).hasSize(1);
+        assertThat(result.getErrors().get(0).getRowNumber()).isEqualTo(2);
+        verify(jcbWriter, never()).write(any());
+    }
+
+    @Test
+    void skipsOnlyRowsWithMissingMemberInfoAndGeneratesRemainingRows() throws Exception {
+        ApplicationFormInput missing = new ApplicationFormInput();
+        missing.setRowNumber(2);
+        missing.setTradeCode("IT-999");
+        ApplicationFormInput found = new ApplicationFormInput();
+        found.setRowNumber(3);
+        found.setTradeCode("35-232");
+        when(csvValidator.validate(file)).thenReturn(new CsvValidationResult());
+        when(csvParser.parse(file)).thenReturn(
+                new ApplicationFormCsvParser.ParseResult(List.of(missing, found), List.of(), 2));
+        when(memberInfoRepository.findById("IT-999")).thenReturn(Optional.empty());
+        when(memberInfoRepository.findById("35-232")).thenReturn(Optional.of(new MemberInfo()));
+        when(paygateMappingRepository.findByTradeCodeOrderByTerminalId("35-232"))
+                .thenReturn(List.of());
+        when(deriveLogic.compute(any(), anyBoolean())).thenReturn(Map.of());
+        when(jcbWriter.write(any())).thenReturn(new byte[] {1});
+
+        ApplicationFormGenerateResult result = service.generate(Destination.JCB, file);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getSuccessCount()).isEqualTo(1);
+        assertThat(result.getErrors()).hasSize(1);
+        assertThat(result.getErrors().get(0).getMessage()).contains("IT-999");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ApplicationFormRowContext>> captor = ArgumentCaptor.forClass(List.class);
+        verify(jcbWriter).write(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().get(0).getInput().getTradeCode())
+                .isEqualTo("35-232");
+    }
+
+    @Test
     void returnsSuccessResultWithRowCounts() throws Exception {
         ApplicationFormInput input = new ApplicationFormInput();
         input.setTradeCode("35-232");
@@ -249,7 +302,7 @@ class ApplicationFormServiceTest {
                 new CsvValidationError(3, "取引コード", "取引コードは必須です。"));
         when(csvParser.parse(file)).thenReturn(
                 new ApplicationFormCsvParser.ParseResult(List.of(input), parseErrors, 2));
-        when(memberInfoRepository.findById("35-232")).thenReturn(Optional.empty());
+        when(memberInfoRepository.findById("35-232")).thenReturn(Optional.of(new MemberInfo()));
         when(paygateMappingRepository.findByTradeCodeOrderByTerminalId("35-232"))
                 .thenReturn(List.of());
         when(deriveLogic.compute(any(), anyBoolean())).thenReturn(Map.of());
@@ -263,13 +316,13 @@ class ApplicationFormServiceTest {
         assertThat(result.getErrors()).hasSize(1);
     }
 
-    private void setUpSingleRecordNoMemberInfoNoPaygate(String tradeCode) throws Exception {
+    private void setUpSingleRecordWithMemberInfoNoPaygate(String tradeCode) throws Exception {
         ApplicationFormInput input = new ApplicationFormInput();
         input.setTradeCode(tradeCode);
         when(csvValidator.validate(file)).thenReturn(new CsvValidationResult());
         when(csvParser.parse(file)).thenReturn(
                 new ApplicationFormCsvParser.ParseResult(List.of(input), List.of(), 1));
-        when(memberInfoRepository.findById(tradeCode)).thenReturn(Optional.empty());
+        when(memberInfoRepository.findById(tradeCode)).thenReturn(Optional.of(new MemberInfo()));
         when(paygateMappingRepository.findByTradeCodeOrderByTerminalId(tradeCode))
                 .thenReturn(List.of());
         when(deriveLogic.compute(any(), anyBoolean())).thenReturn(Map.of());

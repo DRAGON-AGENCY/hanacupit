@@ -496,6 +496,80 @@
     white-space: normal;
   }
 
+  /* 明細内訳モーダル（一覧の行クリックで、その行の元ファイル単位の内訳を表示する） */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background-color: rgba(30, 30, 30, 0.45);
+    align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal-box {
+    background-color: var(--bg-white);
+    border-radius: 10px;
+    width: min(880px, 92vw);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  }
+
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .modal-title { font-size: var(--fs-md); font-weight: 700; color: var(--text-main); }
+
+  .modal-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 20px; line-height: 1; color: var(--text-muted); padding: 2px 6px;
+  }
+
+  .modal-close:hover { color: var(--text-main); }
+
+  .modal-body { padding: 16px 22px; overflow-y: auto; }
+
+  .modal-table-wrapper {
+    max-height: 46vh; overflow-y: auto;
+    border: 1px solid var(--border-table); border-radius: 6px;
+  }
+
+  .modal-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
+
+  .modal-table th, .modal-table td {
+    padding: 8px 12px; border-bottom: 1px solid var(--border-table);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .modal-table th {
+    position: sticky; top: 0;
+    background-color: #FFDCE4; color: var(--text-label);
+    text-align: left; font-weight: 600;
+  }
+
+  .modal-table td.col-count {
+    text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+
+  .modal-footer {
+    display: flex; justify-content: flex-end; gap: 12px;
+    padding: 14px 22px; border-top: 1px solid var(--border-color);
+  }
+
+  .btn-modal-close {
+    padding: 8px 18px; border-radius: 6px; font-size: var(--fs-base); cursor: pointer;
+    background-color: var(--bg-white); border: 1px solid var(--border-input); color: var(--text-sub);
+  }
+
+  .btn-modal-close:hover { background-color: #f3f1ea; }
+
+  .data-table tbody tr.data-row { cursor: pointer; }
+
   @media (max-width: 900px) {
     body {
       padding: 16px 8px;
@@ -632,6 +706,36 @@
     </div>
   </div>
 
+  <!-- 明細内訳モーダル -->
+  <div class="modal-overlay" id="detail-modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="detail-modal-title">明細内訳</span>
+        <button class="modal-close" type="button" id="detail-modal-close" aria-label="閉じる">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-table-wrapper">
+          <table class="modal-table">
+            <thead>
+              <tr>
+                <th>決済会社</th>
+                <th>決済種類</th>
+                <th class="col-count">売上件数</th>
+                <th class="col-count">売上金額 (円)</th>
+                <th class="col-count">決済手数料① (円)</th>
+                <th class="col-count">支払金額① (円)</th>
+              </tr>
+            </thead>
+            <tbody id="detail-modal-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-close" type="button" id="detail-modal-close-btn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const ALL_VALUE = 'すべて';
 
@@ -691,8 +795,44 @@
         '<td>'                      + formatNumber(row.salesAmount)     + '</td>' +
         '<td>'                      + formatNumber(row.acquirerFee)     + '</td>' +
         '<td>'                      + formatNumber(row.payableAmount)   + '</td>';
+      if (row.details && row.details.length > 1) {
+        tr.classList.add('data-row');
+        tr.title = 'クリックすると内訳を表示します';
+        tr.addEventListener('click', function () {
+          openDetailModal(row);
+        });
+      }
       return tr;
     }
+
+    function openDetailModal(row) {
+      var tbody = document.getElementById('detail-modal-table-body');
+      tbody.innerHTML = '';
+      row.details.forEach(function (detail) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td class="text-left jp">' + esc(detail.paymentCompany)          + '</td>' +
+          '<td class="text-left jp">' + esc(detail.cardBrand || '－')       + '</td>' +
+          '<td class="col-count">'    + formatNumber(detail.salesCount)     + '</td>' +
+          '<td class="col-count">'    + formatNumber(detail.salesAmount)    + '</td>' +
+          '<td class="col-count">'    + formatNumber(detail.acquirerFee)    + '</td>' +
+          '<td class="col-count">'    + formatNumber(detail.payableAmount)  + '</td>';
+        tbody.appendChild(tr);
+      });
+      document.getElementById('detail-modal-title').textContent =
+        row.storeName + '（' + row.tradeCode + '）の内訳';
+      document.getElementById('detail-modal-overlay').classList.add('open');
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detail-modal-overlay').classList.remove('open');
+    }
+
+    document.getElementById('detail-modal-close').addEventListener('click', closeDetailModal);
+    document.getElementById('detail-modal-close-btn').addEventListener('click', closeDetailModal);
+    document.getElementById('detail-modal-overlay').addEventListener('click', function (e) {
+      if (e.target === this) { closeDetailModal(); }
+    });
 
     function render() {
       var total = filteredData.length;

@@ -237,15 +237,22 @@ public class PaygateStationInquiryService {
             List<ImportBatch> batchGroup = group.getValue();
             List<Integer> batchIds = batchIdsOf(batchGroup);
 
-            Map<String, Long> countByKey = jcbSalesDetailRepository.sumByTradeCodeAndCardName(batchIds).stream()
+            List<JcbBrandAggregate> jcbAggregates =
+                    jcbSalesDetailRepository.sumByTradeCodeAndCardName(batchIds);
+            Map<String, Long> countByKey = jcbAggregates.stream()
                     .collect(Collectors.groupingBy(
-                            a -> a.getTradeCode() + " " + a.getCardName(),
+                            a -> a.getTradeCode() + " " + a.getCardName(),
                             Collectors.summingLong(JcbBrandAggregate::getTotalSalesCount)));
+            Map<String, Long> countByBatchKey = jcbAggregates.stream()
+                    .collect(Collectors.toMap(
+                            a -> a.getTradeCode() + " " + a.getCardName() + " " + a.getBatchId(),
+                            JcbBrandAggregate::getTotalSalesCount, Long::sum));
 
             List<TransferLineItem> feeItems = resolveLineItems(
-                    batchGroup, jftdTransferCalculationService::calculateJcbLineItems);
+                    batchGroup, jftdTransferCalculationService::calculateJcbLineItemsForInquiry);
             rows.addAll(buildRows(
-                    feeItems, COMPANY_JCB, cutoffDate, storeNameByTradeCode, cardBrandByItemCode, countByKey));
+                    feeItems, COMPANY_JCB, cutoffDate, storeNameByTradeCode, cardBrandByItemCode,
+                    countByKey, countByBatchKey));
         }
         return rows;
     }
@@ -260,28 +267,32 @@ public class PaygateStationInquiryService {
             List<Integer> batchIds = batchIdsOf(batchGroup);
 
             Map<String, Long> countByKey = new LinkedHashMap<>();
+            Map<String, Long> countByBatchKey = new LinkedHashMap<>();
             for (NetstarSalesSummary row : netstarSalesSummaryRepository.findByBatchIdIn(batchIds)) {
-                addNetstarBrandCount(countByKey, row, NETSTAR_BRAND_ALIPAY, row.getAlipaySalesCount());
-                addNetstarBrandCount(countByKey, row, NETSTAR_BRAND_PAYPAY, row.getPaypaySalesCount());
-                addNetstarBrandCount(countByKey, row, NETSTAR_BRAND_DPAY, row.getDpaySalesCount());
-                addNetstarBrandCount(countByKey, row, NETSTAR_BRAND_WECHAT, row.getWechatSalesCount());
+                addNetstarBrandCount(countByKey, countByBatchKey, row, NETSTAR_BRAND_ALIPAY, row.getAlipaySalesCount());
+                addNetstarBrandCount(countByKey, countByBatchKey, row, NETSTAR_BRAND_PAYPAY, row.getPaypaySalesCount());
+                addNetstarBrandCount(countByKey, countByBatchKey, row, NETSTAR_BRAND_DPAY, row.getDpaySalesCount());
+                addNetstarBrandCount(countByKey, countByBatchKey, row, NETSTAR_BRAND_WECHAT, row.getWechatSalesCount());
             }
 
             List<TransferLineItem> feeItems = resolveLineItems(
                     batchGroup, jftdTransferCalculationService::calculateNetstarLineItems);
             rows.addAll(buildRows(
-                    feeItems, COMPANY_NETSTARS, cutoffDate, storeNameByTradeCode, cardBrandByItemCode, countByKey));
+                    feeItems, COMPANY_NETSTARS, cutoffDate, storeNameByTradeCode, cardBrandByItemCode,
+                    countByKey, countByBatchKey));
         }
         return rows;
     }
 
     private void addNetstarBrandCount(
-            Map<String, Long> countByKey, NetstarSalesSummary row, String brand, int count) {
+            Map<String, Long> countByKey, Map<String, Long> countByBatchKey,
+            NetstarSalesSummary row, String brand, int count) {
         if (count == 0) {
             return;
         }
-        String key = row.getTradeCode() + " " + brand;
+        String key = row.getTradeCode() + " " + brand;
         countByKey.merge(key, (long) count, Long::sum);
+        countByBatchKey.merge(key + " " + row.getBatchId(), (long) count, Long::sum);
     }
 
     private List<PaygateStationRow> collectSumarejoRows(
@@ -292,16 +303,22 @@ public class PaygateStationInquiryService {
             List<ImportBatch> batchGroup = group.getValue();
             List<Integer> batchIds = batchIdsOf(batchGroup);
 
-            Map<String, Long> countByTradeCode = terminalMonthlyFeeRepository
-                    .sumByTradeCodeAndUnitPrice(batchIds).stream()
+            List<TerminalFeeAggregate> terminalAggregates =
+                    terminalMonthlyFeeRepository.sumByTradeCodeAndUnitPrice(batchIds);
+            Map<String, Long> countByTradeCode = terminalAggregates.stream()
                     .collect(Collectors.groupingBy(
                             TerminalFeeAggregate::getTradeCode,
                             Collectors.summingLong(TerminalFeeAggregate::getTerminalCount)));
+            Map<String, Long> countByBatchTradeCode = terminalAggregates.stream()
+                    .collect(Collectors.toMap(
+                            a -> a.getTradeCode() + " " + a.getBatchId(),
+                            TerminalFeeAggregate::getTerminalCount, Long::sum));
 
             List<TransferLineItem> feeItems = resolveLineItems(
                     batchGroup, jftdTransferCalculationService::calculateSumarejoLineItems);
             rows.addAll(buildRowsWithoutBrand(
-                    feeItems, COMPANY_SUMAREJO, cutoffDate, storeNameByTradeCode, countByTradeCode));
+                    feeItems, COMPANY_SUMAREJO, cutoffDate, storeNameByTradeCode,
+                    countByTradeCode, countByBatchTradeCode));
         }
         return rows;
     }
@@ -314,15 +331,21 @@ public class PaygateStationInquiryService {
             List<ImportBatch> batchGroup = group.getValue();
             List<Integer> batchIds = batchIdsOf(batchGroup);
 
-            Map<String, Long> countByTradeCode = rakutenPayTransactionRepository.sumByTradeCode(batchIds).stream()
+            List<RakutenPayAggregate> rakutenPayAggregates = rakutenPayTransactionRepository.sumByTradeCode(batchIds);
+            Map<String, Long> countByTradeCode = rakutenPayAggregates.stream()
                     .collect(Collectors.groupingBy(
                             RakutenPayAggregate::getTradeCode,
                             Collectors.summingLong(RakutenPayAggregate::getTransactionCount)));
+            Map<String, Long> countByBatchTradeCode = rakutenPayAggregates.stream()
+                    .collect(Collectors.toMap(
+                            a -> a.getTradeCode() + " " + a.getBatchId(),
+                            RakutenPayAggregate::getTransactionCount, Long::sum));
 
             List<TransferLineItem> feeItems = resolveLineItems(
                     batchGroup, jftdTransferCalculationService::calculateRakutenPayLineItems);
             rows.addAll(buildRowsWithoutBrand(
-                    feeItems, COMPANY_RAKUTENPAY, cutoffDate, storeNameByTradeCode, countByTradeCode));
+                    feeItems, COMPANY_RAKUTENPAY, cutoffDate, storeNameByTradeCode,
+                    countByTradeCode, countByBatchTradeCode));
         }
         return rows;
     }
@@ -335,15 +358,21 @@ public class PaygateStationInquiryService {
             List<ImportBatch> batchGroup = group.getValue();
             List<Integer> batchIds = batchIdsOf(batchGroup);
 
-            Map<String, Long> countByTradeCode = visaMasterTransactionRepository.sumByTradeCode(batchIds).stream()
+            List<VisaMasterAggregate> visaMasterAggregates = visaMasterTransactionRepository.sumByTradeCode(batchIds);
+            Map<String, Long> countByTradeCode = visaMasterAggregates.stream()
                     .collect(Collectors.groupingBy(
                             VisaMasterAggregate::getTradeCode,
                             Collectors.summingLong(VisaMasterAggregate::getTransactionCount)));
+            Map<String, Long> countByBatchTradeCode = visaMasterAggregates.stream()
+                    .collect(Collectors.toMap(
+                            a -> a.getTradeCode() + " " + a.getBatchId(),
+                            VisaMasterAggregate::getTransactionCount, Long::sum));
 
             List<TransferLineItem> feeItems = resolveLineItems(
                     batchGroup, jftdTransferCalculationService::calculateVisaMasterLineItems);
             rows.addAll(buildRowsWithoutBrand(
-                    feeItems, COMPANY_VISA_MASTER, cutoffDate, storeNameByTradeCode, countByTradeCode));
+                    feeItems, COMPANY_VISA_MASTER, cutoffDate, storeNameByTradeCode,
+                    countByTradeCode, countByBatchTradeCode));
         }
         return rows;
     }
@@ -351,23 +380,38 @@ public class PaygateStationInquiryService {
     /**
      * 決済種類（card_brand）の概念を持つ決済会社（JCB・ネットスターズ）用。
      * itemCodeからcard_brandを逆引きし、取引コード×card_brand単位で合算する。
+     * 明細行クリック時の内訳表示用に、元ファイル（インポートバッチ）単位の内訳
+     * （{@link PaygateStationRow#getDetails()}）も同時に組み立てる。集計行自体の
+     * 件数・金額は内訳の合算ではなく従来通り{@code countByKey}・{@code feeItems}から
+     * 直接算出するため、内訳側の仕様変更が集計行の値に影響することはない。
      */
     private List<PaygateStationRow> buildRows(
             List<TransferLineItem> feeItems, String paymentCompany, LocalDate cutoffDate,
             Map<String, String> storeNameByTradeCode, Map<String, String> cardBrandByItemCode,
-            Map<String, Long> countByKey) {
+            Map<String, Long> countByKey, Map<String, Long> countByBatchKey) {
         Map<String, int[]> totalsByKey = new LinkedHashMap<>();
         Map<String, String> tradeCodeByKey = new LinkedHashMap<>();
         Map<String, String> cardBrandByKey = new LinkedHashMap<>();
+        Map<String, List<PaygateStationRow>> detailsByKey = new LinkedHashMap<>();
         for (TransferLineItem item : feeItems) {
-            String cardBrand = cardBrandByItemCode.get(item.getItemCode());
-            String key = item.getTradeCode() + " " + cardBrand;
+            // 手数料率・項目コードマスタ未整備のブランドは項目コードが存在しないため、
+            // JftdTransferCalculationService#calculateJcbLineItemsForInquiry()側で
+            // itemCodeの代わりにカードブランド名そのものを入れている。該当する
+            // 項目コードが見つからない場合はその値をそのままブランド名として使う。
+            String cardBrand = cardBrandByItemCode.getOrDefault(item.getItemCode(), item.getItemCode());
+            String key = item.getTradeCode() + " " + cardBrand;
+            int fee = item.getAcquirerFeeTaxFree() + item.getAcquirerFeeBase() + item.getAcquirerFeeTax();
             int[] totals = totalsByKey.computeIfAbsent(key, k -> new int[3]);
             totals[0] += item.getGrossAmount();
-            totals[1] += item.getAcquirerFeeTaxFree() + item.getAcquirerFeeBase() + item.getAcquirerFeeTax();
+            totals[1] += fee;
             totals[2] += item.getAmount();
             tradeCodeByKey.put(key, item.getTradeCode());
             cardBrandByKey.put(key, cardBrand);
+
+            long itemCount = countByBatchKey.getOrDefault(key + " " + item.getImportBatchId(), 0L);
+            detailsByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(new PaygateStationRow(
+                    item.getTradeCode(), storeNameByTradeCode.get(item.getTradeCode()), paymentCompany, cardBrand,
+                    cutoffDate, (int) itemCount, item.getGrossAmount(), fee, item.getAmount()));
         }
 
         List<PaygateStationRow> rows = new ArrayList<>();
@@ -378,24 +422,34 @@ public class PaygateStationInquiryService {
             long count = countByKey.getOrDefault(key, 0L);
             rows.add(new PaygateStationRow(
                     tradeCode, storeNameByTradeCode.get(tradeCode), paymentCompany, cardBrandByKey.get(key),
-                    cutoffDate, (int) count, totals[0], totals[1], totals[2]));
+                    cutoffDate, (int) count, totals[0], totals[1], totals[2], detailsByKey.get(key)));
         }
         return rows;
     }
 
     /**
      * 決済種類の概念を持たない決済会社（スマレジ・楽天ペイ・住信SBI）用。
-     * 取引コード単位で合算する（card_brandは常にnull）。
+     * 取引コード単位で合算する（card_brandは常にnull）。buildRows()と同様、
+     * 集計行の件数・金額は内訳の合算に依存せず従来通りの計算方法を維持する。
      */
     private List<PaygateStationRow> buildRowsWithoutBrand(
             List<TransferLineItem> feeItems, String paymentCompany, LocalDate cutoffDate,
-            Map<String, String> storeNameByTradeCode, Map<String, Long> countByTradeCode) {
+            Map<String, String> storeNameByTradeCode, Map<String, Long> countByTradeCode,
+            Map<String, Long> countByBatchTradeCode) {
         Map<String, int[]> totalsByTradeCode = new LinkedHashMap<>();
+        Map<String, List<PaygateStationRow>> detailsByTradeCode = new LinkedHashMap<>();
         for (TransferLineItem item : feeItems) {
-            int[] totals = totalsByTradeCode.computeIfAbsent(item.getTradeCode(), k -> new int[3]);
+            String tradeCode = item.getTradeCode();
+            int fee = item.getAcquirerFeeTaxFree() + item.getAcquirerFeeBase() + item.getAcquirerFeeTax();
+            int[] totals = totalsByTradeCode.computeIfAbsent(tradeCode, k -> new int[3]);
             totals[0] += item.getGrossAmount();
-            totals[1] += item.getAcquirerFeeTaxFree() + item.getAcquirerFeeBase() + item.getAcquirerFeeTax();
+            totals[1] += fee;
             totals[2] += item.getAmount();
+
+            long itemCount = countByBatchTradeCode.getOrDefault(tradeCode + " " + item.getImportBatchId(), 0L);
+            detailsByTradeCode.computeIfAbsent(tradeCode, k -> new ArrayList<>()).add(new PaygateStationRow(
+                    tradeCode, storeNameByTradeCode.get(tradeCode), paymentCompany, null,
+                    cutoffDate, (int) itemCount, item.getGrossAmount(), fee, item.getAmount()));
         }
 
         List<PaygateStationRow> rows = new ArrayList<>();
@@ -405,7 +459,8 @@ public class PaygateStationInquiryService {
             long count = countByTradeCode.getOrDefault(tradeCode, 0L);
             rows.add(new PaygateStationRow(
                     tradeCode, storeNameByTradeCode.get(tradeCode), paymentCompany, null,
-                    cutoffDate, (int) count, totals[0], totals[1], totals[2]));
+                    cutoffDate, (int) count, totals[0], totals[1], totals[2],
+                    detailsByTradeCode.get(tradeCode)));
         }
         return rows;
     }

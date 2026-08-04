@@ -77,8 +77,8 @@ public class JftdTransferController {
     @PostMapping(value = "/jftd_transfer/preview", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<JftdTransferPreviewResponse> preview() {
-        List<TransferLineItem> lineItems = calculationService.calculateAllLineItems();
-        List<ReportRow> summary = reportDataService.summarize(lineItems);
+        List<TransferLineItem> lineItems = calculationService.calculateAllLineItemsForPreview();
+        List<ReportRow> summary = reportDataService.summarizeForPreview(lineItems);
         List<TransferTargetFile> targetFiles = calculationService.findTargetImportBatches().stream()
                 .map(this::toTargetFile)
                 .toList();

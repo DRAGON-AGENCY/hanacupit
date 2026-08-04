@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -109,6 +110,31 @@ public class JftdTransferCalculationService {
     }
 
     /**
+     * JFTD・その他統合振込CSV作成画面の「JFTD CSV作成」ボタン押下時（確定前の
+     * プレビュー表示専用）に使う。{@link #calculateAllLineItems()}と異なり、JCBで
+     * 手数料率・項目コードマスタに存在しないカードブランドがあっても例外を投げず、
+     * 手数料0円の行として表示を継続する。
+     * （実際に発生した不具合の修正: 未登録カードブランドを含むデータをアップロード
+     * すると、確定ボタンを押す前のプレビュー取得の時点で{@code calculateJcbLineItems()}が
+     * 例外を投げてHTTP 500になり、フロントエンド側がそのエラーレスポンスを
+     * 「対象データ0件」と誤解釈して「まだ振込CSVに含めていない未処理のデータが
+     * ありません。」という紛らわしいメッセージを表示してしまっていた。
+     * 確定処理本体（{@link JftdTransferConfirmService}が呼ぶ
+     * {@link #calculateAllLineItems(Map)}）は従来通り厳密に例外を投げて確定を
+     * ブロックするため、「プレビューは表示できるが確定は失敗する」という
+     * 結合テスト仕様書の想定通りの挙動になる。）
+     */
+    public List<TransferLineItem> calculateAllLineItemsForPreview() {
+        List<TransferLineItem> all = new ArrayList<>();
+        all.addAll(calculateJcbLineItemsForInquiry());
+        all.addAll(calculateSumarejoLineItems());
+        all.addAll(calculateNetstarLineItems());
+        all.addAll(calculateRakutenPayLineItems());
+        all.addAll(calculateVisaMasterLineItems());
+        return all;
+    }
+
+    /**
      * 5社すべてを、呼び出し側が指定したバッチIDの集合に限定して集計する。
      * JFTD統合振込CSV作成の確定処理専用。確定処理はまず対象バッチを排他ロックで
      * 確保してからこのメソッドを呼び出すことで、集計対象と実際にマークするバッチが
@@ -175,6 +201,60 @@ public class JftdTransferCalculationService {
                     aggregate.getTradeCode(), itemCode.getItemCode(), 1, result.getPayableAmount1(),
                     totalSalesAmount, result.getAcquirerFeeTaxFree(),
                     result.getAcquirerFeeBase(), result.getAcquirerFeeTax(), aggregate.getBatchId()));
+        }
+        return lineItems;
+    }
+
+    /**
+     * PAYGATE Station精算情報照会（参照専用）向けのJCB集計。{@link #calculateJcbLineItems}
+     * とは異なり、手数料率マスタ・項目コードマスタにカードブランドの設定が無くても
+     * 例外を投げない。該当ブランドは手数料0円・支払金額＝売上金額として行を生成し、
+     * 他の正常なブランドの表示まで巻き添えで消えないようにする（確定処理
+     * （{@link #calculateJcbLineItems}）は精算金額を誤って計上しないため従来通り
+     * 例外を投げて処理を止める。参照専用のこのメソッドとは用途が異なるため、
+     * 挙動を分けている）。
+     */
+    public List<TransferLineItem> calculateJcbLineItemsForInquiry() {
+        return calculateJcbLineItemsForInquiry(unprocessedBatchIds(PAYMENT_TYPE_JCB));
+    }
+
+    public List<TransferLineItem> calculateJcbLineItemsForInquiry(List<Integer> batchIds) {
+        if (batchIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<JcbBrandAggregate> aggregates =
+                jcbSalesDetailRepository.sumByTradeCodeAndCardName(batchIds);
+
+        List<TransferLineItem> lineItems = new ArrayList<>();
+        for (JcbBrandAggregate aggregate : aggregates) {
+            String cardBrand = aggregate.getCardName();
+            if (UNVERIFIED_PURCHASE_COLLECT_BRANDS.contains(cardBrand)) {
+                continue;
+            }
+            int totalSalesAmount = aggregate.getTotalSalesAmount().intValue();
+            Optional<SettlementFeeRate> rate = settlementFeeRateRepository
+                    .findByPaymentCompanyAndCardBrand(PAYMENT_TYPE_JCB, cardBrand);
+            Optional<SettlementItemCode> itemCode = settlementItemCodeRepository
+                    .findByPaymentCompanyAndCardBrandAndAmountType(
+                            PAYMENT_TYPE_JCB, cardBrand, AMOUNT_TYPE_PAYMENT);
+
+            if (rate.isPresent() && itemCode.isPresent()) {
+                FeeCalculationResult result = calculate(totalSalesAmount, rate.get());
+                lineItems.add(new TransferLineItem(
+                        aggregate.getTradeCode(), itemCode.get().getItemCode(), 1,
+                        result.getPayableAmount1(), totalSalesAmount, result.getAcquirerFeeTaxFree(),
+                        result.getAcquirerFeeBase(), result.getAcquirerFeeTax(), aggregate.getBatchId()));
+            } else {
+                // マスタ未整備のブランドは手数料0円・支払金額＝売上金額として表示する。
+                // 項目コードも未登録の場合は、画面表示用にカードブランド名をそのまま
+                // itemCode代わりに使う（PaygateStationInquiryServiceのbuildRows()側で
+                // 登録済み項目コードに該当しなければそのままブランド名として表示する）。
+                String fallbackItemCode = itemCode.map(SettlementItemCode::getItemCode).orElse(cardBrand);
+                lineItems.add(new TransferLineItem(
+                        aggregate.getTradeCode(), fallbackItemCode, 1,
+                        totalSalesAmount, totalSalesAmount, 0, 0, 0, aggregate.getBatchId()));
+            }
         }
         return lineItems;
     }

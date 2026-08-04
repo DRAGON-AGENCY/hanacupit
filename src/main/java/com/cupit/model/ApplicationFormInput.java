@@ -14,6 +14,10 @@ import java.time.LocalDate;
  */
 public class ApplicationFormInput {
 
+    // CSV上の行番号(ヘッダー行を1行目とした通し番号)。DB突き合わせでエラーになった
+    // 行をエラーメッセージ上で特定するために保持する（CSV列の値ではない）。
+    private int rowNumber;
+
     private String recordNumber;
     private String readerSerialNo;
     private String terminalId;
@@ -246,6 +250,14 @@ public class ApplicationFormInput {
     private String bankPayNssTid;
     private BigDecimal feeRateJcoinPayMerchant;
     private BigDecimal feeRateJcoinPayBrand;
+
+    public int getRowNumber() {
+        return rowNumber;
+    }
+
+    public void setRowNumber(int rowNumber) {
+        this.rowNumber = rowNumber;
+    }
 
     public String getRecordNumber() {
         return recordNumber;
