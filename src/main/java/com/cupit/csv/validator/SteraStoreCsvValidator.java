@@ -40,6 +40,17 @@ public class SteraStoreCsvValidator extends AbstractCsvFormatValidator {
     private static final Set<Integer> REQUIRED_INDEXES = Set.of(
             1, 2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22, 23, 24, 25, 27);
 
+    /**
+     * 各列のm_stera_store上のVARCHAR桁数上限（CSVフォーマット仕様書に準拠）。
+     * DATE・NUMERIC・TEXT型の列（緯度・経度・JCB/dポイント利用開始日・備考）は
+     * 文字数での上限チェックが適用できない／不要なため0（チェック対象外）とする。
+     */
+    private static final int[] MAX_LENGTHS = {
+        10, 10, 8, 6, 13, 6, 9, 10, 50, 80,
+        80, 7, 100, 150, 20, 100, 0, 0, 30, 4,
+        20, 3, 4, 7, 80, 1, 0, 1, 0, 0,
+    };
+
     @Override
     public CsvValidationResult validate(MultipartFile file) throws IOException {
         CsvValidationResult result = new CsvValidationResult();
@@ -139,9 +150,17 @@ public class SteraStoreCsvValidator extends AbstractCsvFormatValidator {
             return;
         }
         for (int index = 0; index < EXPECTED_COLUMN_COUNT; index++) {
-            if (REQUIRED_INDEXES.contains(index) && fields.get(index).trim().isEmpty()) {
+            String value = fields.get(index).trim();
+            if (REQUIRED_INDEXES.contains(index) && value.isEmpty()) {
                 result.addError(new CsvValidationError(rowNumber, COLUMN_NAMES[index],
                         "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は必須です。"));
+                continue;
+            }
+            int maxLength = MAX_LENGTHS[index];
+            if (maxLength > 0 && value.length() > maxLength) {
+                result.addError(new CsvValidationError(rowNumber, COLUMN_NAMES[index],
+                        "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は" + maxLength
+                        + "文字以内で入力してください（実際: " + value.length() + "文字）。"));
             }
         }
     }

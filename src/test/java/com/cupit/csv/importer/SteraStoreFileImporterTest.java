@@ -99,6 +99,19 @@ class SteraStoreFileImporterTest {
     }
 
     @Test
+    void skipsRowWithFieldExceedingMaxLength() throws Exception {
+        String[] fields = validFields("01-001");
+        fields[8] = "あ".repeat(51); // 店舗名（VARCHAR(50)）
+        MockMultipartFile file = csvFile(String.join(",", fields));
+
+        ImportResult result = importer.importFile(file, batch("user001"));
+
+        assertThat(result.getSuccessCount()).isZero();
+        assertThat(result.getErrors())
+                .anyMatch(e -> e.getMessage().contains("店舗名は50文字以内で入力してください"));
+    }
+
+    @Test
     void skipsDuplicateTradeCodeInCsv() throws Exception {
         MockMultipartFile file = csvFile(validRow("01-001"), validRow("01-001"));
 

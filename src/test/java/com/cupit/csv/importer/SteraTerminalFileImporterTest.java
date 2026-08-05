@@ -91,6 +91,19 @@ class SteraTerminalFileImporterTest {
     }
 
     @Test
+    void skipsRowWithFieldExceedingMaxLength() throws Exception {
+        String[] fields = validFields("01-001");
+        fields[1] = "1".repeat(14); // 端末識別番号（VARCHAR(13)）
+        MockMultipartFile file = csvFile(String.join(",", fields));
+
+        ImportResult result = importer.importFile(file, batch("user001"));
+
+        assertThat(result.getSuccessCount()).isZero();
+        assertThat(result.getErrors())
+                .anyMatch(e -> e.getMessage().contains("端末識別番号は13文字以内で入力してください"));
+    }
+
+    @Test
     void allowsDuplicateTradeCodeInCsvAndReplacesByTradeCode() throws Exception {
         MockMultipartFile file = csvFile(validRow("01-001"), validRow("01-001"));
 

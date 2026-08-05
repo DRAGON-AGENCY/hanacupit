@@ -30,6 +30,11 @@ public class SmccMerchantNoCsvValidator extends AbstractCsvFormatValidator {
 
     private static final Set<Integer> REQUIRED_INDEXES = Set.of(1, 2, 3);
 
+    /**
+     * 各列のm_smcc_merchant_no上のVARCHAR桁数上限（CSVフォーマット仕様書に準拠）。
+     */
+    private static final int[] MAX_LENGTHS = {10, 10, 20, 9};
+
     @Override
     public CsvValidationResult validate(MultipartFile file) throws IOException {
         CsvValidationResult result = new CsvValidationResult();
@@ -93,9 +98,17 @@ public class SmccMerchantNoCsvValidator extends AbstractCsvFormatValidator {
             return;
         }
         for (int index = 0; index < EXPECTED_COLUMN_COUNT; index++) {
-            if (REQUIRED_INDEXES.contains(index) && fields.get(index).trim().isEmpty()) {
+            String value = fields.get(index).trim();
+            if (REQUIRED_INDEXES.contains(index) && value.isEmpty()) {
                 result.addError(new CsvValidationError(rowNumber, COLUMN_NAMES[index],
                         "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は必須です。"));
+                continue;
+            }
+            int maxLength = MAX_LENGTHS[index];
+            if (maxLength > 0 && value.length() > maxLength) {
+                result.addError(new CsvValidationError(rowNumber, COLUMN_NAMES[index],
+                        "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は" + maxLength
+                        + "文字以内で入力してください（実際: " + value.length() + "文字）。"));
             }
         }
     }

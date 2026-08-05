@@ -23,6 +23,12 @@ class SteraStoreCsvValidatorTest {
     private static final Set<Integer> REQUIRED_INDEXES = Set.of(
             1, 2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22, 23, 24, 25, 27);
 
+    private static final int[] MAX_LENGTHS = {
+        10, 10, 8, 6, 13, 6, 9, 10, 50, 80,
+        80, 7, 100, 150, 20, 100, 0, 0, 30, 4,
+        20, 3, 4, 7, 80, 1, 0, 1, 0, 0,
+    };
+
     private final SteraStoreCsvValidator validator = new SteraStoreCsvValidator();
 
     @Test
@@ -110,6 +116,25 @@ class SteraStoreCsvValidatorTest {
             assertThat(result.getErrors())
                     .as("index %d should be required", index)
                     .anyMatch(e -> e.getMessage().contains("は必須です"));
+        }
+    }
+
+    @Test
+    void reportsErrorForEachFieldExceedingMaxLength() throws Exception {
+        for (int index = 0; index < COLUMN_COUNT; index++) {
+            int maxLength = MAX_LENGTHS[index];
+            if (maxLength == 0) {
+                continue;
+            }
+            String[] fields = validFields("01-001");
+            fields[index] = "あ".repeat(maxLength + 1);
+            MockMultipartFile file = csvFile(header(), String.join(",", fields));
+
+            CsvValidationResult result = validator.validate(file);
+
+            assertThat(result.getErrors())
+                    .as("index %d should enforce max length %d", index, maxLength)
+                    .anyMatch(e -> e.getMessage().contains("文字以内で入力してください"));
         }
     }
 

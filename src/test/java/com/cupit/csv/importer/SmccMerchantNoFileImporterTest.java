@@ -90,6 +90,19 @@ class SmccMerchantNoFileImporterTest {
     }
 
     @Test
+    void skipsRowWithFieldExceedingMaxLength() throws Exception {
+        String[] fields = validFields("01-001");
+        fields[1] = "1".repeat(11); // SMCC加盟店番号（VARCHAR(10)）
+        MockMultipartFile file = csvFile(String.join(",", fields));
+
+        ImportResult result = importer.importFile(file, batch("user001"));
+
+        assertThat(result.getSuccessCount()).isZero();
+        assertThat(result.getErrors())
+                .anyMatch(e -> e.getMessage().contains("SMCC加盟店番号は10文字以内で入力してください"));
+    }
+
+    @Test
     void allowsDuplicateTradeCodeInCsvAndReplacesByTradeCode() throws Exception {
         MockMultipartFile file = csvFile(validRow("01-001"), validRow("01-001"));
 

@@ -40,6 +40,13 @@ public class SteraTerminalFileImporter extends AbstractFileImporter {
 
     private static final Set<Integer> REQUIRED_INDEXES = Set.of(1, 3, 4, 5);
 
+    /**
+     * 各列のm_stera_terminal上のVARCHAR桁数上限（CSVフォーマット仕様書に準拠）。
+     * DATE型の列（端末利用開始日・終了日）は文字数での上限チェックが適用できないため
+     * 0（チェック対象外）とする。
+     */
+    private static final int[] MAX_LENGTHS = {10, 13, 20, 9, 10, 0, 0};
+
     private final SteraTerminalRepository steraTerminalRepository;
 
     public SteraTerminalFileImporter(SteraTerminalRepository steraTerminalRepository) {
@@ -99,6 +106,15 @@ public class SteraTerminalFileImporter extends AbstractFileImporter {
             if (trim(fields.get(index)).isEmpty()) {
                 errors.add(new CsvValidationError(rowNum, COLUMN_NAMES[index],
                         "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は必須です。"));
+            }
+        }
+        for (int index = 0; index < EXPECTED_COLUMN_COUNT; index++) {
+            int maxLength = MAX_LENGTHS[index];
+            String value = trim(fields.get(index));
+            if (maxLength > 0 && value.length() > maxLength) {
+                errors.add(new CsvValidationError(rowNum, COLUMN_NAMES[index],
+                        "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は" + maxLength
+                        + "文字以内で入力してください（実際: " + value.length() + "文字）。"));
             }
         }
 

@@ -20,6 +20,7 @@ class SmccMerchantNoCsvValidatorTest {
 
     private static final int COLUMN_COUNT = 4;
     private static final Set<Integer> REQUIRED_INDEXES = Set.of(1, 2, 3);
+    private static final int[] MAX_LENGTHS = {10, 10, 20, 9};
 
     private final SmccMerchantNoCsvValidator validator = new SmccMerchantNoCsvValidator();
 
@@ -85,6 +86,25 @@ class SmccMerchantNoCsvValidatorTest {
             assertThat(result.getErrors())
                     .as("index %d should be required", index)
                     .anyMatch(e -> e.getMessage().contains("は必須です"));
+        }
+    }
+
+    @Test
+    void reportsErrorForEachFieldExceedingMaxLength() throws Exception {
+        for (int index = 0; index < COLUMN_COUNT; index++) {
+            int maxLength = MAX_LENGTHS[index];
+            if (maxLength == 0) {
+                continue;
+            }
+            String[] fields = validFields("01-001");
+            fields[index] = "あ".repeat(maxLength + 1);
+            MockMultipartFile file = csvFile(header(), String.join(",", fields));
+
+            CsvValidationResult result = validator.validate(file);
+
+            assertThat(result.getErrors())
+                    .as("index %d should enforce max length %d", index, maxLength)
+                    .anyMatch(e -> e.getMessage().contains("文字以内で入力してください"));
         }
     }
 

@@ -39,6 +39,11 @@ public class SmccMerchantNoFileImporter extends AbstractFileImporter {
 
     private static final Set<Integer> REQUIRED_INDEXES = Set.of(1, 2, 3);
 
+    /**
+     * 各列のm_smcc_merchant_no上のVARCHAR桁数上限（CSVフォーマット仕様書に準拠）。
+     */
+    private static final int[] MAX_LENGTHS = {10, 10, 20, 9};
+
     private final SmccMerchantNoRepository smccMerchantNoRepository;
 
     public SmccMerchantNoFileImporter(SmccMerchantNoRepository smccMerchantNoRepository) {
@@ -98,6 +103,15 @@ public class SmccMerchantNoFileImporter extends AbstractFileImporter {
             if (trim(fields.get(index)).isEmpty()) {
                 errors.add(new CsvValidationError(rowNum, COLUMN_NAMES[index],
                         "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は必須です。"));
+            }
+        }
+        for (int index = 0; index < EXPECTED_COLUMN_COUNT; index++) {
+            int maxLength = MAX_LENGTHS[index];
+            String value = trim(fields.get(index));
+            if (maxLength > 0 && value.length() > maxLength) {
+                errors.add(new CsvValidationError(rowNum, COLUMN_NAMES[index],
+                        "取引コード「" + tradeCode + "」: " + COLUMN_NAMES[index] + "は" + maxLength
+                        + "文字以内で入力してください（実際: " + value.length() + "文字）。"));
             }
         }
         if (errors.size() > errorCountBeforeRow) {
