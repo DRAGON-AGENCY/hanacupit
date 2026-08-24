@@ -136,7 +136,6 @@
     align-items: end;
   }
 
-  .action-card-bottom.right-end .btn-card { grid-column: 2; }
   .action-card-bottom .btn-card { width: 100%; justify-content: center; }
 
   .btn-card {
@@ -155,6 +154,7 @@
     justify-content: center;
     gap: 6px;
     white-space: nowrap;
+    text-decoration: none;
   }
 
   .btn-card::before {
@@ -165,6 +165,17 @@
 
   .btn-card:hover:not(:disabled) { background-color: #d3e2f7; }
   .btn-card:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  /* CSV再ダウンロードボタンは新規作成（送信）ではなく既存データの取り出しのため、
+     アイコンを「送信」の紙飛行機ではなく「再取得」の矢印にして区別する。 */
+  .btn-card.btn-redownload {
+    background-color: var(--bg-white);
+  }
+
+  .btn-card.btn-redownload::before {
+    content: "\21BA";
+    color: var(--accent-blue);
+  }
 
   .notice-box {
     background-color: var(--bg-notice);
@@ -308,7 +319,11 @@
           <h2 class="action-card-title">JFTD CSV作成</h2>
         </div>
         <p class="action-desc">JCB・スマレジ・ネットスターズ・楽天ペイ・住信SBIの統合振込CSVファイルを生成します</p>
-        <div class="action-card-bottom right-end">
+        <div class="action-card-bottom">
+          <button class="btn-card btn-redownload" type="button" id="btn-redownload-jftd"
+              th:data-batch-id="${latestJftdTransferBatchId}"
+              th:disabled="${latestJftdTransferBatchId == null}"
+              title="直近に確定したJFTD分のCSVを、確定し直さずに再ダウンロードします">CSV再ダウンロード</button>
           <button class="btn-card" type="button" id="btn-csv-jftd">CSV作成</button>
         </div>
       </div>
@@ -321,7 +336,11 @@
           <h2 class="action-card-title">その他 CSV作成</h2>
         </div>
         <p class="action-desc">stera JCB・stera code・steraクレジット（stera terminal）の統合振込CSVファイルを生成します</p>
-        <div class="action-card-bottom right-end">
+        <div class="action-card-bottom">
+          <button class="btn-card btn-redownload" type="button" id="btn-redownload-other"
+              th:data-batch-id="${latestSteraTransferBatchId}"
+              th:disabled="${latestSteraTransferBatchId == null}"
+              title="直近に確定したその他分のCSVを、確定し直さずに再ダウンロードします">CSV再ダウンロード</button>
           <button class="btn-card" type="button" id="btn-csv-other">CSV作成</button>
         </div>
       </div>
@@ -339,6 +358,9 @@
         <li>「CSV作成」ボタンを押した時点で対象データが確定され、以後の集計対象から除外されます（<strong>後から取り消せません</strong>）。実行前に内容をよく確認してください。</li>
         <li>対象データが1件もない場合、CSVは生成されません。</li>
         <li>売上報告書・支払明細書は、確定後に「帳票出力」画面から何度でもダウンロードできます。</li>
+        <li>確定後にCSVのダウンロードに失敗した場合（ブラウザの保存ダイアログを閉じてしまった等）は、
+          再確定せずに「CSV再ダウンロード」ボタンから直近の確定分を再取得できます（JFTD・その他
+          それぞれ直近1件のみ再取得可能。まだ確定済みのデータが無い場合はボタンが無効表示になります）。</li>
       </ol>
     </div>
   </div>
@@ -544,6 +566,25 @@
 
     setupCsvAction('btn-csv-jftd', '/jftd_transfer');
     setupCsvAction('btn-csv-other', '/stera_transfer');
+
+    /* 直近の確定バッチのCSVを、確定し直さずに再取得する。ボタンのdata-batch-idは
+       サーバー側（MenuController#jftdTransfer）が直近の確定バッチIDを埋め込んだもので、
+       確定済みデータが無い場合はth:disabledによりボタン自体が無効化されている。
+       ダウンロードAPI（/jftd_transfer/{id}/csv、/stera_transfer/{id}/csv）は保存済みの
+       明細から都度ファイルを再生成するだけの参照処理のため、何度呼び出しても副作用はない。 */
+    function setupRedownloadAction(buttonId, endpointPrefix) {
+      var button = document.getElementById(buttonId);
+      if (button.disabled) {
+        return;
+      }
+      var batchId = button.getAttribute('data-batch-id');
+      button.addEventListener('click', function () {
+        window.location.href = endpointPrefix + '/' + batchId + '/csv';
+      });
+    }
+
+    setupRedownloadAction('btn-redownload-jftd', '/jftd_transfer');
+    setupRedownloadAction('btn-redownload-other', '/stera_transfer');
   </script>
 </body>
 </html>

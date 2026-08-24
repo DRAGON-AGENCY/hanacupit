@@ -35,6 +35,14 @@ import com.cupit.service.settlement.TransferLineItem;
 @Service
 public class JftdReportDataService {
 
+    /**
+     * m_import_batch.transfer_batch_idはJFTD・その他（stera terminal）で採番元が
+     * 異なる（m_jftd_transfer_batch・m_stera_transfer_batch）ため、値だけで絞り込むと
+     * 両者のIDが偶然重複したときに他方の明細が混入する。決済種別でも必ず絞り込むこと。
+     */
+    private static final List<String> JFTD_PAYMENT_TYPES =
+            List.of("JCB", "スマレジ", "ネットスターズ", "楽天ペイ", "住信SBI");
+
     private final JftdTransferBatchRepository transferBatchRepository;
     private final JftdTransferDetailRepository transferDetailRepository;
     private final SettlementItemCodeRepository settlementItemCodeRepository;
@@ -70,7 +78,8 @@ public class JftdReportDataService {
                 .toList();
 
         Map<Integer, List<ImportBatch>> importBatchesByTransferBatchId =
-                importBatchRepository.findByTransferBatchIdIn(transferBatchIds).stream()
+                importBatchRepository
+                        .findByTransferBatchIdInAndPaymentTypeIn(transferBatchIds, JFTD_PAYMENT_TYPES).stream()
                         .collect(Collectors.groupingBy(ImportBatch::getTransferBatchId));
 
         return batches.stream()

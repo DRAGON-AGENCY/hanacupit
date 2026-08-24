@@ -17,13 +17,17 @@ import org.springframework.ui.ExtendedModelMap;
 import org.springframework.ui.Model;
 
 import com.cupit.exception.MemberInfoNotFoundException;
+import com.cupit.model.JftdTransferBatch;
 import com.cupit.model.MemberInfo;
 import com.cupit.model.SmccMerchantNo;
 import com.cupit.model.SteraStore;
 import com.cupit.model.SteraTerminal;
+import com.cupit.model.SteraTransferBatch;
+import com.cupit.repository.JftdTransferBatchRepository;
 import com.cupit.repository.SmccMerchantNoRepository;
 import com.cupit.repository.SteraStoreRepository;
 import com.cupit.repository.SteraTerminalRepository;
+import com.cupit.repository.SteraTransferBatchRepository;
 import com.cupit.service.EmployeeService;
 import com.cupit.service.JftdReportDataService;
 import com.cupit.service.MemberInfoService;
@@ -42,6 +46,7 @@ class MenuControllerTest {
     private static final String DEFAULT_TRADE_CODE = "01-001";
     private static final String VIEW_NAME_MEMBER_INFO = "member_info";
     private static final String VIEW_NAME_STORE_TERMINAL_SMCC = "store_terminal_smcc";
+    private static final String VIEW_NAME_JFTD_TRANSFER = "jftd_transfer";
 
     @Mock
     private MemberInfoService memberInfoService;
@@ -70,6 +75,12 @@ class MenuControllerTest {
     @Mock
     private TransferFeeRateService transferFeeRateService;
 
+    @Mock
+    private JftdTransferBatchRepository jftdTransferBatchRepository;
+
+    @Mock
+    private SteraTransferBatchRepository steraTransferBatchRepository;
+
     private MenuController menuController;
 
     @BeforeEach
@@ -77,7 +88,8 @@ class MenuControllerTest {
         menuController = new MenuController(
                 memberInfoService, employeeService, jftdReportDataService,
                 steraStoreRepository, steraTerminalRepository, smccMerchantNoRepository,
-                settlementFeeRateService, settlementItemCodeService, transferFeeRateService);
+                settlementFeeRateService, settlementItemCodeService, transferFeeRateService,
+                jftdTransferBatchRepository, steraTransferBatchRepository);
     }
 
     @Test
@@ -181,6 +193,43 @@ class MenuControllerTest {
         assertThat(model.getAttribute("terminals")).isEqualTo(List.of());
         assertThat(model.getAttribute("merchantNumbers")).isEqualTo(List.of());
         verifyNoInteractions(steraTerminalRepository, smccMerchantNoRepository);
+    }
+
+    @Test
+    void jftdTransferAddsLatestConfirmedBatchIdsWhenPresent() {
+        JftdTransferBatch jftdBatch = new JftdTransferBatch();
+        jftdBatch.setTransferBatchId(3);
+        when(jftdTransferBatchRepository.findFirstByOrderByCreatedAtDesc())
+                .thenReturn(Optional.of(jftdBatch));
+
+        SteraTransferBatch steraBatch = new SteraTransferBatch();
+        steraBatch.setTransferBatchId(5);
+        when(steraTransferBatchRepository.findFirstByOrderByCreatedAtDesc())
+                .thenReturn(Optional.of(steraBatch));
+
+        Model model = new ExtendedModelMap();
+
+        String viewName = menuController.jftdTransfer(model);
+
+        assertThat(viewName).isEqualTo(VIEW_NAME_JFTD_TRANSFER);
+        assertThat(model.getAttribute("latestJftdTransferBatchId")).isEqualTo(3);
+        assertThat(model.getAttribute("latestSteraTransferBatchId")).isEqualTo(5);
+    }
+
+    @Test
+    void jftdTransferSetsNullLatestBatchIdsWhenNoneConfirmedYet() {
+        when(jftdTransferBatchRepository.findFirstByOrderByCreatedAtDesc())
+                .thenReturn(Optional.empty());
+        when(steraTransferBatchRepository.findFirstByOrderByCreatedAtDesc())
+                .thenReturn(Optional.empty());
+
+        Model model = new ExtendedModelMap();
+
+        String viewName = menuController.jftdTransfer(model);
+
+        assertThat(viewName).isEqualTo(VIEW_NAME_JFTD_TRANSFER);
+        assertThat(model.getAttribute("latestJftdTransferBatchId")).isNull();
+        assertThat(model.getAttribute("latestSteraTransferBatchId")).isNull();
     }
 
 }

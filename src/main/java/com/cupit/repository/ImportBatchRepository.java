@@ -19,6 +19,16 @@ public interface ImportBatchRepository extends JpaRepository<ImportBatch, Intege
     List<ImportBatch> findByTransferBatchIdIn(List<Integer> transferBatchIds);
 
     /**
+     * 帳票出力画面の履歴一覧用。JFTD・その他（stera terminal）はそれぞれ独立した
+     * transfer_batch_id採番（m_jftd_transfer_batch・m_stera_transfer_batch）を持つため、
+     * transfer_batch_idの値だけでは値が重複し得る（両方とも1から始まる別々の連番のため）。
+     * paymentTypeも合わせて絞り込むことで、片方の確定バッチにもう片方の明細が
+     * 誤って混在するのを防ぐ。
+     */
+    List<ImportBatch> findByTransferBatchIdInAndPaymentTypeIn(
+            List<Integer> transferBatchIds, List<String> paymentTypes);
+
+    /**
      * 精算情報照会（PAYGATE Station等）用。確定済み・未確定を問わず、指定した
      * 決済種別・締め日のインポートバッチをすべて返す（CSV作成の「未処理分のみ」制約とは異なる）。
      */

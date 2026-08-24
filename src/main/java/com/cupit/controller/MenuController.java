@@ -13,16 +13,20 @@ import com.cupit.csv.ApplicationFormColumn;
 import com.cupit.exception.MemberInfoNotFoundException;
 import com.cupit.interceptor.AuthenticationInterceptor;
 import com.cupit.model.Employee;
+import com.cupit.model.JftdTransferBatch;
 import com.cupit.model.MemberInfo;
 import com.cupit.model.SettlementFeeRate;
 import com.cupit.model.SettlementItemCode;
 import com.cupit.model.SmccMerchantNo;
 import com.cupit.model.SteraStore;
 import com.cupit.model.SteraTerminal;
+import com.cupit.model.SteraTransferBatch;
 import com.cupit.model.TransferFeeRate;
+import com.cupit.repository.JftdTransferBatchRepository;
 import com.cupit.repository.SmccMerchantNoRepository;
 import com.cupit.repository.SteraStoreRepository;
 import com.cupit.repository.SteraTerminalRepository;
+import com.cupit.repository.SteraTransferBatchRepository;
 import com.cupit.service.EmployeeService;
 import com.cupit.service.JftdReportDataService;
 import com.cupit.service.MemberInfoService;
@@ -40,6 +44,8 @@ public class MenuController {
     private static final String ATTRIBUTE_NAME_MERCHANT_NUMBERS = "merchantNumbers";
     private static final String ATTRIBUTE_NAME_EMPLOYEES = "employees";
     private static final String ATTRIBUTE_NAME_TRANSFER_BATCHES = "transferBatches";
+    private static final String ATTRIBUTE_NAME_LATEST_JFTD_TRANSFER_BATCH_ID = "latestJftdTransferBatchId";
+    private static final String ATTRIBUTE_NAME_LATEST_STERA_TRANSFER_BATCH_ID = "latestSteraTransferBatchId";
     private static final String ATTRIBUTE_NAME_AUTHORITY_CODE = "authorityCode";
     private static final String ATTRIBUTE_NAME_EMPLOYEE = "employee";
     private static final String ATTRIBUTE_NAME_MODE = "mode";
@@ -101,6 +107,8 @@ public class MenuController {
     private final SettlementFeeRateService settlementFeeRateService;
     private final SettlementItemCodeService settlementItemCodeService;
     private final TransferFeeRateService transferFeeRateService;
+    private final JftdTransferBatchRepository jftdTransferBatchRepository;
+    private final SteraTransferBatchRepository steraTransferBatchRepository;
 
     public MenuController(
             MemberInfoService memberInfoService,
@@ -111,7 +119,9 @@ public class MenuController {
             SmccMerchantNoRepository smccMerchantNoRepository,
             SettlementFeeRateService settlementFeeRateService,
             SettlementItemCodeService settlementItemCodeService,
-            TransferFeeRateService transferFeeRateService) {
+            TransferFeeRateService transferFeeRateService,
+            JftdTransferBatchRepository jftdTransferBatchRepository,
+            SteraTransferBatchRepository steraTransferBatchRepository) {
         this.memberInfoService = memberInfoService;
         this.employeeService = employeeService;
         this.jftdReportDataService = jftdReportDataService;
@@ -121,6 +131,8 @@ public class MenuController {
         this.settlementFeeRateService = settlementFeeRateService;
         this.settlementItemCodeService = settlementItemCodeService;
         this.transferFeeRateService = transferFeeRateService;
+        this.jftdTransferBatchRepository = jftdTransferBatchRepository;
+        this.steraTransferBatchRepository = steraTransferBatchRepository;
     }
 
     @GetMapping({"/", "/login"})
@@ -221,8 +233,21 @@ public class MenuController {
         return VIEW_NAME_JFTD_SETTLEMENT;
     }
 
+    /**
+     * JFTD・その他統合振込CSV作成画面。確定処理自体は副作用を伴わないダウンロードとは
+     * 分離済みのため、確定直後のCSVダウンロードに失敗しても再確定せずに直近の確定分だけ
+     * 再ダウンロードできるよう、直近の確定バッチIDを画面へ渡す（無ければnullのまま）。
+     */
     @GetMapping("/jftd_transfer")
-    public String jftdTransfer() {
+    public String jftdTransfer(Model model) {
+        Integer latestJftdTransferBatchId = jftdTransferBatchRepository.findFirstByOrderByCreatedAtDesc()
+                .map(JftdTransferBatch::getTransferBatchId)
+                .orElse(null);
+        Integer latestSteraTransferBatchId = steraTransferBatchRepository.findFirstByOrderByCreatedAtDesc()
+                .map(SteraTransferBatch::getTransferBatchId)
+                .orElse(null);
+        model.addAttribute(ATTRIBUTE_NAME_LATEST_JFTD_TRANSFER_BATCH_ID, latestJftdTransferBatchId);
+        model.addAttribute(ATTRIBUTE_NAME_LATEST_STERA_TRANSFER_BATCH_ID, latestSteraTransferBatchId);
         return VIEW_NAME_JFTD_TRANSFER;
     }
 
